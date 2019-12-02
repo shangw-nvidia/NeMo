@@ -4,6 +4,7 @@ __all__ = ['MaskedLanguageModelingLossNM',
            'JointIntentSlotLoss',
            'PaddedSmoothedCrossEntropyLossNM']
 
+import torch
 from torch import nn
 
 from nemo.backends.pytorch.nm import LossNM
@@ -118,9 +119,13 @@ class TokenClassificationLoss(LossNM):
         }
         return input_ports, output_ports
 
-    def __init__(self, num_classes, **kwargs):
+    def __init__(self, num_classes, class_weights=None, **kwargs):
         LossNM.__init__(self, **kwargs)
-        self._criterion = nn.CrossEntropyLoss()
+
+        if class_weights:
+            class_weights = torch.FloatTensor(class_weights).cuda()
+
+        self._criterion = nn.CrossEntropyLoss(weight=class_weights)
         self.num_classes = num_classes
 
     def _loss_function(self, logits, labels, loss_mask):
