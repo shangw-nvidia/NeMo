@@ -63,17 +63,6 @@ Next, we'll need to define our tokenizer and our BERT model. If you're using a s
         bert_model = nemo_nlp.huggingface.BERT(
             pretrained_model_name="bert-base-cased")
 
-If you're using a BERT model that you pre-trained yourself, you should do it like this. You should replace ``args.bert_checkpoint`` with the path to your checkpoint file.
-
-    .. code-block:: python
-
-        tokenizer = SentencePieceTokenizer(model_path=args.tokenizer_model)
-        tokenizer.add_special_tokens(["[MASK]", "[CLS]", "[SEP]"])
-
-        bert_model = nemo_nlp.huggingface.BERT(
-                config_filename=args.bert_config)
-        pretrained_bert_model.restore_from(args.bert_checkpoint)
-
 We need to create the classifier to sit on top of the pretrained model and define the loss function:
 
     .. code-block:: python

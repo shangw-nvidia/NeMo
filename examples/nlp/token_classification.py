@@ -12,7 +12,8 @@ from nemo_nlp.utils.callbacks.token_classification import \
     eval_iter_callback, eval_epochs_done_callback
 
 # Parsing arguments
-parser = argparse.ArgumentParser(description="NER with pretrainedBERT")
+parser = argparse.ArgumentParser(description="Token classification\
+                          with pretrained BERT")
 parser.add_argument("--local_rank", default=None, type=int)
 parser.add_argument("--batch_size", default=8, type=int)
 parser.add_argument("--max_seq_length", default=128, type=int)
