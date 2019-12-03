@@ -196,17 +196,20 @@ if __name__ == "__main__":
     if args.dataset != 'tatoeba':
         raise ValueError("Unsupported dataset.")
 
-    print(f'Downloading tatoeba dataset')
-    tatoeba_dataset = os.path.join(args.data_dir, args.dataset + '.csv')
-    __maybe_download_file(tatoeba_dataset, args.dataset)
+    # print(f'Downloading tatoeba dataset')
+    # tatoeba_dataset = os.path.join(args.data_dir, args.dataset + '.csv')
+    # __maybe_download_file(tatoeba_dataset, args.dataset)
 
-    print(f'Processing English sentences...')
-    eng_sentences =  os.path.join(args.data_dir, 'eng_sentences.csv')
-    __process_english_sentences(tatoeba_dataset,
-                                eng_sentences,
-                                args.percent_to_cut,
-                                args.num_lines_to_combine)
+    # print(f'Processing English sentences...')
+    # eng_sentences =  os.path.join(args.data_dir, 'eng_sentences.csv')
+    # __process_english_sentences(tatoeba_dataset,
+    #                             eng_sentences,
+    #                             args.percent_to_cut,
+    #                             args.num_lines_to_combine)
     
+
+    eng_sentences = "/home/ebakhturina/data/punct_new/balanced/dataset_33q_33p_33c/no_squad_all_tatoeba/merged.txt"
+
     train_file = os.path.join(args.data_dir, 'train.txt')
     dev_file = os.path.join(args.data_dir, 'dev.txt')
 
@@ -220,7 +223,7 @@ if __name__ == "__main__":
     __create_text_and_labels(args.data_dir, 'dev.txt')
 
     # clean data_dir
-    __delete_file(eng_sentences)
+    #__delete_file(eng_sentences)
     #__delete_file(tatoeba_dataset)
     #__delete_file(train_file)
     #__delete_file(dev_file)

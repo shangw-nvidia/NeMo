@@ -119,4 +119,4 @@ for i, query in enumerate(args.queries):
             
         output += word
         output += ' '
-    nf.logger.info(f'Combined: {output.strip()}')
+    nf.logger.info(f'Combined: {output.strip()}\n')

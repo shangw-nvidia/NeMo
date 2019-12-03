@@ -94,30 +94,29 @@ hidden_size = bert_model.local_parameters["hidden_size"]
 
 
 
-# from collections import Counter
-# labels_file = f'{args.data_dir}/labels_train.txt'
-# all_labels = []
-# with open(labels_file, 'r') as f:
-#     for line in f:
-#         all_labels.extend(line.strip().split())
+from collections import Counter
+labels_file = f'{args.data_dir}/labels_train.txt'
+all_labels = []
+with open(labels_file, 'r') as f:
+    for line in f:
+        all_labels.extend(line.strip().split())
 
-# all_labels = Counter(all_labels)
+all_labels = Counter(all_labels)
 
-# label_ids = {args.none_label: 0}
-# for label in sorted(all_labels):
-#     if label != args.none_label:
-#         label_ids[label] = len(label_ids)
+label_ids = {args.none_label: 0}
+for label in sorted(all_labels):
+    if label != args.none_label:
+        label_ids[label] = len(label_ids)
 
-# ids_to_labels = {label_ids[k]: k for k in label_ids}
-# most_common,num_most_common = all_labels.most_common(1)[0]
-# class_weights=[num_most_common/all_labels[ids_to_labels[i]] for i in range(len(all_labels))]
-
-
+ids_to_labels = {label_ids[k]: k for k in label_ids}
+most_common,num_most_common = all_labels.most_common(1)[0]
+class_weights=[num_most_common/all_labels[ids_to_labels[i]] for i in range(len(all_labels))]
 
 classifier = nemo_nlp.TokenClassifier(hidden_size=hidden_size,
                                       num_classes=args.num_classes,
                                       dropout=args.fc_dropout)
-punct_loss = nemo_nlp.TokenClassificationLoss(num_classes=args.num_classes)
+punct_loss = nemo_nlp.TokenClassificationLoss(num_classes=args.num_classes,
+                                              class_weights=class_weights)
 
 
 def create_pipeline(num_samples=-1,
