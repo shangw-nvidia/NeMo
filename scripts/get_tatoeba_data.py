@@ -221,7 +221,7 @@ if __name__ == "__main__":
 
     # clean data_dir
     __delete_file(eng_sentences)
-    __delete_file(tatoeba_dataset)
-    __delete_file(train_file)
-    __delete_file(dev_file)
+    #__delete_file(tatoeba_dataset)
+    #__delete_file(train_file)
+    #__delete_file(dev_file)
     print(f'Processing of the {args.dataset} is complete')
