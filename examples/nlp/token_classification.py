@@ -95,6 +95,7 @@ hidden_size = bert_model.local_parameters["hidden_size"]
 
 
 from collections import Counter
+nf.logger.info('----> Using weighted loss')
 labels_file = f'{args.data_dir}/labels_train.txt'
 all_labels = []
 with open(labels_file, 'r') as f:
