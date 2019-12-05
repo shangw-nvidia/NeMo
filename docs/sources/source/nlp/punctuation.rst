@@ -35,7 +35,10 @@ The labels.txt files should be formatted like this:
     OU OL OL OL ...
     ...
 
-Each line of the text.txt file contains text sequences, where words are separated with spaces. The labels.txt file contains corresponding labels for each word in text.txt, the labels are separated with spaces. Each line of the files should follow the format: [WORD] [SPACE] [WORD] [SPACE] [WORD] (for text.txt) and [LABEL] [SPACE] [LABEL] [SPACE] [LABEL] (for labels.txt).
+Each line of the text.txt file contains text sequences, where words are separated with spaces. 
+The labels.txt file contains corresponding labels for each word in text.txt, the labels are separated with spaces.
+Each line of the files should follow the format: 
+[WORD] [SPACE] [WORD] [SPACE] [WORD] (for text.txt) and [LABEL] [SPACE] [LABEL] [SPACE] [LABEL] (for labels.txt).
 
 Training
 --------
