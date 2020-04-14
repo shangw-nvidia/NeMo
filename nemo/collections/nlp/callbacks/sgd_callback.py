@@ -64,9 +64,14 @@ def eval_iter_callback(tensors, global_vars, ids_to_service_names_dict, eval_dat
     predictions['noncat_slot_status'] = torch.argmax(output['logit_noncat_slot_status'], axis=-1)
     predictions['noncat_slot_status_p'] = torch.max(noncat_slot_status_dist, axis=-1)[0]
 
+    #debugging info
+    usr_utt_mask = torch.unsqueeze(output['usr_utt_mask'], axis=1).repeat(1, output['logit_noncat_slot_start'].size()[1],1)
+    logit_noncat_slot_start = output['logit_noncat_slot_start'] + usr_utt_mask
+    logit_noncat_slot_end = output['logit_noncat_slot_end'] + usr_utt_mask
+
     softmax = torch.nn.Softmax(dim=-1)
-    start_scores = softmax(output['logit_noncat_slot_start'])
-    end_scores = softmax(output['logit_noncat_slot_end'])
+    start_scores = softmax(logit_noncat_slot_start)
+    end_scores = softmax(logit_noncat_slot_end)
 
     batch_size, max_num_noncat_slots, max_num_tokens = end_scores.size()
     # Find the span with the maximum sum of scores for start and end indices.
@@ -76,6 +81,7 @@ def eval_iter_callback(tensors, global_vars, ids_to_service_names_dict, eval_dat
     start_idx = torch.arange(max_num_tokens, device=total_scores.device).view(1, 1, -1, 1)
     end_idx = torch.arange(max_num_tokens, device=total_scores.device).view(1, 1, 1, -1)
     invalid_index_mask = (start_idx > end_idx).repeat(batch_size, max_num_noncat_slots, 1, 1)
+
     total_scores = torch.where(
         invalid_index_mask,
         torch.zeros(total_scores.size(), device=total_scores.device, dtype=total_scores.dtype),

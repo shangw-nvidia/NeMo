@@ -60,6 +60,7 @@ class SGDDataLayer(TextDataLayer):
             "requested_slot_status": NeuralType(('B', 'T'), LabelsType()),
             "num_intents": NeuralType(('B'), LengthsType()),
             "intent_status": NeuralType(('B'), LabelsType()),
+            "usr_utt_mask": NeuralType(('B', 'T'), ChannelType()),
             "cat_slot_emb": NeuralType(('B', 'T', 'C'), EmbeddedTextType()),
             "cat_slot_value_emb": NeuralType(('B', 'T', 'C', 'C'), EmbeddedTextType()),
             "noncat_slot_emb": NeuralType(('B', 'T', 'C'), EmbeddedTextType()),

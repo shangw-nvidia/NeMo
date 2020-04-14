@@ -113,6 +113,7 @@ class ServiceSchema(object):
         return self._categorical_slot_values[slot][value_id]
 
     def get_categorical_slot_value_id(self, slot, value):
+        #debugging info
         if value not in self._categorical_slot_value_ids[slot]:
             print(self._categorical_slot_value_ids, slot, value)
             return 0

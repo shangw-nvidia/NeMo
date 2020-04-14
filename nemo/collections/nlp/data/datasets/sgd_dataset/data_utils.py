@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-This code were adapted from 
+This code were adapted from
 https://github.com/google-research/google-research/tree/master/schema_guided_dst
 
 """
@@ -556,12 +556,14 @@ class InputExample(object):
         utt_mask = []
         start_char_idx = []
         end_char_idx = []
+        usr_utt_mask = []
 
         utt_subword.append("[CLS]")
         utt_seg.append(0)
         utt_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
+        usr_utt_mask.append(0)
 
         for subword_idx, subword in enumerate(system_tokens):
             utt_subword.append(subword)
@@ -570,12 +572,14 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
+            usr_utt_mask.append(-np.inf)
 
         utt_subword.append("[SEP]")
         utt_seg.append(0)
         utt_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
+        usr_utt_mask.append(0) #debugging 0  or 1
 
         for subword_idx, subword in enumerate(user_tokens):
             utt_subword.append(subword)
@@ -584,12 +588,14 @@ class InputExample(object):
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)
             end_char_idx.append(en + 1)
+            usr_utt_mask.append(0)
 
         utt_subword.append("[SEP]")
         utt_seg.append(1)
         utt_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
+        usr_utt_mask.append(-np.inf)
 
         utterance_ids = self._tokenizer.tokens_to_ids(utt_subword)
 
@@ -600,14 +606,17 @@ class InputExample(object):
             utt_mask.append(0)
             start_char_idx.append(0)
             end_char_idx.append(0)
+            usr_utt_mask.append(-np.inf)
         self.utterance_ids = utterance_ids
         self.utterance_segment = utt_seg
         self.utterance_mask = utt_mask
         self.start_char_idx = start_char_idx
         self.end_char_idx = end_char_idx
+        self.usr_utt_mask = usr_utt_mask
 
         self.user_utterances = user_utterance
         self.system_utterance = system_utterance
+
 
     def make_copy_with_utterance_features(self):
         """Make a copy of the current example with utterance features."""
@@ -626,6 +635,7 @@ class InputExample(object):
         new_example.end_char_idx = list(self.end_char_idx)
         new_example.user_utterance = self.user_utterance
         new_example.system_utterance = self.system_utterance
+        new_example.usr_utt_mask = self.usr_utt_mask
         return new_example
 
     def add_categorical_slots(self, state_update):
