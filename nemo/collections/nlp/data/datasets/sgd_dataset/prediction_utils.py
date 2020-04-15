@@ -128,6 +128,18 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     elif slot_status == data_utils.STATUS_ACTIVE:
                         value_idx = predictions["cat_slot_value"][slot_idx]
                         slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        if predictions["cat_slot_value"][slot_idx] != "##NONE##":
+                            value_idx = predictions["cat_slot_value"][slot_idx]
+                            slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        else:
+                            if slot in sys_prev_slots[frame["service"]]:
+                                sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
+                                slot_values[slot] = sys_prev_slots[frame["service"]][slot]
+                                print("ey val", slot_values[slot])
+                            else:
+                                value_idx = predictions["cat_slot_value"][slot_idx]
+                                slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                                print("ridi baz", slot_values[slot])
 
                         # print(predictions["cat_slot_status_p"][slot_idx])
                         #predictions["cat_slot_value"][slot_idx] != "##NONE##"

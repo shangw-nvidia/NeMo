@@ -47,8 +47,8 @@ class ServiceSchema(object):
             slot_schema = slot_schemas[slot]
             values = sorted(slot_schema["possible_values"])
 
-            # added here changed here
-            #values.append("##NONE##")
+            #changed here
+            values.append("##NONE##")
 
             categorical_slot_values[slot] = values
             value_ids = {value: idx for idx, value in enumerate(values)}
