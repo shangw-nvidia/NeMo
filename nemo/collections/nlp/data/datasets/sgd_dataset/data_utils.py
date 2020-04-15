@@ -687,7 +687,7 @@ class InputExample(object):
                         self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
                             slot, "##NONE##"
                         )
-                        print(slot, values[0], agg_sys_state, self.categorical_slot_values[slot_idx])
+                        #print(slot, values[0], agg_sys_state, self.categorical_slot_values[slot_id])
                     else:
                         self.categorical_slot_values[slot_idx] = slot_id
                 else:

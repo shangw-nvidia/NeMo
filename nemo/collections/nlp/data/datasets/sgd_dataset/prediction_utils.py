@@ -143,7 +143,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                                 sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
                                 ##
                                 slot_values[slot] = sys_prev_slots[frame["service"]][slot]
-                                print("pooooy", slot_values[slot])
+                                #print("pooooy", slot_values[slot])
                             else:
                                 value_idx = predictions["cat_slot_value"][slot_idx]
                                 slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
