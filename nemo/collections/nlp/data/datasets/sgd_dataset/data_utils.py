@@ -652,8 +652,8 @@ class InputExample(object):
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
         """Add features for categorical slots."""
-        print(last_system_frame)
-        print(agg_sys_state)
+        #print(last_system_frame)
+        #print(agg_sys_state)
         categorical_slots = self.service_schema.categorical_slots
         self.num_categorical_slots = len(categorical_slots)
         for slot_idx, slot in enumerate(categorical_slots):
