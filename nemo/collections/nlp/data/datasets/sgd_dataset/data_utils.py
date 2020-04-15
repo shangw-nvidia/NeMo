@@ -21,12 +21,12 @@ https://github.com/google-research/google-research/tree/master/schema_guided_dst
 """Dataset reader and tokenization-related utilities for baseline model."""
 
 
+import collections
+import copy
 import json
 import os
 import pickle
 import re
-import copy
-import collections
 
 import numpy as np
 import torch
@@ -228,7 +228,14 @@ class Dstc8DataProcessor(object):
 
                 turn_id = "{}-{}-{:02d}".format(dataset, dialog_id, turn_idx)
                 turn_examples, prev_states = self._create_examples_from_turn(
-                    turn_id, system_utterance, user_utterance, system_frames, user_frames, prev_states, schemas, copy.deepcopy(prev_agg_sys_states)
+                    turn_id,
+                    system_utterance,
+                    user_utterance,
+                    system_frames,
+                    user_frames,
+                    prev_states,
+                    schemas,
+                    copy.deepcopy(prev_agg_sys_states),
                 )
                 examples.extend(turn_examples)
         return examples
@@ -242,7 +249,15 @@ class Dstc8DataProcessor(object):
         return state_update
 
     def _create_examples_from_turn(
-        self, turn_id, system_utterance, user_utterance, system_frames, user_frames, prev_states, schemas, agg_sys_states
+        self,
+        turn_id,
+        system_utterance,
+        user_utterance,
+        system_frames,
+        user_frames,
+        prev_states,
+        schemas,
+        agg_sys_states,
     ):
         """Creates an example for each frame in the user turn."""
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
@@ -278,7 +293,7 @@ class Dstc8DataProcessor(object):
             state_update = self._get_state_update(state, prev_states.get(service, {}))
             states[service] = state
             # Populate features in the example.
-            #cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
+            # cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
             example.add_categorical_slots(state_update, system_frame, agg_sys_states[service])
             # The input tokens to bert are in the format [CLS] [S1] [S2] ... [SEP]
             # [U1] [U2] ... [SEP] [PAD] ... [PAD]. For system token indices a bias of
@@ -591,7 +606,7 @@ class InputExample(object):
         utt_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utt_mask.append(0) #debugging 0  or 1
+        usr_utt_mask.append(0)  # debugging 0  or 1
 
         for subword_idx, subword in enumerate(user_tokens):
             utt_subword.append(subword)
@@ -629,7 +644,6 @@ class InputExample(object):
         self.user_utterances = user_utterance
         self.system_utterance = system_utterance
 
-
     def make_copy_with_utterance_features(self):
         """Make a copy of the current example with utterance features."""
         new_example = InputExample(
@@ -652,8 +666,8 @@ class InputExample(object):
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
         """Add features for categorical slots."""
-        #print(last_system_frame)
-        #print(agg_sys_state)
+        # print(last_system_frame)
+        # print(agg_sys_state)
         categorical_slots = self.service_schema.categorical_slots
         self.num_categorical_slots = len(categorical_slots)
         for slot_idx, slot in enumerate(categorical_slots):
@@ -667,16 +681,19 @@ class InputExample(object):
                 self.categorical_slot_status[slot_idx] = STATUS_DONTCARE
             else:
                 self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
-                slot_id = self.service_schema.get_categorical_slot_value_id(
-                    slot, values[0]
-                )
+                slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])
                 if slot_id >= 0:
-                    self.categorical_slot_values[slot_idx] = slot_id
+                    if values[0] in agg_sys_state.get(slot, []):
+                        self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
+                            slot, "##NONE##"
+                        )
+                        print(slot, values[0], agg_sys_state, self.categorical_slot_values[slot_idx])
+                    else:
+                        self.categorical_slot_values[slot_idx] = slot_id
                 else:
-                    logging.debug(f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n")
-
-
-
+                    logging.debug(
+                        f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n"
+                    )
 
     def add_noncategorical_slots(self, state_update, system_span_boundaries, user_span_boundaries):
         """Add features for non-categorical slots."""

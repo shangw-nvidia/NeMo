@@ -385,7 +385,7 @@ eval_tensors = [
     eval_data.categorical_slot_values,
     eval_data.noncategorical_slot_status,
     eval_data.num_noncategorical_slots,
-    eval_data.usr_utt_mask
+    eval_data.usr_utt_mask,
 ]
 
 
