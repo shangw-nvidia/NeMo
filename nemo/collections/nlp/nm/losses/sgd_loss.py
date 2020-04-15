@@ -194,10 +194,10 @@ class SGDDialogueStateLoss(LossNM):
         # Zero out losses for non-categorical slot spans when the slot status is not active.
         # changed here
         from random import random
-        if random() < 0.5:
-            non_cat_slot_value_mask = (noncategorical_slot_status == STATUS_ACTIVE).view(-1)
-        else:
-            non_cat_slot_value_mask = (noncategorical_slot_status > -1 ).view(-1)
+        # if random() < 0.5:
+        non_cat_slot_value_mask = (noncategorical_slot_status == STATUS_ACTIVE).view(-1)
+        # else:
+        #     non_cat_slot_value_mask = (noncategorical_slot_status > -1 ).view(-1)
         # to handle cases with no active categorical slot value
         if sum(non_cat_slot_value_mask) == 0:
             span_start_loss = 0

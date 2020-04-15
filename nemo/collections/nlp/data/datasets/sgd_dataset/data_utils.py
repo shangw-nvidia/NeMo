@@ -26,6 +26,7 @@ import os
 import pickle
 import re
 import copy
+import collections
 
 import numpy as np
 import torch
@@ -203,8 +204,8 @@ class Dstc8DataProcessor(object):
         dialog_id = dialog["dialogue_id"]
         prev_states = {}
         examples = []
-        agg_sys_states = {}
-        prev_agg_sys_states = {}
+        agg_sys_states = collections.defaultdict(dict)
+        prev_agg_sys_states = collections.defaultdict(dict)
         for turn_idx, turn in enumerate(dialog["turns"]):
             # Generate an example for every frame in every user turn.
             if turn["speaker"] == "SYSTEM":
@@ -277,7 +278,8 @@ class Dstc8DataProcessor(object):
             state_update = self._get_state_update(state, prev_states.get(service, {}))
             states[service] = state
             # Populate features in the example.
-            example.add_categorical_slots(state_update, system_frames, agg_sys_states[service])
+            #cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
+            example.add_categorical_slots(state_update, system_frame, agg_sys_states[service])
             # The input tokens to bert are in the format [CLS] [S1] [S2] ... [SEP]
             # [U1] [U2] ... [SEP] [PAD] ... [PAD]. For system token indices a bias of
             # 1 is added for the [CLS] token and for user tokens a bias of 2 +
@@ -650,6 +652,8 @@ class InputExample(object):
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
         """Add features for categorical slots."""
+        print(last_system_frame)
+        print(agg_sys_state)
         categorical_slots = self.service_schema.categorical_slots
         self.num_categorical_slots = len(categorical_slots)
         for slot_idx, slot in enumerate(categorical_slots):
@@ -669,7 +673,7 @@ class InputExample(object):
                 if slot_id >= 0:
                     self.categorical_slot_values[slot_idx] = slot_id
                 else:
-                    print(f"EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n")
+                    logging.debug(f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n")
 
 
 
