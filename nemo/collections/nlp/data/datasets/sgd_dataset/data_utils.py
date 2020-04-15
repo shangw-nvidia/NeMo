@@ -683,13 +683,14 @@ class InputExample(object):
                 self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
                 slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])
                 if slot_id >= 0:
-                    if values[0] in agg_sys_state.get(slot, []):
-                        self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                            slot, "##NONE##"
-                        )
-                        #print(slot, values[0], agg_sys_state, self.categorical_slot_values[slot_id])
-                    else:
-                        self.categorical_slot_values[slot_idx] = slot_id
+                    #changed here
+                    # if values[0] in agg_sys_state.get(slot, []):
+                    #     self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
+                    #         slot, "##NONE##"
+                    #     )
+                    #     #print(slot, values[0], agg_sys_state, self.categorical_slot_values[slot_idx])
+                    # else:
+                    self.categorical_slot_values[slot_idx] = slot_id
                 else:
                     logging.debug(
                         f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n"
