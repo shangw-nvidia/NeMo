@@ -171,7 +171,7 @@ class SGDDialogueStateLoss(LossNM):
         # Zero out losses for categorical slot value when the slot status is not active.
         # changed here
         #cat_slot_value_mask = (categorical_slot_status == STATUS_ACTIVE).view(-1)
-        cat_slot_value_mask = cat_slot_status_mask.view(categorical_slot_status.size())
+        cat_slot_value_mask = cat_slot_status_mask
 
         # to handle cases with no active categorical slot value
         if sum(cat_slot_value_mask) == 0:
