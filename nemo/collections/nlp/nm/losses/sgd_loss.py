@@ -169,7 +169,10 @@ class SGDDialogueStateLoss(LossNM):
         max_num_slot_values = logit_cat_slot_value.size()[-1]
 
         # Zero out losses for categorical slot value when the slot status is not active.
-        cat_slot_value_mask = (categorical_slot_status == STATUS_ACTIVE).view(-1)
+        # changed here
+        #cat_slot_value_mask = (categorical_slot_status == STATUS_ACTIVE).view(-1)
+        cat_slot_value_mask = cat_slot_status_mask.view(categorical_slot_status.size())
+
         # to handle cases with no active categorical slot value
         if sum(cat_slot_value_mask) == 0:
             logging.warning(f'No active categorical slots in the batch')

@@ -680,8 +680,17 @@ class InputExample(object):
             self.num_categorical_slot_values[slot_idx] = len(slot_values)
             if not values:
                 self.categorical_slot_status[slot_idx] = STATUS_OFF
+                # changed here
+                self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
+                    slot, "##NONE##"
+                )
             elif values[0] == STR_DONTCARE:
                 self.categorical_slot_status[slot_idx] = STATUS_DONTCARE
+                #changed here
+                self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
+                    slot, "##NONE##"
+                )
+
             else:
                 self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
                 slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])

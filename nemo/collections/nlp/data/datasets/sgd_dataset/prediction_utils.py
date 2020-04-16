@@ -126,8 +126,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     if slot_status == data_utils.STATUS_DONTCARE:
                         slot_values[slot] = data_utils.STR_DONTCARE
                     elif slot_status == data_utils.STATUS_ACTIVE:
-                        #value_idx = predictions["cat_slot_value"][slot_idx]
-                        #slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        # value_idx = predictions["cat_slot_value"][slot_idx]
+                        # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                         if predictions["cat_slot_value"][slot_idx] != "##NONE##":
                             value_idx = predictions["cat_slot_value"][slot_idx]
                             slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
