@@ -206,7 +206,7 @@ class Dstc8DataProcessor(object):
         examples = []
         agg_sys_states = collections.defaultdict(dict)
         prev_agg_sys_states = collections.defaultdict(dict)
-        all_slot_values = collections.defaultdict(collections.defaultdict(dict))
+        #all_slot_values = collections.defaultdict(collections.defaultdict(dict))
 
         for turn_idx, turn in enumerate(dialog["turns"]):
             # Generate an example for every frame in every user turn.
@@ -216,7 +216,7 @@ class Dstc8DataProcessor(object):
                     for action in frame["actions"]:
                         if action["slot"] and len(action["values"]) > 0:
                             agg_sys_states[frame["service"]][action["slot"]] = action["values"]
-                            all_slot_values[frame["service"]][[action["slot"]]].extend(action["values"])
+                            #all_slot_values[frame["service"]][[action["slot"]]].extend(action["values"])
 
             elif turn["speaker"] == "USER":
                 user_utterance = turn["utterance"]
