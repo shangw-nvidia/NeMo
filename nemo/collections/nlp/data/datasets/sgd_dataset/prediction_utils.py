@@ -46,7 +46,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     all_slot_values = collections.defaultdict(dict)
     sys_prev_slots = collections.defaultdict(dict)
     sys_rets = {}
-
+    prev_usr_slots = {}
+    true_slots = {}
     for turn_idx, turn in enumerate(dialog["turns"]):
         if turn["speaker"] == "SYSTEM":
             for frame in turn["frames"]:
@@ -68,6 +69,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 service_schema = schemas.get_service_schema(frame["service"])
 
                 # Remove the slot spans and state if present.
+                prev_usr_slots = true_slots
                 true_slots = frame.pop("slots", None)
                 true_state = frame.pop("state", None)
 
@@ -208,30 +210,41 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             #     print("hoooy", slot_values[slot])
 
                 if eval_debug and frame["service"] in in_domain_services:
-                    logging.debug("-----------------------------------New Frame------------------------------")
-                    logging.debug(f'SYS : {system_utterance}')
-                    logging.debug(f'USER: {user_utterance}')
+                    equal_state = True
+                    for s, v in true_state['slot_values'].items():
+                        if s not in slot_values or slot_values[s] not in v:
+                            equal_state = False
+                            break
+                    for s, v in slot_values.items():
+                        if s not in true_state['slot_values'] or v not in true_state['slot_values'][s]:
+                            equal_state = False
+                            break
+                    if not equal_state:
+                        logging.debug("-----------------------------------New Frame------------------------------")
+                        logging.debug(f'SYS : {system_utterance}')
+                        logging.debug(f'USER: {user_utterance}')
 
-                    logging.debug("\n")
-                    logging.debug(f"PRED CAT: {categorical_slots_dict}")
-                    logging.debug(f"PRED NON-CAT: {non_categorical_slots_dict}")
+                        logging.debug("\n")
+                        logging.debug(f"PRED CAT: {categorical_slots_dict}")
+                        logging.debug(f"PRED NON-CAT: {non_categorical_slots_dict}")
 
-                    logging.debug("\n")
-                    logging.debug(f"SLOTS - LABEL: {true_slots}")
-                    logging.debug(f"STATE - LABEL: {true_state['slot_values']}")
-                    logging.debug(f"STATE - PRED : {slot_values}")
+                        logging.debug("\n")
+                        logging.debug(f"SLOTS - LABEL: {true_slots}")
+                        logging.debug(f"STATE - LABEL: {sorted(true_state['slot_values'].items())}")
+                        logging.debug(f"STATE - PRED : {sorted(slot_values.items())}")
 
-                    logging.debug("\n")
-                    logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
-                    logging.debug(f"SYS RETS: {sys_rets}")
-                    cat_slot_status_acc = (
-                        "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
-                    )
-                    logging.debug(f"CAT STATUS ACC: {cat_slot_status_acc}")
-                    noncat_slot_status_acc = (
-                        "NAN" if noncat_slot_status_num == 0 else noncat_slot_status_acc / noncat_slot_status_num
-                    )
-                    logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
+                        logging.debug("\n")
+                        logging.debug(f"USR PREV SLOT: {prev_usr_slots}")
+                        logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
+                        logging.debug(f"SYS RETS: {sys_rets}")
+                        cat_slot_status_acc = (
+                            "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
+                        )
+                        logging.debug(f"CAT STATUS ACC: {cat_slot_status_acc}")
+                        noncat_slot_status_acc = (
+                            "NAN" if noncat_slot_status_num == 0 else noncat_slot_status_acc / noncat_slot_status_num
+                        )
+                        logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
 
                 # Create a new dict to avoid overwriting the state in previous turns
                 # because of use of same objects.

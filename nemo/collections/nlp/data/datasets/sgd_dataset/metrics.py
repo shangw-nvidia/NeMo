@@ -63,6 +63,7 @@ AVERAGE_CAT_ACCURACY = "average_cat_accuracy"
 AVERAGE_NONCAT_ACCURACY = "average_noncat_accuracy"
 # (5) Joint goal accuracy.
 JOINT_GOAL_ACCURACY = "joint_goal_accuracy"
+JOINT_GOAL_ACCURACY_NOFUZZY = "joint_goal_accuracy_nofuzzy"
 JOINT_CAT_ACCURACY = "joint_cat_accuracy"
 JOINT_NONCAT_ACCURACY = "joint_noncat_accuracy"
 
@@ -260,6 +261,7 @@ def get_average_and_joint_goal_accuracy(frame_ref, frame_hyp, service):
 
     # (5) Joint goal accuracy.
     goal_acc[JOINT_GOAL_ACCURACY] = np.prod(list_acc) if list_acc else NAN_VAL
+    goal_acc[JOINT_GOAL_ACCURACY_NOFUZZY] = float(np.sum(list_acc)==len(list_acc)) if list_acc else NAN_VAL
     # (5-a) categorical.
     cat_acc = [acc for acc, cat in zip(list_acc, slot_cat) if cat]
     goal_acc[JOINT_CAT_ACCURACY] = np.prod(cat_acc) if cat_acc else NAN_VAL
