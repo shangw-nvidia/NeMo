@@ -195,6 +195,7 @@ if args.task_name == "multiwoz":
         "MAX_NUM_VALUE_PER_CAT_SLOT": 50,
         "MAX_NUM_INTENT": 1,
     }
+    splits_list = ["train", "dev"]
 else:
     schema_config = {
         "MAX_NUM_CAT_SLOT": 6,
@@ -202,6 +203,8 @@ else:
         "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_INTENT": 4,
     }
+    splits_list\
+        = ["train", "dev", "test"]
 
 if not os.path.exists(args.data_dir):
     raise ValueError('Data not found at {args.data_dir}')
@@ -248,6 +251,7 @@ schema_preprocessor = SchemaPreprocessor(
     nf=nf,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,
+    datasets=splits_list,
 )
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
