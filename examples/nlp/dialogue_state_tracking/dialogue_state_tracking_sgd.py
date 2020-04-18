@@ -203,8 +203,7 @@ else:
         "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_INTENT": 4,
     }
-    splits_list\
-        = ["train", "dev", "test"]
+    splits_list = ["train", "dev", "test"]
 
 if not os.path.exists(args.data_dir):
     raise ValueError('Data not found at {args.data_dir}')

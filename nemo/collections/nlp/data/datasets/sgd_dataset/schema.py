@@ -50,7 +50,7 @@ class ServiceSchema(object):
             values = sorted(slot_schema["possible_values"])
 
             # changed here
-            #values.append("##NONE##")
+            # values.append("##NONE##")
 
             categorical_slot_values[slot] = values
             value_ids = {value: idx for idx, value in enumerate(values)}
@@ -121,7 +121,7 @@ class ServiceSchema(object):
     def get_categorical_slot_value_id(self, slot, value):
         # debugging info
         if value not in self._categorical_slot_value_ids[slot]:
-            logging.info(f"Not found value:{value} for slot:{slot} in {self._service_name}")
+            logging.warning(f"Not found value:{value} for slot:{slot} in {self._service_name}")
             return -1
         return self._categorical_slot_value_ids[slot][value]
 

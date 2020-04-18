@@ -261,7 +261,7 @@ def get_average_and_joint_goal_accuracy(frame_ref, frame_hyp, service):
 
     # (5) Joint goal accuracy.
     goal_acc[JOINT_GOAL_ACCURACY] = np.prod(list_acc) if list_acc else NAN_VAL
-    goal_acc[JOINT_GOAL_ACCURACY_NOFUZZY] = float(np.sum(list_acc)==len(list_acc)) if list_acc else NAN_VAL
+    goal_acc[JOINT_GOAL_ACCURACY_NOFUZZY] = float(np.sum(list_acc) == len(list_acc)) if list_acc else NAN_VAL
     # (5-a) categorical.
     cat_acc = [acc for acc, cat in zip(list_acc, slot_cat) if cat]
     goal_acc[JOINT_CAT_ACCURACY] = np.prod(cat_acc) if cat_acc else NAN_VAL

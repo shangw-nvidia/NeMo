@@ -537,7 +537,7 @@ class InputExample(object):
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
         is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3)
         if is_too_long:
-            logging.info(f'Utterance sequence truncated in example id - {self.example_id}.')
+            logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 
         # Construct the tokens, segment mask and valid token mask which will be
         # input to BERT, using the tokens for system utterance (sequence A) and
@@ -647,7 +647,7 @@ class InputExample(object):
                 # )
             elif values[0] == STR_DONTCARE:
                 self.categorical_slot_status[slot_idx] = STATUS_DONTCARE
-                #changed here
+                # changed here
                 # self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
                 #     slot, "##NONE##"
                 # )
@@ -667,9 +667,10 @@ class InputExample(object):
                     # else:
                     self.categorical_slot_values[slot_idx] = slot_id
                 else:
-                    logging.debug(
-                        f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}\nSYSTEM:{self.system_utterance}\nUSER:{self.user_utterance}\n"
+                    logging.warning(
+                        f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}"
                     )
+                    logging.warning(f"SYSTEM:{self.system_utterance} || USER:{self.user_utterance}")
 
     def add_noncategorical_slots(self, state_update, system_span_boundaries, user_span_boundaries):
         """Add features for non-categorical slots."""
