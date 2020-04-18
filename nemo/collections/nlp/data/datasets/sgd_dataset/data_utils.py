@@ -537,7 +537,7 @@ class InputExample(object):
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
         is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3)
         if is_too_long:
-            logging.debug(f'Utterance sequence truncated in example id - {self.example_id}.')
+            logging.info(f'Utterance sequence truncated in example id - {self.example_id}.')
 
         # Construct the tokens, segment mask and valid token mask which will be
         # input to BERT, using the tokens for system utterance (sequence A) and
@@ -605,7 +605,7 @@ class InputExample(object):
         self.end_char_idx = end_char_idx
         self.usr_utt_mask = usr_utt_mask
 
-        self.user_utterances = user_utterance
+        self.user_utterance = user_utterance
         self.system_utterance = system_utterance
 
     def make_copy_with_utterance_features(self):
