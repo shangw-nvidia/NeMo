@@ -121,6 +121,7 @@ parser.add_argument(
     "--overwrite_dial_files", action="store_true", help="Whether to generate a new file saving the dialogue examples."
 )
 parser.add_argument("--no_shuffle", action="store_true", help="Whether to shuffle training data")
+parser.add_argument("--no_time_to_log_dir", action="store_true", help="whether to add time to work_dir or not")
 parser.add_argument(
     "--eval_dataset", type=str, default="dev", choices=["dev", "test"], help="Dataset split for evaluation."
 )
@@ -215,7 +216,7 @@ nf = nemo.core.NeuralModuleFactory(
     create_tb_writer=True,
     checkpoint_dir=args.checkpoint_dir,
     files_to_copy=[__file__],
-    add_time_to_log_dir=not args.checkpoint_dir,
+    add_time_to_log_dir=not args.no_time_to_log_dir,
 )
 
 pretrained_bert_model = nemo_nlp.nm.trainables.get_huggingface_model(
