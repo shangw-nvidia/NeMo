@@ -25,14 +25,12 @@ import collections
 import copy
 import json
 import os
-import pickle
 import re
 
 import numpy as np
 import torch
 
 from nemo import logging
-from nemo.collections.nlp.data.datasets.sgd_dataset.schema import *
 
 __all__ = [
     'STATUS_DONTCARE',
@@ -697,7 +695,7 @@ class InputExample(object):
                     # only makes use of the last two utterances to predict state updates,
                     # it will fail in such cases.
                     logging.debug(
-                        f'"Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
+                        f'Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
                     )
 
                     continue
