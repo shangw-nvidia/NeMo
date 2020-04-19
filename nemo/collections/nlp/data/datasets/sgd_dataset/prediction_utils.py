@@ -222,7 +222,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     # for debugging
                     if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
                         noncat_slot_value_num += 1
-                        if ext_value is not None and ext_value in true_slots[slot]:
+                        if ext_value is not None and ext_value in true_state['slot_values']:
                             noncat_slot_value_acc += 1
                     ########
 
