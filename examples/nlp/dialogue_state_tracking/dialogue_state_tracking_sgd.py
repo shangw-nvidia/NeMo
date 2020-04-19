@@ -197,11 +197,17 @@ if args.task_name == "multiwoz":
     }
     splits_list = ["train", "dev"]
 else:
+    # schema_config = {
+    #     "MAX_NUM_CAT_SLOT": 6,
+    #     "MAX_NUM_NONCAT_SLOT": 12,
+    #     "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
+    #     "MAX_NUM_INTENT": 4,
+    # }
     schema_config = {
-        "MAX_NUM_CAT_SLOT": 6,
-        "MAX_NUM_NONCAT_SLOT": 12,
-        "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
-        "MAX_NUM_INTENT": 4,
+        "MAX_NUM_CAT_SLOT": 8,
+        "MAX_NUM_NONCAT_SLOT": 16,
+        "MAX_NUM_VALUE_PER_CAT_SLOT": 16,
+        "MAX_NUM_INTENT": 8,
     }
     splits_list = ["train", "dev", "test"]
 

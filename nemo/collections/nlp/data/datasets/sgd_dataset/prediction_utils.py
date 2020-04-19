@@ -59,10 +59,15 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
             system_utterance = dialog["turns"][turn_idx - 1]["utterance"] if turn_idx else ""
             turn_id = "{:02d}".format(turn_idx)
             for frame in turn["frames"]:
+
                 cat_slot_status_acc = 0
                 cat_slot_status_num = 0
                 noncat_slot_status_num = 0
                 noncat_slot_status_acc = 0
+                cat_slot_value_acc = 0
+                cat_slot_value_num = 0
+                noncat_slot_value_acc = 0
+                noncat_slot_value_num = 0
 
                 predictions = all_predictions[(dialog_id, turn_id, frame["service"])]
                 slot_values = all_slot_values[frame["service"]]
@@ -121,6 +126,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         predictions["cat_slot_value_p"][slot_idx],
                     )
 
+                    if predictions["cat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
+                        cat_slot_value_num += 1
+                        if predictions["cat_slot_value"][slot_idx] == predictions["cat_slot_value_GT"][slot_idx]:
+                            cat_slot_value_acc += 1
                     if predictions["cat_slot_status_GT"][slot_idx] == predictions["cat_slot_status"][slot_idx]:
                         cat_slot_status_acc += 1
                     ####
@@ -179,9 +188,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         else system_utterance[-ch_start_idx - 1 : -ch_end_idx],
                         predictions["noncat_slot_p"][slot_idx],
                     )
+
                     if predictions["noncat_slot_status_GT"][slot_idx] == predictions["noncat_slot_status"][slot_idx]:
                         noncat_slot_status_acc += 1
+                    #####
 
+                    ext_value = None
                     slot_status = predictions["noncat_slot_status"][slot_idx]
                     if slot_status == data_utils.STATUS_DONTCARE:
                         slot_values[slot] = data_utils.STR_DONTCARE
@@ -190,24 +202,29 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         tok_end_idx = predictions["noncat_slot_end"][slot_idx]
                         ch_start_idx = predictions["noncat_alignment_start"][tok_start_idx]
                         ch_end_idx = predictions["noncat_alignment_end"][tok_end_idx]
-                        # logging.debug(ch_start_idx, ch_end_idx)
-                        # logging.debug(f'Active Slot: {slot}')
-                        # logging.debug(f'{predictions["noncat_slot_p"][slot_idx]}, ({ch_start_idx}, {ch_end_idx}), {user_utterance[ch_start_idx - 1 : ch_end_idx]}')
                         if ch_start_idx > 0 and ch_end_idx > 0:
                             # Add span from the user utterance.
-                            slot_values[slot] = user_utterance[ch_start_idx - 1 : ch_end_idx]
+                            ext_value = user_utterance[ch_start_idx - 1 : ch_end_idx]
                         # elif ch_start_idx < 0 and ch_end_idx < 0:
                         # Add span from the system utterance.
                         #    slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                         else:
                             if slot in sys_prev_slots[frame["service"]]:
+                                ext_value = sys_prev_slots[frame["service"]][slot]
                                 # debugging info
-                                sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
+                                sys_rets[slot] = ext_value
                                 ##
-                                slot_values[slot] = sys_prev_slots[frame["service"]][slot]
+                        if ext_value is not None:
+                            slot_values[slot] = ext_value
                             # elif ch_start_idx < 0 and ch_end_idx < 0:
                             #     slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                             #     print("hoooy", slot_values[slot])
+                    # for debugging
+                    if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
+                        noncat_slot_value_num += 1
+                        if ext_value is not None and ext_value in true_slots[slot]:
+                            noncat_slot_value_acc += 1
+                    ########
 
                 if eval_debug and frame["service"] in in_domain_services:
                     equal_state = True
@@ -237,6 +254,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         logging.debug(f"USR PREV SLOT: {prev_usr_slots}")
                         logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
                         logging.debug(f"SYS RETS: {sys_rets}")
+
                         cat_slot_status_acc = (
                             "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
                         )
@@ -245,6 +263,15 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             "NAN" if noncat_slot_status_num == 0 else noncat_slot_status_acc / noncat_slot_status_num
                         )
                         logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
+
+                        cat_slot_value_acc = (
+                            "NAN" if cat_slot_value_num == 0 else cat_slot_value_acc / cat_slot_value_num
+                        )
+                        logging.debug(f"CAT VALUES ACC: {cat_slot_value_acc}")
+                        noncat_slot_value_acc = (
+                            "NAN" if noncat_slot_value_num == 0 else noncat_slot_value_acc / noncat_slot_value_num
+                        )
+                        logging.debug(f"NONCAT VALUES ACC: {noncat_slot_value_acc}")
 
                 # Create a new dict to avoid overwriting the state in previous turns
                 # because of use of same objects.
