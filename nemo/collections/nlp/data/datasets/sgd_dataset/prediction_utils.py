@@ -47,7 +47,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     sys_prev_slots = collections.defaultdict(dict)
     sys_rets = {}
     prev_usr_slots = {}
-    true_slots = {}
+    true_state = {}
     for turn_idx, turn in enumerate(dialog["turns"]):
         if turn["speaker"] == "SYSTEM":
             for frame in turn["frames"]:
@@ -74,7 +74,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 service_schema = schemas.get_service_schema(frame["service"])
 
                 # Remove the slot spans and state if present.
-                prev_usr_slots = true_slots
+                prev_usr_slots = [] if true_state==[] else true_state["slot_values"]
                 true_slots = frame.pop("slots", None)
                 true_state = frame.pop("state", None)
 
@@ -222,7 +222,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     # for debugging
                     if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
                         noncat_slot_value_num += 1
-                        if ext_value is not None and ext_value in true_state['slot_values']:
+                        if ext_value is not None and ext_value in true_state['slot_values'][slot]:
                             noncat_slot_value_acc += 1
                     ########
 
@@ -255,6 +255,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
                         logging.debug(f"SYS RETS: {sys_rets}")
 
+                        logging.debug("\n")
                         cat_slot_status_acc = (
                             "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
                         )
