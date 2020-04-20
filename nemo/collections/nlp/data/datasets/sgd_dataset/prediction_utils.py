@@ -140,6 +140,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                         if predictions["cat_slot_value"][slot_idx] != "##NONE##":
+                            # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
                             value_idx = predictions["cat_slot_value"][slot_idx]
                             slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                         else:
@@ -151,7 +152,9 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                                 value_idx = predictions["cat_slot_value"][slot_idx]
                                 slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                                 print("ridi baz", slot_values[slot])
-
+                    # elif predictions["cat_slot_status_p"][slot_idx] < 0.6:
+                    #     value_idx = predictions["cat_slot_value"][slot_idx]
+                    #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                         # print(predictions["cat_slot_status_p"][slot_idx])
                         # predictions["cat_slot_value"][slot_idx] != "##NONE##"
                         # and
@@ -237,43 +240,79 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             equal_state = False
                             break
                     if not equal_state:
-                        logging.debug("-----------------------------------New Frame------------------------------")
-                        logging.debug(f'DIALOGUE ID : {dialog_id}, TURN ID: {turn_id}')
-
-                        logging.debug(f'SYS : {system_utterance}')
-                        logging.debug(f'USER: {user_utterance}')
-
-                        logging.debug("\n")
-                        logging.debug(f"PRED CAT: {categorical_slots_dict}")
-                        logging.debug(f"PRED NON-CAT: {non_categorical_slots_dict}")
-
-                        logging.debug("\n")
-                        logging.debug(f"STATE - LABEL: {sorted(true_state['slot_values'].items())}")
-                        logging.debug(f"STATE - PRED : {sorted(slot_values.items())}")
-                        logging.debug(f"STATE - PREV: {prev_usr_slots}")
-
-                        logging.debug("\n")
-                        logging.debug(f"SLOTS - LABEL: {true_slots}")
-                        logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
-                        logging.debug(f"SYS RETS: {sys_rets}")
-
-                        logging.debug("\n")
                         cat_slot_status_acc = (
                             "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
                         )
-                        logging.debug(f"CAT STATUS ACC: {cat_slot_status_acc}")
                         noncat_slot_status_acc = (
                             "NAN" if noncat_slot_status_num == 0 else noncat_slot_status_acc / noncat_slot_status_num
                         )
-                        logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
-
                         cat_slot_value_acc = (
                             "NAN" if cat_slot_value_num == 0 else cat_slot_value_acc / cat_slot_value_num
                         )
                         noncat_slot_value_acc = (
                             "NAN" if noncat_slot_value_num == 0 else noncat_slot_value_acc / noncat_slot_value_num
                         )
-                        logging.debug(f"CAT VALUES ACC: {cat_slot_value_acc} ,NONCAT VALUES ACC: {noncat_slot_value_acc}")
+
+                        found_err = False
+                        if cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
+                            found_err = True
+                        if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0:
+                            found_err = True
+                        if cat_slot_value_acc != "NAN" and cat_slot_value_acc != 1.0:
+                            found_err = True
+                        if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
+                            found_err = True
+
+                        if found_err:
+                            logging.debug("-----------------------------------New Frame------------------------------")
+                            logging.debug(f'DIALOGUE ID : {dialog_id}, TURN ID: {turn_id}')
+
+                            logging.debug(f'SYS : {system_utterance}')
+                            logging.debug(f'USER: {user_utterance}')
+
+                            logging.debug("\n")
+                            logging.debug(f"PRED CAT: {categorical_slots_dict}")
+                            logging.debug(f"PRED NON-CAT: {non_categorical_slots_dict}")
+
+                            logging.debug("\n")
+                            logging.debug(f"STATE - LABEL: {sorted(true_state['slot_values'].items())}")
+                            logging.debug(f"STATE - PRED : {sorted(slot_values.items())}")
+                            logging.debug(f"STATE - PREV: {prev_usr_slots}")
+
+                            logging.debug("\n")
+                            logging.debug(f"SLOTS - LABEL: {true_slots}")
+                            logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
+                            logging.debug(f"SYS RETS: {sys_rets}")
+
+                            logging.debug("\n")
+                            logging.debug(f"CAT STATUS ACC: {cat_slot_status_acc}")
+
+                            logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
+
+                            logging.debug(f"CAT VALUES ACC: {cat_slot_value_acc} ,NONCAT VALUES ACC: {noncat_slot_value_acc}")
+
+                            found_err = False
+                            if cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
+                                logging.debug("CAT_STATUS_ERR")
+                                found_err = True
+                            if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0:
+                                logging.debug("NONCAT_STATUS_ERR")
+                                found_err = True
+                            if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0 and cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
+                                logging.debug("BOTH_STATUS_ERR")
+                                found_err = True
+
+                            if cat_slot_value_acc != "NAN" and cat_slot_value_acc != 1.0:
+                                logging.debug("CAT_VALUE_ERR")
+                                found_err = True
+                            if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
+                                logging.debug("NONCAT_VALUE_ERR")
+                                found_err = True
+                            if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0 and cat_slot_value_acc != "NAN" and cat_slot_value_acc != 1.0:
+                                logging.debug("BOTH_VALUE_ERR")
+                                found_err = True
+                            if not found_err:
+                                logging.debug("CLEAN_FRAME")
 
                 # Create a new dict to avoid overwriting the state in previous turns
                 # because of use of same objects.
