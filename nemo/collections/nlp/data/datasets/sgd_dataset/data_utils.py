@@ -278,7 +278,8 @@ class Dstc8DataProcessor(object):
             example.add_noncategorical_slots(state_update, user_span_boundaries, system_span_boundaries)
             example.add_requested_slots(user_frame)
             example.add_intents(user_frame)
-            example.add_slot_tokens(user_frame)
+            #example.add_slot_tokens(user_frame)
+
             examples.append(example)
         return examples, states
 
