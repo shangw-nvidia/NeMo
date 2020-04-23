@@ -164,6 +164,7 @@ class SchemaPreprocessor:
     def add_slot_status_tokens(self, tokenizer):
         special_tokens = []
         for schema_name, schema in self.schemas._service_schemas.items():
+            schema.add_status_tokens = True
             for slot_idx, slot in enumerate(schema.categorical_slots):
                 token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
                 special_tokens.append(token_name)

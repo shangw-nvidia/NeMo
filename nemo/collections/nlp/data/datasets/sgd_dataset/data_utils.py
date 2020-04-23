@@ -234,7 +234,7 @@ class Dstc8DataProcessor(object):
         dialog_id_1, dialog_id_2 = dialog_id.split('_')
         base_example.example_id_num = [int(dialog_id_1), int(dialog_id_2), int(turn_id_)]
         base_example.add_utterance_features(
-            system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance
+            system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, schemas.add_status_tokens
         )
         examples = []
         for service, user_frame in user_frames.items():
@@ -518,7 +518,7 @@ class InputExample(object):
         return summary_dict
 
     def add_utterance_features(
-        self, system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance
+        self, system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, add_status_tokens
     ):
         """Add utterance related features input to bert.
 
@@ -542,7 +542,13 @@ class InputExample(object):
         # Modify lengths of sys & usr utterance so that length of total utt
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
         # changed here
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - self.schema_config["MAX_NUM_CAT_SLOT"] - self.schema_config["MAX_NUM_NONCAT_SLOT"])
+
+        if add_status_tokens:
+            extra_tokens_num = 3 + self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
+        else:
+            extra_tokens_num = 3
+
+        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - extra_tokens_num)
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 

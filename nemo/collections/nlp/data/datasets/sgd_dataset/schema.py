@@ -31,6 +31,9 @@ class ServiceSchema(object):
         self._schema_json = schema_json
         self._service_id = service_id
 
+        #changed here
+        self.add_status_tokens = False
+
         # Construct the vocabulary for intents, slots, categorical slots,
         # non-categorical slots and categorical slot values. These vocabs are used
         # for generating indices for their embedding matrix.
