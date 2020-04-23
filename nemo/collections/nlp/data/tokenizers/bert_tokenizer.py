@@ -64,7 +64,10 @@ class NemoBertTokenizer(TokenizerSpec):
         self.never_split = tuple(special_tokens.values())
 
     def add_special_tokens(self, special_tokens_dict):
+        # TODO: check that input's key is 'additional_special_tokens' or name of one of the previous special tokens
+        # and add them to never split list
         self.tokenizer.add_special_tokens(special_tokens_dict)
+        # self.never_split.append(special_tokens_dict["additional_special_tokens"])
         self.vocab_size = len(self.tokenizer)
 
     @staticmethod

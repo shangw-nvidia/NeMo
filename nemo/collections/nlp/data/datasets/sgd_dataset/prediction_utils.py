@@ -74,7 +74,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 service_schema = schemas.get_service_schema(frame["service"])
 
                 # Remove the slot spans and state if present.
-                prev_usr_slots = [] if len(true_state)==0 else true_state["slot_values"]
+                prev_usr_slots = [] if len(true_state) == 0 else true_state["slot_values"]
                 true_slots = frame.pop("slots", None)
                 true_state = frame.pop("state", None)
 
@@ -155,22 +155,22 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     # elif predictions["cat_slot_status_p"][slot_idx] < 0.6:
                     #     value_idx = predictions["cat_slot_value"][slot_idx]
                     #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
-                        # print(predictions["cat_slot_status_p"][slot_idx])
-                        # predictions["cat_slot_value"][slot_idx] != "##NONE##"
-                        # and
-                        # if (predictions["cat_slot_status_p"][slot_idx] + predictions["cat_slot_value_p"][slot_idx]) / 2 > 0.9:
-                        #     value_idx = predictions["cat_slot_value"][slot_idx]
-                        #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
-                        # else:
-                        #     if slot in sys_prev_slots[frame["service"]]:
-                        #         # debugging info
-                        #         sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
-                        #         ##
-                        #         slot_values[slot] = sys_prev_slots[frame["service"]][slot]
-                        #         #print("pooooy", slot_values[slot])
-                        #     else:
-                        #         value_idx = predictions["cat_slot_value"][slot_idx]
-                        #         slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                    # print(predictions["cat_slot_status_p"][slot_idx])
+                    # predictions["cat_slot_value"][slot_idx] != "##NONE##"
+                    # and
+                    # if (predictions["cat_slot_status_p"][slot_idx] + predictions["cat_slot_value_p"][slot_idx]) / 2 > 0.9:
+                    #     value_idx = predictions["cat_slot_value"][slot_idx]
+                    #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                    # else:
+                    #     if slot in sys_prev_slots[frame["service"]]:
+                    #         # debugging info
+                    #         sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
+                    #         ##
+                    #         slot_values[slot] = sys_prev_slots[frame["service"]][slot]
+                    #         #print("pooooy", slot_values[slot])
+                    #     else:
+                    #         value_idx = predictions["cat_slot_value"][slot_idx]
+                    #         slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
 
                 for slot_idx, slot in enumerate(service_schema.non_categorical_slots):
                     tok_start_idx = predictions["noncat_slot_start"][slot_idx]
@@ -289,7 +289,9 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
 
                             logging.debug(f"NONCAT STATUS ACC: {noncat_slot_status_acc}")
 
-                            logging.debug(f"CAT VALUES ACC: {cat_slot_value_acc} ,NONCAT VALUES ACC: {noncat_slot_value_acc}")
+                            logging.debug(
+                                f"CAT VALUES ACC: {cat_slot_value_acc} ,NONCAT VALUES ACC: {noncat_slot_value_acc}"
+                            )
 
                             found_err = False
                             if cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
@@ -298,7 +300,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0:
                                 logging.debug("NONCAT_STATUS_ERR")
                                 found_err = True
-                            if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0 and cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
+                            if (
+                                noncat_slot_status_acc != "NAN"
+                                and noncat_slot_status_acc < 1.0
+                                and cat_slot_status_acc != "NAN"
+                                and cat_slot_status_acc < 1.0
+                            ):
                                 logging.debug("BOTH_STATUS_ERR")
                                 found_err = True
 
@@ -308,7 +315,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
                                 logging.debug("NONCAT_VALUE_ERR")
                                 found_err = True
-                            if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0 and cat_slot_value_acc != "NAN" and cat_slot_value_acc != 1.0:
+                            if (
+                                noncat_slot_value_acc != "NAN"
+                                and noncat_slot_value_acc != 1.0
+                                and cat_slot_value_acc != "NAN"
+                                and cat_slot_value_acc != 1.0
+                            ):
                                 logging.debug("BOTH_VALUE_ERR")
                                 found_err = True
                             if not found_err:

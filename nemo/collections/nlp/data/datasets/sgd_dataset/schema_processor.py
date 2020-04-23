@@ -171,4 +171,4 @@ class SchemaPreprocessor:
                 token_name = schema.get_non_categorical_slot_status_token_from_id(slot_idx)
                 special_tokens.append(token_name)
 
-        tokenizer.add_special_tokens({"additional_special_tokens":special_tokens})
+        tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})

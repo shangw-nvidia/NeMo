@@ -259,7 +259,7 @@ schema_preprocessor = SchemaPreprocessor(
     datasets=splits_list,
 )
 
-#changed here
+# changed here
 pretrained_bert_model.resize_token_embeddings(len(tokenizer))
 
 dialogues_processor = data_utils.Dstc8DataProcessor(

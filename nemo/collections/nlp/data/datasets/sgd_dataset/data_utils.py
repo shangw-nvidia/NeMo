@@ -155,7 +155,7 @@ class Dstc8DataProcessor(object):
                 logging.info(f'Processed {dialog_idx} dialogs.')
             examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset))
 
-        #changed here
+        # changed here
         # for example_idx, example in enumerate(examples):
         #     example.add_slot_status_tokens()
 
@@ -278,7 +278,10 @@ class Dstc8DataProcessor(object):
             example.add_noncategorical_slots(state_update, user_span_boundaries, system_span_boundaries)
             example.add_requested_slots(user_frame)
             example.add_intents(user_frame)
-            #example.add_slot_tokens(user_frame)
+
+            # changed here
+            # example.add_slot_status_tokens(user_frame)
+            example.pad_to_max()
 
             examples.append(example)
         return examples, states
@@ -370,7 +373,6 @@ class Dstc8DataProcessor(object):
                 if turn["speaker"] == "USER":
                     example_count += len(turn["frames"])
         return example_count
-
 
 
 class InputExample(object):
@@ -595,15 +597,6 @@ class InputExample(object):
 
         utterance_ids = self._tokenizer.tokens_to_ids(utt_subword)
 
-        # changed here
-        # Zero-pad up to the BERT input sequence length.
-        # while len(utterance_ids) < max_utt_len:
-        #     utterance_ids.append(0)
-        #     utt_seg.append(0)
-        #     utt_mask.append(0)
-        #     start_char_idx.append(0)
-        #     end_char_idx.append(0)
-        #     usr_utt_mask.append(-np.inf)
         self.utterance_ids = utterance_ids
         self.utterance_segment = utt_seg
         self.utterance_mask = utt_mask
@@ -724,6 +717,17 @@ class InputExample(object):
             if intent == frame["state"]["active_intent"]:
                 self.intent_status[intent_idx] = STATUS_ACTIVE
 
+    def pad_to_max(self):
+        # changed here
+        # Zero-pad up to the BERT input sequence length.
+        while len(self.utterance_ids) < self._max_seq_length:
+            self.utterance_ids.append(0)
+            self.utt_seg.append(0)
+            self.utt_mask.append(0)
+            self.start_char_idx.append(0)
+            self.end_char_idx.append(0)
+            self.usr_utt_mask.append(-np.inf)
+
     def add_slot_tokens(self, frame):
         categorical_slots = self.service_schema.categorical_slots
         self.num_categorical_slots = len(categorical_slots)
@@ -735,7 +739,6 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utt_mask.append(0)
-
 
             self.categorical_slot_status[slot_idx]
 
@@ -775,8 +778,6 @@ class InputExample(object):
                         f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}"
                     )
                     logging.warning(f"SYSTEM:{self.system_utterance} || USER:{self.user_utterance}")
-
-
 
 
 # Modified from run_classifier._truncate_seq_pair in the public bert model repo.
