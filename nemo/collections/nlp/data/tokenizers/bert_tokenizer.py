@@ -25,42 +25,6 @@ __all__ = [
 ]
 
 
-def handle_quotes(text):
-    text_ = ""
-    quote = 0
-    i = 0
-    while i < len(text):
-        if text[i] == "\"":
-            if quote % 2:
-                text_ = text_[:-1] + "\""
-            else:
-                text_ += "\""
-                i += 1
-            quote += 1
-        else:
-            text_ += text[i]
-        i += 1
-    return text_
-
-
-def remove_spaces(text):
-    text = text.replace("( ", "(")
-    text = text.replace(" )", ")")
-    text = text.replace("[ ", "[")
-    text = text.replace(" ]", "]")
-    text = text.replace(" / ", "/")
-    text = text.replace("„ ", "„")
-    text = text.replace(" - ", "-")
-    text = text.replace(" ' ", "'")
-    text = re.sub(r'([0-9])( )([\.,])', '\\1\\3', text)
-    text = re.sub(r'([\.,])( )([0-9])', '\\1\\3', text)
-    text = re.sub(r'([0-9])(:)( )([0-9])', '\\1\\2\\4', text)
-    text = text.replace(" %", "%")
-    text = text.replace("$ ", "$")
-    text = re.sub(r'([^0-9])(,)([0-9])', '\\1\\2 \\3', text)
-    return text
-
-
 class NemoBertTokenizer(TokenizerSpec):
     def __init__(self, pretrained_model=None, vocab_file=None, bert_derivative='bert', do_lower_case=False):
         '''
@@ -81,8 +45,7 @@ class NemoBertTokenizer(TokenizerSpec):
             tokenizer_cls = TOKENIZERS[bert_derivative]
         else:
             raise ValueError(
-                "Bert_derivative value {bert_derivative} is not currently supported"
-                + " Please choose from the following list: {TOKENIZERS.keys()}"
+                f"Bert_derivative value {bert_derivative} is not currently supported. Please choose from the following list: {TOKENIZERS.keys()}"
             )
 
         if pretrained_model:
@@ -100,13 +63,53 @@ class NemoBertTokenizer(TokenizerSpec):
             setattr(self, k, v)
         self.never_split = tuple(special_tokens.values())
 
+    def add_special_tokens(self, special_tokens_dict):
+        self.tokenizer.add_special_tokens(special_tokens_dict)
+        self.vocab_size = len(self.tokenizer)
+
+    @staticmethod
+    def _handle_quotes(text):
+        text_ = ""
+        quote = 0
+        i = 0
+        while i < len(text):
+            if text[i] == "\"":
+                if quote % 2:
+                    text_ = text_[:-1] + "\""
+                else:
+                    text_ += "\""
+                    i += 1
+                quote += 1
+            else:
+                text_ += text[i]
+            i += 1
+        return text_
+
+    @staticmethod
+    def _remove_spaces(text):
+        text = text.replace("( ", "(")
+        text = text.replace(" )", ")")
+        text = text.replace("[ ", "[")
+        text = text.replace(" ]", "]")
+        text = text.replace(" / ", "/")
+        text = text.replace("„ ", "„")
+        text = text.replace(" - ", "-")
+        text = text.replace(" ' ", "'")
+        text = re.sub(r'([0-9])( )([\.,])', '\\1\\3', text)
+        text = re.sub(r'([\.,])( )([0-9])', '\\1\\3', text)
+        text = re.sub(r'([0-9])(:)( )([0-9])', '\\1\\2\\4', text)
+        text = text.replace(" %", "%")
+        text = text.replace("$ ", "$")
+        text = re.sub(r'([^0-9])(,)([0-9])', '\\1\\2 \\3', text)
+        return text
+
     def text_to_tokens(self, text):
         tokens = self.tokenizer.tokenize(text)
         return tokens
 
     def tokens_to_text(self, tokens):
         text = self.tokenizer.convert_tokens_to_string(tokens)
-        return remove_spaces(handle_quotes(text.strip()))
+        return self._remove_spaces(self._handle_quotes(text.strip()))
 
     def token_to_id(self, token):
         return self.tokens_to_ids([token])[0]
@@ -129,6 +132,9 @@ class NemoBertTokenizer(TokenizerSpec):
         tokens_clean = [t for t in tokens if t not in self.never_split]
         text = self.tokens_to_text(tokens_clean)
         return text
+
+    def __len__(self):
+        return self.vocab_size
 
     @property
     def pad_id(self):

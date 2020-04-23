@@ -10,9 +10,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 
-from nemo.backends.pytorch.nm import LossNM, TrainableNM
+from nemo.backends.pytorch.nm import TrainableNM
 from nemo.core import ChannelType, EmbeddedTextType, LengthsType, LogitsType, NeuralType
 from nemo.utils.decorators import add_port_docs
 
@@ -26,8 +25,7 @@ class Logits(nn.Module):
             embedding_dim).
           num_classes: An int containing the number of classes for which logits are
             to be generated.
-          name_scope: The name scope to be used for layers.
-    
+
         Returns:
           A tensor of shape (batch_size, num_elements, num_classes) containing the
           logits.

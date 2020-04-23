@@ -107,6 +107,8 @@ class SchemaPreprocessor:
         for dataset_split in self.datasets:
             all_schema_json_paths.append(os.path.join(data_dir, dataset_split, "schema.json"))
         self.schemas = schema.Schema(all_schema_json_paths)
+        # changed here
+        self.add_slot_status_tokens(tokenizer)
 
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:
             # Generate the schema embeddings if needed or specified
@@ -157,3 +159,16 @@ class SchemaPreprocessor:
 
     def get_ids_to_service_names_dict(self):
         return self.schemas._services_id_to_vocab
+
+    def add_slot_status_tokens(self, tokenizer):
+        special_tokens = []
+        for schema_name, schema in self.schemas._service_schemas.items():
+            for slot_idx, slot in enumerate(schema.categorical_slots):
+                token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
+                special_tokens.append(token_name)
+
+            for slot_idx, slot in enumerate(schema.non_categorical_slots):
+                token_name = schema.get_non_categorical_slot_status_token_from_id(slot_idx)
+                special_tokens.append(token_name)
+
+        tokenizer.add_special_tokens({"additional_special_tokens":special_tokens})

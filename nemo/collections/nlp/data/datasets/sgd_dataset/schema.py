@@ -125,6 +125,14 @@ class ServiceSchema(object):
             return -1
         return self._categorical_slot_value_ids[slot][value]
 
+    def get_categorical_slot_status_token_from_id(self, slot_id):
+        #changed here
+        return f"[STATUS_CAT_{self.service_name}_{self._categorical_slots[slot_id]}]"
+
+    def get_non_categorical_slot_status_token_from_id(self, slot_id):
+        #changed here
+        return f"[STATUS_NONCAT_{self.service_name}_{self._non_categorical_slots[slot_id]}]"
+
 
 class Schema(object):
     """Wrapper for schemas for all services in a dataset."""
