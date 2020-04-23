@@ -67,11 +67,11 @@ def eval_iter_callback(tensors, global_vars, schema_processor, eval_dataset):
     predictions['noncat_slot_status_p'] = torch.max(noncat_slot_status_dist, axis=-1)[0]
 
     # debugging info
-    # usr_utt_mask = torch.unsqueeze(output['usr_utt_mask'], axis=1).repeat(
+    # usr_utterance_mask = torch.unsqueeze(output['usr_utterance_mask'], axis=1).repeat(
     #    1, output['logit_noncat_slot_start'].size()[1], 1
     # )
-    logit_noncat_slot_start = output['logit_noncat_slot_start']  # + usr_utt_mask
-    logit_noncat_slot_end = output['logit_noncat_slot_end']  # + usr_utt_mask
+    logit_noncat_slot_start = output['logit_noncat_slot_start']  # + usr_utterance_mask
+    logit_noncat_slot_end = output['logit_noncat_slot_end']  # + usr_utterance_mask
 
     softmax = torch.nn.Softmax(dim=-1)
     start_scores = softmax(logit_noncat_slot_start)

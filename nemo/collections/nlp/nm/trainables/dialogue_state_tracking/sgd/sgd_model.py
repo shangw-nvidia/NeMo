@@ -64,11 +64,8 @@ class Logits(nn.Module):
 class SGDModel(TrainableNM):
     """
     TODO
-    
-                  num_categorical_slot_values,
-
-                num_intents,
-    
+      num_categorical_slot_values,
+      num_intents,
     """
 
     @property

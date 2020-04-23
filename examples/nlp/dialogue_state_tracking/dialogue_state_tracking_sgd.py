@@ -181,6 +181,9 @@ parser.add_argument(
 parser.add_argument(
     "--checkpoints_to_keep", default=1, type=int, help="The number of last checkpoints to keep",
 )
+parser.add_argument(
+    "--add_status_tokens", action="store_true", help="Adds special tokens for the status of slots",
+)
 
 args = parser.parse_args()
 logging.info(args)
@@ -260,7 +263,10 @@ schema_preprocessor = SchemaPreprocessor(
 )
 
 # changed here
-pretrained_bert_model.resize_token_embeddings(len(tokenizer))
+if args.add_status_tokens:
+    schema_preprocessor.add_slot_status_tokens(tokenizer)
+    pretrained_bert_model.resize_token_embeddings(len(tokenizer))
+    schema_preprocessor.schemas.add_status_tokens = True
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,
@@ -277,7 +283,7 @@ model = sgd_model.SGDModel(embedding_dim=hidden_size, schema_emb_processor=schem
 dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss()
 
 
-def create_pipeline(dataset_split='train'):
+def create_pipeline(dataset_split):
     datalayer = nemo_nlp.nm.data_layers.SGDDataLayer(
         dataset_split=dataset_split,
         dialogues_processor=dialogues_processor,
@@ -361,8 +367,9 @@ def create_pipeline(dataset_split='train'):
     return steps_per_epoch, tensors
 
 
-steps_per_epoch, train_tensors = create_pipeline()
-logging.info(f'Steps per epoch: {steps_per_epoch}')
+train_steps_per_epoch, train_tensors = create_pipeline(dataset_split="train")
+logging.info(f'Steps per epoch for train: {train_steps_per_epoch}')
+
 _, eval_tensors = create_pipeline(dataset_split=args.eval_dataset)
 
 # Create trainer and execute training action
@@ -371,7 +378,7 @@ train_callback = nemo.core.SimpleLossLoggerCallback(
     print_func=lambda x: logging.info("Loss: {:.8f}".format(x[0].item())),
     get_tb_values=lambda x: [["loss", x[0]]],
     tb_writer=nf.tb_writer,
-    step_freq=args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
+    step_freq=args.loss_log_freq if args.loss_log_freq > 0 else train_steps_per_epoch,
 )
 
 # we'll write predictions to file in DSTC8 format during evaluation callback
@@ -402,7 +409,7 @@ eval_callback = nemo.core.EvaluatorCallback(
         schema_preprocessor,
     ),
     tb_writer=nf.tb_writer,
-    eval_step=args.eval_epoch_freq * steps_per_epoch,
+    eval_step=args.eval_epoch_freq * train_steps_per_epoch,
 )
 
 ckpt_callback = nemo.core.CheckpointCallback(
@@ -410,9 +417,8 @@ ckpt_callback = nemo.core.CheckpointCallback(
 )
 
 lr_policy_fn = get_lr_policy(
-    args.lr_policy, total_steps=args.num_epochs * steps_per_epoch, warmup_ratio=args.lr_warmup_proportion
+    args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion
 )
-
 
 nf.train(
     tensors_to_optimize=train_tensors,

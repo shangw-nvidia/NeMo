@@ -107,8 +107,9 @@ class SchemaPreprocessor:
         for dataset_split in self.datasets:
             all_schema_json_paths.append(os.path.join(data_dir, dataset_split, "schema.json"))
         self.schemas = schema.Schema(all_schema_json_paths)
-        # changed here
-        self.add_slot_status_tokens(tokenizer)
+
+        #changed here
+        self.schemas.add_status_tokens = False
 
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:
             # Generate the schema embeddings if needed or specified

@@ -198,6 +198,7 @@ class Dstc8DataProcessor(object):
                     prev_states,
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),
+                    schemas.add_status_tokens,
                 )
                 examples.extend(turn_examples)
         return examples
@@ -220,6 +221,7 @@ class Dstc8DataProcessor(object):
         prev_states,
         schemas,
         agg_sys_states,
+        add_status_tokens,
     ):
         """Creates an example for each frame in the user turn."""
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
@@ -276,7 +278,8 @@ class Dstc8DataProcessor(object):
             example.add_intents(user_frame)
 
             # changed here
-            example.add_slot_status_tokens(user_frame)
+            if add_status_tokens:
+                example.add_slot_status_tokens()
             example.pad_to_max()
 
             examples.append(example)
@@ -538,67 +541,68 @@ class InputExample(object):
 
         # Modify lengths of sys & usr utterance so that length of total utt
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3)
+        # changed here
+        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - self.schema_config["MAX_NUM_CAT_SLOT"] - self.schema_config["MAX_NUM_NONCAT_SLOT"])
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 
         # Construct the tokens, segment mask and valid token mask which will be
         # input to BERT, using the tokens for system utterance (sequence A) and
         # user utterance (sequence B).
-        utt_subword = []
+        utterance_subword = []
         utterance_segment = []
         utterance_mask = []
         start_char_idx = []
         end_char_idx = []
-        usr_utt_mask = []
+        usr_utterance_mask = []
 
-        utt_subword.append("[CLS]")
+        utterance_subword.append("[CLS]")
         utterance_segment.append(0)
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utt_mask.append(0)
+        usr_utterance_mask.append(0)
 
         for subword_idx, subword in enumerate(system_tokens):
-            utt_subword.append(subword)
+            utterance_subword.append(subword)
             utterance_segment.append(0)
             utterance_mask.append(1)
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utt_mask.append(-np.inf)
+            usr_utterance_mask.append(-np.inf)
 
-        utt_subword.append("[SEP]")
+        utterance_subword.append("[SEP]")
         utterance_segment.append(0)
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utt_mask.append(0)  # debugging 0  or 1 changed here
+        usr_utterance_mask.append(0)  # debugging 0  or 1 changed here
 
         for subword_idx, subword in enumerate(user_tokens):
-            utt_subword.append(subword)
+            utterance_subword.append(subword)
             utterance_segment.append(1)
             utterance_mask.append(1)
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)
             end_char_idx.append(en + 1)
-            usr_utt_mask.append(0)
+            usr_utterance_mask.append(0)
 
-        utt_subword.append("[SEP]")
+        utterance_subword.append("[SEP]")
         utterance_segment.append(1)
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utt_mask.append(-np.inf)
+        usr_utterance_mask.append(-np.inf)
 
-        utterance_ids = self._tokenizer.tokens_to_ids(utt_subword)
+        utterance_ids = self._tokenizer.tokens_to_ids(utterance_subword)
 
         self.utterance_ids = utterance_ids
         self.utterance_segment = utterance_segment
         self.utterance_mask = utterance_mask
         self.start_char_idx = start_char_idx
         self.end_char_idx = end_char_idx
-        self.usr_utt_mask = usr_utt_mask
+        self.usr_utterance_mask = usr_utterance_mask
 
         self.user_utterance = user_utterance
         self.system_utterance = system_utterance
@@ -620,7 +624,7 @@ class InputExample(object):
         new_example.end_char_idx = list(self.end_char_idx)
         new_example.user_utterance = self.user_utterance
         new_example.system_utterance = self.system_utterance
-        new_example.usr_utt_mask = list(self.usr_utt_mask)
+        new_example.usr_utterance_mask = list(self.usr_utterance_mask)
         return new_example
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
@@ -722,70 +726,37 @@ class InputExample(object):
             self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
-            self.usr_utt_mask.append(-np.inf)
+            self.usr_utterance_mask.append(-np.inf)
 
-    def add_slot_status_tokens(self, frame):
-        return
-        categorical_slots = self.service_schema.categorical_slots
-        self.num_categorical_slots = len(categorical_slots)
-
-        for slot_idx, slot in enumerate(categorical_slots):
-            self.utterance_ids.append(0)
-            self.utt_seg.append(0)
-            self.utt_mask.append(0)
+    def add_slot_status_tokens(self):
+        for slot_idx, slot in enumerate(self.service_schema.categorical_slots):
+            slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
+            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+            self.utterance_segment.append(0)
+            self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
-            self.usr_utt_mask.append(0)
+            self.usr_utterance_mask.append(-np.inf)
 
-            self.categorical_slot_status[slot_idx]
-
-            values = state_update.get(slot, [])
-            # Add categorical slot value features.
-            slot_values = self.service_schema.get_categorical_slot_values(slot)
-            self.num_categorical_slot_values[slot_idx] = len(slot_values)
-            if not values:
-                self.categorical_slot_status[slot_idx] = STATUS_OFF
-                # changed here
-                # self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                #     slot, "##NONE##"
-                # )
-            elif values[0] == STR_DONTCARE:
-                self.categorical_slot_status[slot_idx] = STATUS_DONTCARE
-                # changed here
-                # self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                #     slot, "##NONE##"
-                # )
-
-            else:
-                self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
-                slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])
-                if slot_id >= 0:
-                    # changed here
-                    # if values[0] in agg_sys_state.get(slot, []):
-                    #     self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                    #         slot, "##NONE##"
-                    #     )
-                    #     print(
-                    #         f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in {agg_sys_state}"
-                    #     )
-                    # else:
-                    self.categorical_slot_values[slot_idx] = slot_id
-                else:
-                    logging.warning(
-                        f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}"
-                    )
-                    logging.warning(f"SYSTEM:{self.system_utterance} || USER:{self.user_utterance}")
+        for slot_idx, slot in enumerate(self.service_schema.non_categorical_slots):
+            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
+            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+            self.utterance_segment.append(0)
+            self.utterance_mask.append(0)
+            self.start_char_idx.append(0)
+            self.end_char_idx.append(0)
+            self.usr_utterance_mask.append(-np.inf)
 
 
-# Modified from run_classifier._truncate_seq_pair in the public bert model repo.
-# https://github.com/google-research/bert/blob/master/run_classifier.py.
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
-    """Truncate a seq pair in place so that their total length <= max_length."""
-    is_too_long = False
+    # Modified from run_classifier._truncate_seq_pair in the public bert model repo.
+    # https://github.com/google-research/bert/blob/master/run_classifier.py.
+    # Truncate a seq pair in place so that their total length <= max_length.
     # This is a simple heuristic which will always truncate the longer sequence
     # one token at a time. This makes more sense than truncating an equal percent
     # of tokens from each, since if one sequence is very short then each token
     # that's truncated likely contains more information than a longer sequence.
+    is_too_long = False
     while True:
         total_length = len(tokens_a) + len(tokens_b)
         if total_length <= max_length:
