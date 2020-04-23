@@ -155,10 +155,6 @@ class Dstc8DataProcessor(object):
                 logging.info(f'Processed {dialog_idx} dialogs.')
             examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset))
 
-        # changed here
-        # for example_idx, example in enumerate(examples):
-        #     example.add_slot_status_tokens()
-
         logging.info(f'Finished creating the examples from {len(dialogs)} dialogues.')
         return examples
 
@@ -280,7 +276,7 @@ class Dstc8DataProcessor(object):
             example.add_intents(user_frame)
 
             # changed here
-            # example.add_slot_status_tokens(user_frame)
+            example.add_slot_status_tokens(user_frame)
             example.pad_to_max()
 
             examples.append(example)
@@ -550,47 +546,47 @@ class InputExample(object):
         # input to BERT, using the tokens for system utterance (sequence A) and
         # user utterance (sequence B).
         utt_subword = []
-        utt_seg = []
-        utt_mask = []
+        utterance_segment = []
+        utterance_mask = []
         start_char_idx = []
         end_char_idx = []
         usr_utt_mask = []
 
         utt_subword.append("[CLS]")
-        utt_seg.append(0)
-        utt_mask.append(1)
+        utterance_segment.append(0)
+        utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
         usr_utt_mask.append(0)
 
         for subword_idx, subword in enumerate(system_tokens):
             utt_subword.append(subword)
-            utt_seg.append(0)
-            utt_mask.append(1)
+            utterance_segment.append(0)
+            utterance_mask.append(1)
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
             usr_utt_mask.append(-np.inf)
 
         utt_subword.append("[SEP]")
-        utt_seg.append(0)
-        utt_mask.append(1)
+        utterance_segment.append(0)
+        utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
         usr_utt_mask.append(0)  # debugging 0  or 1 changed here
 
         for subword_idx, subword in enumerate(user_tokens):
             utt_subword.append(subword)
-            utt_seg.append(1)
-            utt_mask.append(1)
+            utterance_segment.append(1)
+            utterance_mask.append(1)
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)
             end_char_idx.append(en + 1)
             usr_utt_mask.append(0)
 
         utt_subword.append("[SEP]")
-        utt_seg.append(1)
-        utt_mask.append(1)
+        utterance_segment.append(1)
+        utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
         usr_utt_mask.append(-np.inf)
@@ -598,8 +594,8 @@ class InputExample(object):
         utterance_ids = self._tokenizer.tokens_to_ids(utt_subword)
 
         self.utterance_ids = utterance_ids
-        self.utterance_segment = utt_seg
-        self.utterance_mask = utt_mask
+        self.utterance_segment = utterance_segment
+        self.utterance_mask = utterance_mask
         self.start_char_idx = start_char_idx
         self.end_char_idx = end_char_idx
         self.usr_utt_mask = usr_utt_mask
@@ -722,13 +718,14 @@ class InputExample(object):
         # Zero-pad up to the BERT input sequence length.
         while len(self.utterance_ids) < self._max_seq_length:
             self.utterance_ids.append(0)
-            self.utt_seg.append(0)
-            self.utt_mask.append(0)
+            self.utterance_segment.append(0)
+            self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utt_mask.append(-np.inf)
 
-    def add_slot_tokens(self, frame):
+    def add_slot_status_tokens(self, frame):
+        return
         categorical_slots = self.service_schema.categorical_slots
         self.num_categorical_slots = len(categorical_slots)
 
