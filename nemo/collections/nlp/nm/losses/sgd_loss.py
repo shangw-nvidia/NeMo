@@ -165,7 +165,7 @@ class SGDDialogueStateLoss(LossNM):
             cat_slot_status_loss = 0
         else:
             cat_slot_status_loss = self._cross_entropy(
-                logit_cat_slot_status.view(-1, 3)[cat_slot_status_mask],
+                logit_cat_slot_status.reshape(-1, 3)[cat_slot_status_mask],
                 categorical_slot_status.view(-1)[cat_slot_status_mask],
             )
 
