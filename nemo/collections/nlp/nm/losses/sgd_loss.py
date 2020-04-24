@@ -192,7 +192,7 @@ class SGDDialogueStateLoss(LossNM):
         max_num_noncat_slots = noncategorical_slot_status.size()[-1]
         non_cat_slot_status_mask = self._get_mask(max_num_noncat_slots, num_noncategorical_slots)
         noncat_slot_status_loss = self._cross_entropy(
-            logit_noncat_slot_status.view(-1, 3)[non_cat_slot_status_mask],
+            logit_noncat_slot_status.reshape(-1, 3)[non_cat_slot_status_mask],
             noncategorical_slot_status.view(-1)[non_cat_slot_status_mask],
         )
 
