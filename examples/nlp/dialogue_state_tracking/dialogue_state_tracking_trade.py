@@ -230,13 +230,13 @@ ckpt_callback = nemo_core.CheckpointCallback(
     folder=nf.checkpoint_dir, epoch_freq=args.save_epoch_freq, step_freq=args.save_step_freq
 )
 
-if args.lr_policy:
+if args.lr_policy == "fixed":
+    lr_policy_fn = None
+else:
     total_steps = args.num_epochs * steps_per_epoch_train
     lr_policy_fn = get_lr_policy(
         args.lr_policy, total_steps=total_steps, warmup_ratio=args.lr_warmup_proportion, min_lr=args.min_lr
     )
-else:
-    lr_policy_fn = None
 
 grad_norm_clip = args.grad_norm_clip if args.grad_norm_clip > 0 else None
 

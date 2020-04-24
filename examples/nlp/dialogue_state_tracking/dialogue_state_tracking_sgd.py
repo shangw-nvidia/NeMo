@@ -419,9 +419,13 @@ ckpt_callback = nemo.core.CheckpointCallback(
     folder=nf.checkpoint_dir, epoch_freq=args.save_epoch_freq, step_freq=args.save_step_freq, checkpoints_to_keep=1
 )
 
-lr_policy_fn = get_lr_policy(
-    args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion
-)
+
+if args.lr_policy == "fixed":
+    lr_policy_fn = None
+else:
+    lr_policy_fn = get_lr_policy(
+        args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion
+    )
 
 nf.train(
     tensors_to_optimize=train_tensors,
