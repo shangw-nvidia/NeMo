@@ -198,7 +198,6 @@ class Dstc8DataProcessor(object):
                     prev_states,
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),
-                    schemas.add_status_tokens,
                 )
                 examples.extend(turn_examples)
         return examples
@@ -221,7 +220,6 @@ class Dstc8DataProcessor(object):
         prev_states,
         schemas,
         agg_sys_states,
-        add_status_tokens,
     ):
         """Creates an example for each frame in the user turn."""
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
@@ -234,7 +232,7 @@ class Dstc8DataProcessor(object):
         dialog_id_1, dialog_id_2 = dialog_id.split('_')
         base_example.example_id_num = [int(dialog_id_1), int(dialog_id_2), int(turn_id_)]
         base_example.add_utterance_features(
-            system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, schemas.add_status_tokens
+            system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, schemas._add_status_tokens
         )
         examples = []
         for service, user_frame in user_frames.items():
@@ -278,7 +276,7 @@ class Dstc8DataProcessor(object):
             example.add_intents(user_frame)
 
             # changed here
-            if add_status_tokens:
+            if schemas._add_status_tokens:
                 example.add_slot_status_tokens()
 
             examples.append(example)
