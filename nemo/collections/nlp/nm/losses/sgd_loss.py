@@ -231,8 +231,8 @@ class SGDDialogueStateLoss(LossNM):
         }
 
         if self._slot_status_token:
-            label_slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=-1)
-            logit_slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=1)
+            label_slot_status_tokens = torch.cat([categorical_slot_status, noncategorical_slot_status], axis=-1)
+            logit_slot_status_tokens = torch.cat([logit_cat_slot_status, logit_noncat_slot_status], axis=1)
             all_slot_status_loss = self._cross_entropy(logit_slot_status_tokens.view(-1, logit_slot_status_tokens.size()[-1]), label_slot_status_tokens.view(-1))
             losses["all_slot_status_loss"] = all_slot_status_loss
         else:
