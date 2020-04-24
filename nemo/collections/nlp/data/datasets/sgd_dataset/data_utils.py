@@ -466,6 +466,11 @@ class InputExample(object):
         # Takes value 1 if the intent is active, 0 otherwise.
         self.intent_status = [STATUS_OFF] * schema_config["MAX_NUM_INTENT"]
 
+        #chnaged here
+        self.usr_utterance_mask = [-np.inf] * self._max_seq_length
+        self.slot_status_tokens = [-1] * self._max_seq_length
+
+
     @property
     def readable_summary(self):
         """Get a readable dict that summarizes the attributes of an InputExample."""
@@ -567,7 +572,7 @@ class InputExample(object):
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utterance_mask.append(0)
+        usr_utterance_mask.append(0.0)
 
         for subword_idx, subword in enumerate(system_tokens):
             utterance_subword.append(subword)
@@ -583,7 +588,7 @@ class InputExample(object):
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utterance_mask.append(0)  # debugging 0  or 1 changed here
+        usr_utterance_mask.append(0.0)  # changed here , check if 1 would help
 
         for subword_idx, subword in enumerate(user_tokens):
             utterance_subword.append(subword)
@@ -609,6 +614,7 @@ class InputExample(object):
         self.start_char_idx = start_char_idx
         self.end_char_idx = end_char_idx
         self.usr_utterance_mask = usr_utterance_mask
+        self.slot_status_tokens = [-1] * len(utterance_ids)
 
         self.user_utterance = user_utterance
         self.system_utterance = system_utterance
@@ -631,6 +637,7 @@ class InputExample(object):
         new_example.user_utterance = self.user_utterance
         new_example.system_utterance = self.system_utterance
         new_example.usr_utterance_mask = list(self.usr_utterance_mask)
+        new_example.slot_status_tokens = list(self.slot_status_tokens)
         return new_example
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
@@ -733,6 +740,7 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
+            self.slot_status_tokens.append(-1)
 
     def add_slot_status_tokens(self):
         for slot_idx, slot in enumerate(self.service_schema.categorical_slots):
@@ -743,6 +751,7 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
+            self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
 
         for slot_idx, slot in enumerate(self.service_schema.non_categorical_slots):
             slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
@@ -752,6 +761,7 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
+            self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):

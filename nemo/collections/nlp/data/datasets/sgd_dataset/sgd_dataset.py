@@ -29,7 +29,7 @@ class SGDDataset(Dataset):
         return (
             np.array(ex.example_id_num),
             np.array(service_id),
-            np.array(ex.is_real_example, dtype=int),
+            np.array(ex.is_real_example, dtype=np.int),
             np.array(ex.utterance_ids),
             np.array(ex.utterance_segment),
             np.array(ex.utterance_mask, dtype=np.long),
@@ -48,4 +48,5 @@ class SGDDataset(Dataset):
             np.array(ex.num_intents),
             np.array(ex.intent_status),
             np.array(ex.usr_utterance_mask, dtype=np.float32),
+            np.array(ex.slot_status_tokens, dtype=np.float32)
         )

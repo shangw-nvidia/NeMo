@@ -102,6 +102,7 @@ class SGDModel(TrainableNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
+            "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
         }
 
     def __init__(self, embedding_dim, schema_emb_processor):
@@ -133,7 +134,7 @@ class SGDModel(TrainableNM):
 
         # Slot status values: none, dontcare, active.
         self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
-        self.noncat_slot_layer = Logits(3, embedding_dim).to(self._device)
+        self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
 
         # dim 2 for non_categorical slot - to represent start and end position
         self.noncat_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
@@ -215,6 +216,8 @@ class SGDModel(TrainableNM):
             encoded_utterance, utterance_mask, noncat_slot_emb, token_embeddings
         )
 
+        logit_slot_status_tokens = 0
+
         return (
             logit_intent_status,
             logit_req_slot_status,
@@ -224,6 +227,7 @@ class SGDModel(TrainableNM):
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
+            logit_slot_status_tokens,
         )
 
     def _get_intents(self, encoded_utterance, intent_embeddings, num_intents):
@@ -292,7 +296,7 @@ class SGDModel(TrainableNM):
         """
         # Predict the status of all non-categorical slots.
         max_num_slots = noncat_slot_emb.size()[1]
-        status_logits = self.noncat_slot_layer(encoded_utterance, noncat_slot_emb)
+        status_logits = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
 
         # Predict the distribution for span indices.
         max_num_tokens = token_embeddings.size()[1]
