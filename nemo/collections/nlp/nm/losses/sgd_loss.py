@@ -68,7 +68,7 @@ class SGDDialogueStateLoss(LossNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
-            "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
+            #"logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
             "intent_status": NeuralType(('B'), LabelsType()),
             "requested_slot_status": NeuralType(('B', 'T'), LabelsType()),
             "categorical_slot_status": NeuralType(('B', 'T'), LabelsType()),
@@ -111,7 +111,7 @@ class SGDDialogueStateLoss(LossNM):
         logit_noncat_slot_status,
         logit_noncat_slot_start,
         logit_noncat_slot_end,
-        logit_slot_status_tokens,
+        #logit_slot_status_tokens,
         intent_status,
         requested_slot_status,
         req_slot_mask,
@@ -231,9 +231,10 @@ class SGDDialogueStateLoss(LossNM):
         }
 
         if self._slot_status_token:
-            slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=-1)
-            slot_status_token_loss = self._cross_entropy(logit_slot_status_tokens.view(-1, logit_slot_status_tokens.size()[-1]), slot_status_tokens.view(-1))
-            losses["slot_status_token_loss"] = slot_status_token_loss
+            label_slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=-1)
+            logit_slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=1)
+            all_slot_status_loss = self._cross_entropy(logit_slot_status_tokens.view(-1, logit_slot_status_tokens.size()[-1]), label_slot_status_tokens.view(-1))
+            losses["all_slot_status_loss"] = all_slot_status_loss
         else:
             losses["cat_slot_status_loss"] = cat_slot_status_loss
             losses["noncat_slot_status_loss"] = noncat_slot_status_loss

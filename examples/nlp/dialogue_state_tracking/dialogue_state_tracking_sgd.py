@@ -266,7 +266,7 @@ schema_preprocessor = SchemaPreprocessor(
 if args.add_status_tokens:
     schema_preprocessor.add_slot_status_tokens(tokenizer)
     pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    schema_preprocessor.schemas.add_status_tokens = True
+    schema_preprocessor.schemas._add_status_tokens = True
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,
@@ -309,7 +309,7 @@ def create_pipeline(dataset_split):
         logit_noncat_slot_status,
         logit_noncat_slot_start,
         logit_noncat_slot_end,
-        logit_slot_status_tokens,
+        #logit_slot_status_tokens,
     ) = model(
         encoded_utterance=encoded_utterance,
         token_embeddings=token_embeddings,
@@ -318,7 +318,7 @@ def create_pipeline(dataset_split):
         num_intents=data.num_intents,
         req_num_slots=data.num_slots,
         service_ids=data.service_id,
-        slot_status_tokens=data.slot_status_tokens
+        #slot_status_tokens=data.slot_status_tokens
     )
 
     if dataset_split == 'train':
@@ -330,7 +330,7 @@ def create_pipeline(dataset_split):
             logit_noncat_slot_status=logit_noncat_slot_status,
             logit_noncat_slot_start=logit_noncat_slot_start,
             logit_noncat_slot_end=logit_noncat_slot_end,
-            logit_slot_status_tokens=logit_slot_status_tokens,
+            #logit_slot_status_tokens=logit_slot_status_tokens,
             intent_status=data.intent_status,
             requested_slot_status=data.requested_slot_status,
             req_slot_mask=req_slot_mask,

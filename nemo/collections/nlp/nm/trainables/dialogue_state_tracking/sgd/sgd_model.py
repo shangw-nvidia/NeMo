@@ -79,7 +79,7 @@ class SGDModel(TrainableNM):
             "num_intents": NeuralType(('B'), LengthsType()),
             "req_num_slots": NeuralType(('B'), LengthsType()),
             "service_ids": NeuralType(('B'), ChannelType()),
-            "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            #"slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
     @property
@@ -103,7 +103,7 @@ class SGDModel(TrainableNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
-            "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
+            #"logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
         }
 
     def __init__(self, embedding_dim, schema_emb_processor):
@@ -148,6 +148,8 @@ class SGDModel(TrainableNM):
         self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
 
         self.schema_config = schema_emb_processor.schema_config
+        self._add_status_tokens = schema_emb_processor.schemas._add_status_tokens
+
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
         self.cat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * embedding_dim)
@@ -195,7 +197,7 @@ class SGDModel(TrainableNM):
         num_intents,
         req_num_slots,
         service_ids,
-        slot_status_tokens,
+        #slot_status_tokens,
     ):
         """
         encoded_utterance - [CLS] token hidden state from BERT encoding of the utterance
@@ -223,10 +225,12 @@ class SGDModel(TrainableNM):
             encoded_utterance, utterance_mask, noncat_slot_emb, token_embeddings
         )
 
-        logit_slot_status_tokens = self._get_slot_status_token_goals(
-            cat_slot_emb, noncat_slot_emb, token_embeddings
-        )
-        # logit_slot_status_tokens = 0
+        if self._add_status_tokens:
+            logit_slot_status_tokens = self._get_slot_status_token_goals(
+                cat_slot_emb, noncat_slot_emb, token_embeddings
+            )
+            logit_cat_slot_status = logit_slot_status_tokens[:, :self.schema_config["MAX_NUM_CAT_SLOT"]]
+            logit_noncat_slot_status = logit_slot_status_tokens[:, self.schema_config["MAX_NUM_CAT_SLOT"]:]
 
         return (
             logit_intent_status,
@@ -237,7 +241,6 @@ class SGDModel(TrainableNM):
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
-            logit_slot_status_tokens,
         )
 
     def _get_intents(self, encoded_utterance, intent_embeddings, num_intents):

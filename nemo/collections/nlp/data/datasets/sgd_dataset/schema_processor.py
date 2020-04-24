@@ -109,7 +109,7 @@ class SchemaPreprocessor:
         self.schemas = schema.Schema(all_schema_json_paths)
 
         #changed here
-        self.schemas.add_status_tokens = False
+        self.schemas._add_status_tokens = False
 
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:
             # Generate the schema embeddings if needed or specified
@@ -164,7 +164,7 @@ class SchemaPreprocessor:
     def add_slot_status_tokens(self, tokenizer):
         special_tokens = []
         for schema_name, schema in self.schemas._service_schemas.items():
-            schema.add_status_tokens = True
+            schema._add_status_tokens = True
             for slot_idx, slot in enumerate(schema.categorical_slots):
                 token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
                 special_tokens.append(token_name)
