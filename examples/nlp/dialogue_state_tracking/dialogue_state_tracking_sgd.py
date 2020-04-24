@@ -280,7 +280,7 @@ dialogues_processor = data_utils.Dstc8DataProcessor(
 # define model pipeline
 encoder = sgd_modules.Encoder(hidden_size=hidden_size, dropout=args.dropout)
 model = sgd_model.SGDModel(embedding_dim=hidden_size, schema_emb_processor=schema_preprocessor)
-dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss()
+dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss(slot_status_token=args.add_status_tokens)
 
 
 def create_pipeline(dataset_split):
@@ -318,6 +318,7 @@ def create_pipeline(dataset_split):
         num_intents=data.num_intents,
         req_num_slots=data.num_slots,
         service_ids=data.service_id,
+        slot_status_tokens=data.slot_status_tokens
     )
 
     if dataset_split == 'train':
@@ -340,7 +341,7 @@ def create_pipeline(dataset_split):
             num_noncategorical_slots=data.num_noncategorical_slots,
             noncategorical_slot_value_start=data.noncategorical_slot_value_start,
             noncategorical_slot_value_end=data.noncategorical_slot_value_end,
-            slot_status_tokens=data.slot_status_tokens,
+            #slot_status_tokens=data.slot_status_tokens,
         )
         tensors = [loss]
     else:

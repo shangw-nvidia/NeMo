@@ -280,7 +280,6 @@ class Dstc8DataProcessor(object):
             # changed here
             if add_status_tokens:
                 example.add_slot_status_tokens()
-            example.pad_to_max()
 
             examples.append(example)
         return examples, states
@@ -436,7 +435,7 @@ class InputExample(object):
         # Number of categorical slots present in the service.
         self.num_categorical_slots = 0
         # The status of each categorical slot in the service.
-        self.categorical_slot_status = [STATUS_OFF] * schema_config["MAX_NUM_CAT_SLOT"]
+        self.categorical_slot_status = [-1] * schema_config["MAX_NUM_CAT_SLOT"]
         # Number of values taken by each categorical slot.
         self.num_categorical_slot_values = [0] * schema_config["MAX_NUM_CAT_SLOT"]
         # The index of the correct value for each categorical slot.
@@ -445,7 +444,7 @@ class InputExample(object):
         # Number of non-categorical slots present in the service.
         self.num_noncategorical_slots = 0
         # The status of each non-categorical slot in the service.
-        self.noncategorical_slot_status = [STATUS_OFF] * schema_config["MAX_NUM_NONCAT_SLOT"]
+        self.noncategorical_slot_status = [-1] * schema_config["MAX_NUM_NONCAT_SLOT"]
         # The index of the starting subword corresponding to the slot span for a
         # non-categorical slot value.
         self.noncategorical_slot_value_start = [0] * schema_config["MAX_NUM_NONCAT_SLOT"]
@@ -547,13 +546,12 @@ class InputExample(object):
         # Modify lengths of sys & usr utterance so that length of total utt
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
         # changed here
-
         if add_status_tokens:
-            extra_tokens_num = 3 + self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
+            slots_tokens_num = self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
         else:
-            extra_tokens_num = 3
+            slots_tokens_num = 0
 
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - extra_tokens_num)
+        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - slots_tokens_num)
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 
@@ -618,6 +616,8 @@ class InputExample(object):
 
         self.user_utterance = user_utterance
         self.system_utterance = system_utterance
+
+        self.pad_to_max(max_utt_len - slots_tokens_num)
 
     def make_copy_with_utterance_features(self):
         """Make a copy of the current example with utterance features."""
@@ -730,10 +730,10 @@ class InputExample(object):
             if intent == frame["state"]["active_intent"]:
                 self.intent_status[intent_idx] = STATUS_ACTIVE
 
-    def pad_to_max(self):
+    def pad_to_max(self, max_length):
         # changed here
         # Zero-pad up to the BERT input sequence length.
-        while len(self.utterance_ids) < self._max_seq_length:
+        while len(self.utterance_ids) < max_length:
             self.utterance_ids.append(0)
             self.utterance_segment.append(0)
             self.utterance_mask.append(0)
@@ -743,25 +743,34 @@ class InputExample(object):
             self.slot_status_tokens.append(-1)
 
     def add_slot_status_tokens(self):
-        for slot_idx, slot in enumerate(self.service_schema.categorical_slots):
-            slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
-            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+        for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
             self.utterance_segment.append(0)
             self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
-            self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
+            if slot_idx < self.num_categorical_slots:
+                slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
+                self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+                self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
+            else:
+                self.utterance_ids.append(0)
+                self.slot_status_tokens.append(0)
 
-        for slot_idx, slot in enumerate(self.service_schema.non_categorical_slots):
-            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
-            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+        for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
             self.utterance_segment.append(0)
             self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
-            self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
+            if slot_idx < self.num_noncategorical_slots:
+                slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
+                self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+                self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
+            else:
+                self.utterance_ids.append(0)
+                self.slot_status_tokens.append(0)
+
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):

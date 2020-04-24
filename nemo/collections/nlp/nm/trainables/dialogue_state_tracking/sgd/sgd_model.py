@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nemo.backends.pytorch.nm import TrainableNM
-from nemo.core import ChannelType, EmbeddedTextType, LengthsType, LogitsType, NeuralType
+from nemo.core import ChannelType, EmbeddedTextType, LengthsType, LogitsType, NeuralType, LabelsType
 from nemo.utils.decorators import add_port_docs
 
 
@@ -79,6 +79,7 @@ class SGDModel(TrainableNM):
             "num_intents": NeuralType(('B'), LengthsType()),
             "req_num_slots": NeuralType(('B'), LengthsType()),
             "service_ids": NeuralType(('B'), ChannelType()),
+            "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
     @property
@@ -146,16 +147,16 @@ class SGDModel(TrainableNM):
         self.slot_status_token_activation = F.gelu
         self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
 
-        config = schema_emb_processor.schema_config
+        self.schema_config = schema_emb_processor.schema_config
         num_services = len(schema_emb_processor.schemas.services)
-        self.intents_emb = nn.Embedding(num_services, config["MAX_NUM_INTENT"] * embedding_dim)
-        self.cat_slot_emb = nn.Embedding(num_services, config["MAX_NUM_CAT_SLOT"] * embedding_dim)
+        self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
+        self.cat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * embedding_dim)
         self.cat_slot_value_emb = nn.Embedding(
-            num_services, config["MAX_NUM_CAT_SLOT"] * config["MAX_NUM_VALUE_PER_CAT_SLOT"] * embedding_dim
+            num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * self.schema_config["MAX_NUM_VALUE_PER_CAT_SLOT"] * embedding_dim
         )
-        self.noncat_slot_emb = nn.Embedding(num_services, config["MAX_NUM_NONCAT_SLOT"] * embedding_dim)
+        self.noncat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_NONCAT_SLOT"] * embedding_dim)
         self.req_slot_emb = nn.Embedding(
-            num_services, (config["MAX_NUM_CAT_SLOT"] + config["MAX_NUM_NONCAT_SLOT"]) * embedding_dim
+            num_services, (self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) * embedding_dim
         )
 
         # initialize schema embeddings from the BERT generated embeddings
@@ -194,6 +195,7 @@ class SGDModel(TrainableNM):
         num_intents,
         req_num_slots,
         service_ids,
+        slot_status_tokens,
     ):
         """
         encoded_utterance - [CLS] token hidden state from BERT encoding of the utterance
@@ -221,10 +223,10 @@ class SGDModel(TrainableNM):
             encoded_utterance, utterance_mask, noncat_slot_emb, token_embeddings
         )
 
-        # logit_slot_status_tokens = self._get_slot_status_token_goals(
-        #     encoded_utterance, utterance_mask, noncat_slot_emb, cat_slot_emb, token_embeddings
-        # )
-        logit_slot_status_tokens = 0
+        logit_slot_status_tokens = self._get_slot_status_token_goals(
+            cat_slot_emb, noncat_slot_emb, token_embeddings
+        )
+        # logit_slot_status_tokens = 0
 
         return (
             logit_intent_status,
@@ -333,41 +335,47 @@ class SGDModel(TrainableNM):
         span_start_logits, span_end_logits = torch.unbind(span_logits, dim=3)
         return status_logits, span_start_logits, span_end_logits
 
-    def _get_slot_status_token_goals(self, encoded_utterance, utterance_mask, noncat_slot_emb, token_embeddings):
-        """
-        Obtain logits for status and slot spans for non-categorical slots.
-        Slot status values: none, dontcare, active
-        """
-        # Predict the status of all non-categorical slots.
-        max_num_slots = noncat_slot_emb.size()[1]
-        status_logits = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
+    def _get_slot_status_token_goals(self, cat_slot_emb, noncat_slot_emb, token_embeddings):
+        max_num_cat_slots = cat_slot_emb.size()[1]
+        max_num_noncat_slots = noncat_slot_emb.size()[1]
 
         # Predict the distribution for span indices.
-        max_num_tokens = token_embeddings.size()[1]
+        #max_num_tokens = token_embeddings.size()[1]
 
-        repeated_token_embeddings = token_embeddings.unsqueeze(1).repeat(1, max_num_slots, 1, 1)
-        repeated_slot_embeddings = noncat_slot_emb.unsqueeze(2).repeat(1, 1, max_num_tokens, 1)
+        token_embeddings_status = token_embeddings[:, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]):]
+        all_slot_emb = torch.cat([cat_slot_emb, noncat_slot_emb], axis=1)
+        slot_token_embeddings = torch.cat([token_embeddings_status, all_slot_emb], axis=-1)
 
-        # Shape: (batch_size, max_num_slots, max_num_tokens, 2 * embedding_dim).
-        slot_token_embeddings = torch.cat([repeated_slot_embeddings, repeated_token_embeddings], axis=3)
+        # repeated_cat_token_embeddings = token_embeddings.unsqueeze(1).repeat(1, max_num_cat_slots, 1, 1)
+        # repeated_noncat_token_embeddings = token_embeddings.unsqueeze(1).repeat(1, max_num_noncat_slots, 1, 1)
+        # repeated_cat_slot_embeddings = cat_slot_emb.unsqueeze(2).repeat(1, 1, max_num_tokens, 1)
+        # repeated_noncat_slot_embeddings = noncat_slot_emb.unsqueeze(2).repeat(1, 1, max_num_tokens, 1)
+        #
+        # # Shape: (batch_size, max_num_slots, max_num_tokens, 2 * embedding_dim).
+        # slot_cat_token_embeddings = torch.cat([repeated_cat_slot_embeddings, repeated_cat_token_embeddings], axis=3)
+        # slot_noncat_token_embeddings = torch.cat([repeated_noncat_slot_embeddings, repeated_noncat_token_embeddings], axis=3)
 
         # Project the combined embeddings to obtain logits, Shape: (batch_size, max_num_slots, max_num_tokens, 2)
-        span_logits = self.noncat_layer1(slot_token_embeddings)
-        span_logits = self.noncat_activation(span_logits)
-        span_logits = self.noncat_layer2(span_logits)
+        logit_slot_status_tokens = self.slot_status_token_layer1(slot_token_embeddings)
+        logit_slot_status_tokens = self.slot_status_token_activation(logit_slot_status_tokens)
+        logit_slot_status_tokens = self.slot_status_token_layer2(logit_slot_status_tokens)
 
-        # Mask out invalid logits for padded tokens.
-        utterance_mask = utterance_mask.to(bool)  # Shape: (batch_size, max_num_tokens).
-        repeated_utterance_mask = utterance_mask.unsqueeze(1).unsqueeze(3).repeat(1, max_num_slots, 1, 2)
-        negative_logits = (torch.finfo(span_logits.dtype).max * -0.7) * torch.ones(
-            span_logits.size(), device=self._device, dtype=span_logits.dtype
-        )
+        # noncat_status_logits = self.slot_status_token_layer1(slot_noncat_token_embeddings)
+        # noncat_status_logits = self.slot_status_token_activation(noncat_status_logits)
+        # noncat_status_logits = self.slot_status_token_layer2(noncat_status_logits)
 
-        span_logits = torch.where(repeated_utterance_mask, span_logits, negative_logits)
-
-        # Shape of both tensors: (batch_size, max_num_slots, max_num_tokens).
-        span_start_logits, span_end_logits = torch.unbind(span_logits, dim=3)
-        return status_logits, span_start_logits, span_end_logits
+        # # Mask out invalid logits for padded tokens.
+        # utterance_mask = utterance_mask.to(bool)  # Shape: (batch_size, max_num_tokens).
+        # repeated_utterance_mask = utterance_mask.unsqueeze(1).unsqueeze(3).repeat(1, max_num_slots, 1, 2)
+        # negative_logits = (torch.finfo(span_logits.dtype).max * -0.7) * torch.ones(
+        #     span_logits.size(), device=self._device, dtype=span_logits.dtype
+        # )
+        #
+        # span_logits = torch.where(repeated_utterance_mask, span_logits, negative_logits)
+        #
+        # # Shape of both tensors: (batch_size, max_num_slots, max_num_tokens).
+        # span_start_logits, span_end_logits = torch.unbind(span_logits, dim=3)
+        return logit_slot_status_tokens
 
 
     def _get_mask(self, logits, max_length, actual_length):

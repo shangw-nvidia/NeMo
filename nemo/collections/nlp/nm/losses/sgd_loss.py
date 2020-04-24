@@ -78,7 +78,7 @@ class SGDDialogueStateLoss(LossNM):
             "num_noncategorical_slots": NeuralType(('B'), LengthsType()),
             "noncategorical_slot_value_start": NeuralType(('B', 'T'), LabelsType()),
             "noncategorical_slot_value_end": NeuralType(('B', 'T'), LabelsType()),
-            "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            #"slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
     @property
@@ -122,7 +122,7 @@ class SGDDialogueStateLoss(LossNM):
         num_noncategorical_slots,
         noncategorical_slot_value_start,
         noncategorical_slot_value_end,
-        slot_status_tokens,
+        #slot_status_tokens,
     ):
         """
         Obtain the loss of the model
@@ -231,8 +231,9 @@ class SGDDialogueStateLoss(LossNM):
         }
 
         if self._slot_status_token:
-            slot_status_token_loss = self._cross_entropy(logit_slot_status_tokens, slot_status_tokens)
-            losses["cat_slot_status_loss"] = slot_status_token_loss
+            slot_status_tokens = torch.cat([noncategorical_slot_status, categorical_slot_status], axis=-1)
+            slot_status_token_loss = self._cross_entropy(logit_slot_status_tokens.view(-1, logit_slot_status_tokens.size()[-1]), slot_status_tokens.view(-1))
+            losses["slot_status_token_loss"] = slot_status_token_loss
         else:
             losses["cat_slot_status_loss"] = cat_slot_status_loss
             losses["noncat_slot_status_loss"] = noncat_slot_status_loss
