@@ -68,7 +68,7 @@ class SGDDialogueStateLoss(LossNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
-            #"logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
+            # "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
             "intent_status": NeuralType(('B'), LabelsType()),
             "requested_slot_status": NeuralType(('B', 'T'), LabelsType()),
             "categorical_slot_status": NeuralType(('B', 'T'), LabelsType()),
@@ -78,7 +78,7 @@ class SGDDialogueStateLoss(LossNM):
             "num_noncategorical_slots": NeuralType(('B'), LengthsType()),
             "noncategorical_slot_value_start": NeuralType(('B', 'T'), LabelsType()),
             "noncategorical_slot_value_end": NeuralType(('B', 'T'), LabelsType()),
-            #"slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            # "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
     @property
@@ -91,7 +91,7 @@ class SGDDialogueStateLoss(LossNM):
         return {"loss": NeuralType(None)}
 
     def __init__(self, slot_status_token=False):
-        LossNM.__init__(self, )
+        LossNM.__init__(self,)
 
         self._cross_entropy = nn.CrossEntropyLoss(ignore_index=-1)
         self._criterion_req_slots = nn.BCEWithLogitsLoss()
@@ -111,7 +111,7 @@ class SGDDialogueStateLoss(LossNM):
         logit_noncat_slot_status,
         logit_noncat_slot_start,
         logit_noncat_slot_end,
-        #logit_slot_status_tokens,
+        # logit_slot_status_tokens,
         intent_status,
         requested_slot_status,
         req_slot_mask,
@@ -122,7 +122,7 @@ class SGDDialogueStateLoss(LossNM):
         num_noncategorical_slots,
         noncategorical_slot_value_start,
         noncategorical_slot_value_end,
-        #slot_status_tokens,
+        # slot_status_tokens,
     ):
         """
         Obtain the loss of the model

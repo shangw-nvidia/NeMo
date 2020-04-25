@@ -232,7 +232,13 @@ class Dstc8DataProcessor(object):
         dialog_id_1, dialog_id_2 = dialog_id.split('_')
         base_example.example_id_num = [int(dialog_id_1), int(dialog_id_2), int(turn_id_)]
         base_example.add_utterance_features(
-            system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, schemas._add_status_tokens
+            system_tokens,
+            system_inv_alignments,
+            user_tokens,
+            user_inv_alignments,
+            system_utterance,
+            user_utterance,
+            schemas._add_status_tokens,
         )
         examples = []
         for service, user_frame in user_frames.items():
@@ -463,10 +469,9 @@ class InputExample(object):
         # Takes value 1 if the intent is active, 0 otherwise.
         self.intent_status = [STATUS_OFF] * schema_config["MAX_NUM_INTENT"]
 
-        #chnaged here
+        # chnaged here
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
         self.slot_status_tokens = [-1] * self._max_seq_length
-
 
     @property
     def readable_summary(self):
@@ -520,7 +525,14 @@ class InputExample(object):
         return summary_dict
 
     def add_utterance_features(
-        self, system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance, add_status_tokens
+        self,
+        system_tokens,
+        system_inv_alignments,
+        user_tokens,
+        user_inv_alignments,
+        system_utterance,
+        user_utterance,
+        add_status_tokens,
     ):
         """Add utterance related features input to bert.
 
@@ -768,7 +780,6 @@ class InputExample(object):
             else:
                 self.utterance_ids.append(0)
                 self.slot_status_tokens.append(0)
-
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):

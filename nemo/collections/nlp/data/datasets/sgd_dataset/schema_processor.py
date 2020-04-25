@@ -108,7 +108,7 @@ class SchemaPreprocessor:
             all_schema_json_paths.append(os.path.join(data_dir, dataset_split, "schema.json"))
         self.schemas = schema.Schema(all_schema_json_paths)
 
-        #changed here
+        # changed here
         self.schemas._add_status_tokens = False
 
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:

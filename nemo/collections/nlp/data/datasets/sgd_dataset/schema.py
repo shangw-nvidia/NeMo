@@ -31,7 +31,7 @@ class ServiceSchema(object):
         self._schema_json = schema_json
         self._service_id = service_id
 
-        #changed here
+        # changed here
         self._add_status_tokens = False
 
         # Construct the vocabulary for intents, slots, categorical slots,

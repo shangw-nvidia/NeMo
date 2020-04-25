@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nemo.backends.pytorch.nm import TrainableNM
-from nemo.core import ChannelType, EmbeddedTextType, LengthsType, LogitsType, NeuralType, LabelsType
+from nemo.core import ChannelType, EmbeddedTextType, LabelsType, LengthsType, LogitsType, NeuralType
 from nemo.utils.decorators import add_port_docs
 
 
@@ -79,7 +79,7 @@ class SGDModel(TrainableNM):
             "num_intents": NeuralType(('B'), LengthsType()),
             "req_num_slots": NeuralType(('B'), LengthsType()),
             "service_ids": NeuralType(('B'), ChannelType()),
-            #"slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            # "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
     @property
@@ -103,7 +103,7 @@ class SGDModel(TrainableNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
-            #"logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
+            # "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
         }
 
     def __init__(self, embedding_dim, schema_emb_processor):
@@ -154,11 +154,13 @@ class SGDModel(TrainableNM):
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
         self.cat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * embedding_dim)
         self.cat_slot_value_emb = nn.Embedding(
-            num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * self.schema_config["MAX_NUM_VALUE_PER_CAT_SLOT"] * embedding_dim
+            num_services,
+            self.schema_config["MAX_NUM_CAT_SLOT"] * self.schema_config["MAX_NUM_VALUE_PER_CAT_SLOT"] * embedding_dim,
         )
         self.noncat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_NONCAT_SLOT"] * embedding_dim)
         self.req_slot_emb = nn.Embedding(
-            num_services, (self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) * embedding_dim
+            num_services,
+            (self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) * embedding_dim,
         )
 
         # initialize schema embeddings from the BERT generated embeddings
@@ -197,7 +199,7 @@ class SGDModel(TrainableNM):
         num_intents,
         req_num_slots,
         service_ids,
-        #slot_status_tokens,
+        # slot_status_tokens,
     ):
         """
         encoded_utterance - [CLS] token hidden state from BERT encoding of the utterance
@@ -229,8 +231,8 @@ class SGDModel(TrainableNM):
             logit_slot_status_tokens = self._get_slot_status_token_goals(
                 cat_slot_emb, noncat_slot_emb, token_embeddings
             )
-            logit_cat_slot_status = logit_slot_status_tokens[:, :self.schema_config["MAX_NUM_CAT_SLOT"]]
-            logit_noncat_slot_status = logit_slot_status_tokens[:, self.schema_config["MAX_NUM_CAT_SLOT"]:]
+            logit_cat_slot_status = logit_slot_status_tokens[:, : self.schema_config["MAX_NUM_CAT_SLOT"]]
+            logit_noncat_slot_status = logit_slot_status_tokens[:, self.schema_config["MAX_NUM_CAT_SLOT"] :]
 
         return (
             logit_intent_status,
@@ -339,13 +341,15 @@ class SGDModel(TrainableNM):
         return status_logits, span_start_logits, span_end_logits
 
     def _get_slot_status_token_goals(self, cat_slot_emb, noncat_slot_emb, token_embeddings):
-        max_num_cat_slots = cat_slot_emb.size()[1]
-        max_num_noncat_slots = noncat_slot_emb.size()[1]
+        # max_num_cat_slots = cat_slot_emb.size()[1]
+        # max_num_noncat_slots = noncat_slot_emb.size()[1]
 
         # Predict the distribution for span indices.
-        #max_num_tokens = token_embeddings.size()[1]
+        # max_num_tokens = token_embeddings.size()[1]
 
-        token_embeddings_status = token_embeddings[:, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]):]
+        token_embeddings_status = token_embeddings[
+            :, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) :
+        ]
         all_slot_emb = torch.cat([cat_slot_emb, noncat_slot_emb], axis=1)
         slot_token_embeddings = torch.cat([token_embeddings_status, all_slot_emb], axis=-1)
 
@@ -379,7 +383,6 @@ class SGDModel(TrainableNM):
         # # Shape of both tensors: (batch_size, max_num_slots, max_num_tokens).
         # span_start_logits, span_end_logits = torch.unbind(span_logits, dim=3)
         return logit_slot_status_tokens
-
 
     def _get_mask(self, logits, max_length, actual_length):
         mask = torch.arange(0, max_length, 1, device=self._device) < torch.unsqueeze(actual_length, dim=-1)
