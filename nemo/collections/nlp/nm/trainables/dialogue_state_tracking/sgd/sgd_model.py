@@ -122,6 +122,9 @@ class SGDModel(TrainableNM):
         """
         super().__init__()
 
+        self.schema_config = schema_emb_processor.schema_config
+        self._add_status_tokens = schema_emb_processor.schemas._add_status_tokens
+
         # Add a trainable vector for the NONE intent
         self.none_intent_vector = torch.empty((1, 1, embedding_dim), requires_grad=True).to(self._device)
         # TODO truncated norm init
@@ -143,12 +146,11 @@ class SGDModel(TrainableNM):
         self.noncat_layer2 = nn.Linear(embedding_dim, 2).to(self._device)
 
         # slot_status_token layers
-        self.slot_status_token_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
-        self.slot_status_token_activation = F.gelu
-        self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
+        if self._add_status_tokens:
+            self.slot_status_token_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
+            self.slot_status_token_activation = F.gelu
+            self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
 
-        self.schema_config = schema_emb_processor.schema_config
-        self._add_status_tokens = schema_emb_processor.schemas._add_status_tokens
 
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
