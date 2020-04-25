@@ -755,29 +755,31 @@ class InputExample(object):
     def add_slot_status_tokens(self):
         for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
             self.utterance_segment.append(0)
-            self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             if slot_idx < self.num_categorical_slots:
+                self.utterance_mask.append(1)
                 slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
                 self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
                 self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
             else:
+                self.utterance_mask.append(0)
                 self.utterance_ids.append(0)
                 self.slot_status_tokens.append(0)
 
         for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
             self.utterance_segment.append(0)
-            self.utterance_mask.append(0)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             if slot_idx < self.num_noncategorical_slots:
+                self.utterance_mask.append(1)
                 slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
                 self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
                 self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
             else:
+                self.utterance_mask.append(0)
                 self.utterance_ids.append(0)
                 self.slot_status_tokens.append(0)
 
