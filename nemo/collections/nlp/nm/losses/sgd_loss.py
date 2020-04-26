@@ -93,8 +93,9 @@ class SGDDialogueStateLoss(LossNM):
     def __init__(self, slot_status_token=False):
         LossNM.__init__(self,)
 
-        self._cross_entropy = nn.CrossEntropyLoss(ignore_index=-1)
-        self._criterion_req_slots = nn.BCEWithLogitsLoss()
+        # changed here
+        self._cross_entropy = nn.CrossEntropyLoss(ignore_index=-1, reduction='sum')
+        self._criterion_req_slots = nn.BCEWithLogitsLoss(reduction='sum')
         self._slot_status_token = slot_status_token
 
     def _get_mask(self, max_number, values):
@@ -242,5 +243,5 @@ class SGDDialogueStateLoss(LossNM):
 
         #changed here
         #total_loss = sum(losses.values()) / len(losses)
-        total_loss = sum(losses.values())
+        total_loss = sum(losses.values()) / intent_status.size()[0]
         return total_loss
