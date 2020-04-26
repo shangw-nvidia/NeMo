@@ -472,6 +472,7 @@ class InputExample(object):
         # chnaged here
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
         self.slot_status_tokens = [-1] * self._max_seq_length
+        self.position_ids = list(range(self._max_seq_length))
 
     @property
     def readable_summary(self):
@@ -574,6 +575,7 @@ class InputExample(object):
         start_char_idx = []
         end_char_idx = []
         usr_utterance_mask = []
+        position_ids = []
 
         utterance_subword.append("[CLS]")
         utterance_segment.append(0)
@@ -622,7 +624,9 @@ class InputExample(object):
         self.start_char_idx = start_char_idx
         self.end_char_idx = end_char_idx
         self.usr_utterance_mask = usr_utterance_mask
+
         self.slot_status_tokens = [-1] * len(utterance_ids)
+        self.position_ids = list(range(len(utterance_ids)))
 
         self.user_utterance = user_utterance
         self.system_utterance = system_utterance
@@ -648,6 +652,7 @@ class InputExample(object):
         new_example.system_utterance = self.system_utterance
         new_example.usr_utterance_mask = list(self.usr_utterance_mask)
         new_example.slot_status_tokens = list(self.slot_status_tokens)
+        new_example.position_ids = list(self.position_ids)
         return new_example
 
     def add_categorical_slots(self, state_update, last_system_frame, agg_sys_state):
@@ -751,6 +756,7 @@ class InputExample(object):
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             self.slot_status_tokens.append(-1)
+            self.position_ids.append(0)
 
     def add_slot_status_tokens(self):
         for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
@@ -758,6 +764,8 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
+            self.position_ids.append(0)
+
             if slot_idx < self.num_categorical_slots:
                 self.utterance_mask.append(1)
                 slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
@@ -773,6 +781,8 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
+            self.position_ids.append(0)
+
             if slot_idx < self.num_noncategorical_slots:
                 self.utterance_mask.append(1)
                 slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)

@@ -61,6 +61,7 @@ class BERT(TrainableNM):
             "input_ids": NeuralType(('B', 'T'), ChannelType()),
             "token_type_ids": NeuralType(('B', 'T'), ChannelType()),
             "attention_mask": NeuralType(('B', 'T'), ChannelType()),
+            "position_ids": NeuralType(('B', 'T'), ChannelType()),
         }
 
     @property
@@ -119,6 +120,11 @@ class BERT(TrainableNM):
                 intermediate_size=intermediate_size,
                 hidden_act=hidden_act,
                 max_position_embeddings=max_position_embeddings,
+                hidden_dropout_prob=hidden_dropout_prob,
+                attention_probs_dropout_prob=attention_probs_dropout_prob,
+                type_vocab_size=type_vocab_size,
+                initializer_range=initializer_range,
+                layer_norm_eps=layer_norm_eps,
             )
             model = BertModel(config)
         elif pretrained_model_name is not None:
@@ -163,5 +169,5 @@ class BERT(TrainableNM):
     def resize_token_embeddings(self, new_vocab_size):
         self.bert.resize_token_embeddings(new_vocab_size)
 
-    def forward(self, input_ids, token_type_ids, attention_mask):
-        return self.bert(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)[0]
+    def forward(self, input_ids, token_type_ids, attention_mask, position_ids):
+        return self.bert(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, position_ids=position_ids)[0]

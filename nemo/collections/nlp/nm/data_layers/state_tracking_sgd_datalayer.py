@@ -62,6 +62,7 @@ class SGDDataLayer(TextDataLayer):
             "intent_status": NeuralType(('B'), LabelsType()),
             "usr_utterance_mask": NeuralType(('B', 'T'), ChannelType()),
             "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            "position_ids": NeuralType(('B', 'T'), ChannelType()),
         }
 
     def __init__(

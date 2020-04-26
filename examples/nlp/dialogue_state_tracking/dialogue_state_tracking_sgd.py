@@ -299,7 +299,7 @@ def create_pipeline(dataset_split):
 
     # Encode the utterances using BERT.
     token_embeddings = pretrained_bert_model(
-        input_ids=data.utterance_ids, attention_mask=data.utterance_mask, token_type_ids=data.utterance_segment,
+        input_ids=data.utterance_ids, attention_mask=data.utterance_mask, token_type_ids=data.utterance_segment, position_ids=data.position_ids
     )
     encoded_utterance, token_embeddings = encoder(hidden_states=token_embeddings)
     (
