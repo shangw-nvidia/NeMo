@@ -185,6 +185,8 @@ parser.add_argument(
     "--add_status_tokens", action="store_true", help="Adds special tokens for the status of slots",
 )
 
+parser.add_argument("--min_lr", default=0.0, type=float)
+
 args = parser.parse_args()
 logging.info(args)
 
@@ -426,7 +428,7 @@ if args.lr_policy == "fixed":
     lr_policy_fn = None
 else:
     lr_policy_fn = get_lr_policy(
-        args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion
+        args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion,  min_lr=args.min_lr,
     )
 
 nf.train(
