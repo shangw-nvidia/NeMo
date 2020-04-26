@@ -365,6 +365,7 @@ def create_pipeline(dataset_split):
             data.categorical_slot_values,
             data.noncategorical_slot_status,
             data.num_noncategorical_slots,
+            data.usr_utterance_mask,
         ]
 
     steps_per_epoch = math.ceil(len(datalayer) / (args.train_batch_size * args.num_gpus))
