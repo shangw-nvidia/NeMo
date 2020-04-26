@@ -61,7 +61,7 @@ class BERT(TrainableNM):
             "input_ids": NeuralType(('B', 'T'), ChannelType()),
             "token_type_ids": NeuralType(('B', 'T'), ChannelType()),
             "attention_mask": NeuralType(('B', 'T'), ChannelType()),
-            "position_ids": NeuralType(('B', 'T'), ChannelType()),
+            "position_ids": NeuralType(),
         }
 
     @property
@@ -169,5 +169,5 @@ class BERT(TrainableNM):
     def resize_token_embeddings(self, new_vocab_size):
         self.bert.resize_token_embeddings(new_vocab_size)
 
-    def forward(self, input_ids, token_type_ids, attention_mask, position_ids):
+    def forward(self, input_ids, token_type_ids, attention_mask, position_ids=None):
         return self.bert(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, position_ids=position_ids)[0]
