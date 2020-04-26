@@ -600,7 +600,7 @@ class InputExample(object):
 
         for subword_idx, subword in enumerate(user_tokens):
             utterance_subword.append(subword)
-            utterance_segment.append(1)
+            utterance_segment.append(0)
             utterance_mask.append(1)
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)
@@ -608,7 +608,7 @@ class InputExample(object):
             usr_utterance_mask.append(0.0)
 
         utterance_subword.append("[SEP]")
-        utterance_segment.append(1)
+        utterance_segment.append(0)
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
@@ -754,7 +754,7 @@ class InputExample(object):
 
     def add_slot_status_tokens(self):
         for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
-            self.utterance_segment.append(0)
+            self.utterance_segment.append(1)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
@@ -769,7 +769,7 @@ class InputExample(object):
                 self.slot_status_tokens.append(0)
 
         for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
-            self.utterance_segment.append(0)
+            self.utterance_segment.append(1)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
