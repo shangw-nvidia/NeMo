@@ -403,7 +403,7 @@ output_metric_file = os.path.join(nf.work_dir, 'metrics.txt')
 os.makedirs(prediction_dir, exist_ok=True)
 
 wand_callback = nemo.core.WandbCallback(
-    train_tensors=[train_tensors],
+    train_tensors=train_tensors,
     wandb_name=args.exp_name,
     wandb_project=args.project,
     update_freq=args.loss_log_freq if args.loss_log_freq > 0 else train_steps_per_epoch,
