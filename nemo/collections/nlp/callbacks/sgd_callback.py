@@ -68,7 +68,7 @@ def eval_iter_callback(tensors, global_vars, schema_processor, eval_dataset):
 
     # changed here
     usr_utterance_mask = torch.unsqueeze(output['usr_utterance_mask'], axis=1).repeat(
-       1, output['logit_noncat_slot_start'].size()[1], 1
+        1, output['logit_noncat_slot_start'].size()[1], 1
     )
     logit_noncat_slot_start = output['logit_noncat_slot_start'] + usr_utterance_mask
     logit_noncat_slot_end = output['logit_noncat_slot_end'] + usr_utterance_mask

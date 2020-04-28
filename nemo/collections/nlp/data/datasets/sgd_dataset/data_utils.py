@@ -575,7 +575,7 @@ class InputExample(object):
         start_char_idx = []
         end_char_idx = []
         usr_utterance_mask = []
-        position_ids = []
+        # position_ids = []
 
         utterance_subword.append("[CLS]")
         utterance_segment.append(0)

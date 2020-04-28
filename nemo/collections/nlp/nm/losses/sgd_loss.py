@@ -240,8 +240,7 @@ class SGDDialogueStateLoss(LossNM):
         #     losses["cat_slot_status_loss"] = cat_slot_status_loss
         #     losses["noncat_slot_status_loss"] = noncat_slot_status_loss
 
-
-        #changed here
-        #total_loss = sum(losses.values()) / len(losses)
+        # changed here
+        # total_loss = sum(losses.values()) / len(losses)
         total_loss = sum(losses.values()) / intent_status.size()[0]
         return total_loss

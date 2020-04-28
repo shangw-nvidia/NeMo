@@ -124,8 +124,8 @@ class SchemaPreprocessor:
             )
 
             input_ids, input_mask, input_type_ids = emb_datalayer()
-            #changed here
-            #position_ids = np.repeat(np.expand_dims(range(input_ids.size()[1]),0), input_ids.size()[0], axis=0)
+            # changed here
+            # position_ids = np.repeat(np.expand_dims(range(input_ids.size()[1]),0), input_ids.size()[0], axis=0)
             hidden_states = bert_model(input_ids=input_ids, token_type_ids=input_type_ids, attention_mask=input_mask)
             evaluated_tensors = nf.infer(tensors=[hidden_states], checkpoint_dir=bert_ckpt_dir)
 

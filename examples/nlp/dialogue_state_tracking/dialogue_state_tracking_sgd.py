@@ -7,6 +7,8 @@ import argparse
 import math
 import os
 
+import wandb
+
 import nemo
 import nemo.collections.nlp as nemo_nlp
 import nemo.collections.nlp.data.datasets.sgd_dataset.data_utils as data_utils
@@ -20,6 +22,8 @@ from nemo.utils.lr_policies import get_lr_policy
 parser = argparse.ArgumentParser(description='Schema_guided_dst')
 
 # BERT based utterance encoder related arguments
+parser.add_argument("--exp_name", default="SGD_Baseline", type=str)
+parser.add_argument("--project", default="SGD", type=str)
 
 parser.add_argument(
     "--max_seq_length",
@@ -293,7 +297,10 @@ def create_pipeline(dataset_split):
 
     # Encode the utterances using BERT.
     token_embeddings = pretrained_bert_model(
-        input_ids=data.utterance_ids, attention_mask=data.utterance_mask, token_type_ids=data.utterance_segment, position_ids=data.position_ids
+        input_ids=data.utterance_ids,
+        attention_mask=data.utterance_mask,
+        token_type_ids=data.utterance_segment,
+        position_ids=data.position_ids,
     )
     encoded_utterance, token_embeddings = encoder(hidden_states=token_embeddings)
     (
@@ -395,6 +402,14 @@ prediction_dir = os.path.join(nf.work_dir, 'predictions', 'pred_res_{}_{}'.forma
 output_metric_file = os.path.join(nf.work_dir, 'metrics.txt')
 os.makedirs(prediction_dir, exist_ok=True)
 
+wand_callback = nemo.core.WandbCallback(
+    train_tensors=[train_tensors],
+    wandb_name=args.exp_name,
+    wandb_project=args.project,
+    update_freq=args.loss_log_freq if args.loss_log_freq > 0 else train_steps_per_epoch,
+    args=args,
+)
+
 eval_callback = nemo.core.EvaluatorCallback(
     eval_tensors=eval_tensors,
     user_iter_callback=lambda x, y: eval_iter_callback(x, y, schema_preprocessor, args.eval_dataset),
@@ -411,23 +426,27 @@ eval_callback = nemo.core.EvaluatorCallback(
     ),
     tb_writer=nf.tb_writer,
     eval_step=args.eval_epoch_freq * train_steps_per_epoch,
+    wandb_name=args.exp_name,
+    wandb_project=args.project,
 )
 
 ckpt_callback = nemo.core.CheckpointCallback(
     folder=nf.checkpoint_dir, epoch_freq=args.save_epoch_freq, step_freq=args.save_step_freq, checkpoints_to_keep=1
 )
 
-
 if args.lr_policy == "fixed":
     lr_policy_fn = None
 else:
     lr_policy_fn = get_lr_policy(
-        args.lr_policy, total_steps=args.num_epochs * train_steps_per_epoch, warmup_ratio=args.lr_warmup_proportion,  min_lr=args.min_lr,
+        args.lr_policy,
+        total_steps=args.num_epochs * train_steps_per_epoch,
+        warmup_ratio=args.lr_warmup_proportion,
+        min_lr=args.min_lr,
     )
 
 nf.train(
     tensors_to_optimize=train_tensors,
-    callbacks=[train_callback, eval_callback, ckpt_callback],
+    callbacks=[train_callback, eval_callback, ckpt_callback, wand_callback],
     lr_policy=lr_policy_fn,
     optimizer=args.optimizer_kind,
     optimization_params={

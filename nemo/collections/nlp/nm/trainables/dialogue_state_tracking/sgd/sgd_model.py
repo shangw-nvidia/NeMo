@@ -151,7 +151,6 @@ class SGDModel(TrainableNM):
             self.slot_status_token_activation = F.gelu
             self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
 
-
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
         self.cat_slot_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * embedding_dim)
