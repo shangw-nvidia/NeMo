@@ -200,7 +200,7 @@ if args.task_name == "multiwoz":
         "MAX_NUM_VALUE_PER_CAT_SLOT": 50,
         "MAX_NUM_INTENT": 1,
     }
-    splits_list = ["train", "dev"]
+    splits_list = ["train", "test", "dev"]
 else:
     schema_config = {
         "MAX_NUM_CAT_SLOT": 6,
@@ -208,12 +208,6 @@ else:
         "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_INTENT": 4,
     }
-    # schema_config = {
-    #     "MAX_NUM_CAT_SLOT": 8,
-    #     "MAX_NUM_NONCAT_SLOT": 16,
-    #     "MAX_NUM_VALUE_PER_CAT_SLOT": 16,
-    #     "MAX_NUM_INTENT": 8,
-    # }
     splits_list = ["train", "dev", "test"]
 
 if not os.path.exists(args.data_dir):

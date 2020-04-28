@@ -43,7 +43,7 @@ def process_imdb(infold, outfold, uncased, modes=['train', 'test']):
                 label = 0
             else:
                 label = 1
-            files = glob.glob(f'{data_dir}/{mode}/{sent}/*.txt')
+            files = glob.glob(f'{infold}/{mode}/{sent}/*.txt')
             for file in files:
                 with open(file, 'r') as f:
                     review = f.read().strip()
