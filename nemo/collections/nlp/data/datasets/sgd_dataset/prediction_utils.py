@@ -194,40 +194,40 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
 
                     if predictions["noncat_slot_status_GT"][slot_idx] == predictions["noncat_slot_status"][slot_idx]:
                         noncat_slot_status_acc += 1
+
                     #####
 
+
+                    tok_start_idx = predictions["noncat_slot_start"][slot_idx]
+                    tok_end_idx = predictions["noncat_slot_end"][slot_idx]
+                    ch_start_idx = predictions["noncat_alignment_start"][tok_start_idx]
+                    ch_end_idx = predictions["noncat_alignment_end"][tok_end_idx]
                     ext_value = None
+                    if ch_start_idx > 0 and ch_end_idx > 0:
+                        # Add span from the user utterance.
+                        ext_value = user_utterance[ch_start_idx - 1: ch_end_idx]
+                    # elif ch_start_idx < 0 and ch_end_idx < 0:
+                    # Add span from the system utterance.
+                    #    slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
+                    else:
+                        if slot in sys_prev_slots[frame["service"]]:
+                            ext_value = sys_prev_slots[frame["service"]][slot]
+                            sys_rets[slot] = ext_value
+
+                    if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
+                        noncat_slot_value_num += 1
+                        if ext_value is not None and ext_value in true_state['slot_values'][slot]:
+                            noncat_slot_value_acc += 1
+
                     slot_status = predictions["noncat_slot_status"][slot_idx]
                     if slot_status == data_utils.STATUS_DONTCARE:
                         slot_values[slot] = data_utils.STR_DONTCARE
                     elif slot_status == data_utils.STATUS_ACTIVE:
-                        tok_start_idx = predictions["noncat_slot_start"][slot_idx]
-                        tok_end_idx = predictions["noncat_slot_end"][slot_idx]
-                        ch_start_idx = predictions["noncat_alignment_start"][tok_start_idx]
-                        ch_end_idx = predictions["noncat_alignment_end"][tok_end_idx]
-                        if ch_start_idx > 0 and ch_end_idx > 0:
-                            # Add span from the user utterance.
-                            ext_value = user_utterance[ch_start_idx - 1 : ch_end_idx]
-                        # elif ch_start_idx < 0 and ch_end_idx < 0:
-                        # Add span from the system utterance.
-                        #    slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
-                        else:
-                            if slot in sys_prev_slots[frame["service"]]:
-                                ext_value = sys_prev_slots[frame["service"]][slot]
-                                # debugging info
-                                sys_rets[slot] = ext_value
-                                ##
                         if ext_value is not None:
                             slot_values[slot] = ext_value
                             # elif ch_start_idx < 0 and ch_end_idx < 0:
                             #     slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                             #     print("hoooy", slot_values[slot])
-                    # for debugging
-                    if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
-                        noncat_slot_value_num += 1
-                        if ext_value is not None and ext_value in true_state['slot_values'][slot]:
-                            noncat_slot_value_acc += 1
-                    ########
 
                 if eval_debug and frame["service"] in in_domain_services:
                     equal_state = True
