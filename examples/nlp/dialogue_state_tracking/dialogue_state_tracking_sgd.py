@@ -270,7 +270,7 @@ if args.add_status_tokens:
         logging.error("Zero new tokens are added!!")
         sys.exit(1)
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    embeddings.weight[-added_vocabs_num:] = embeddings.weight[tokenizer.cls_id].repeat(added_vocabs_num, 1)
+    embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
     schema_preprocessor.schemas._add_status_tokens = True
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
