@@ -167,7 +167,7 @@ class BERT(TrainableNM):
         return pretrained_models
 
     def resize_token_embeddings(self, new_vocab_size):
-        self.bert.resize_token_embeddings(new_vocab_size)
+        return self.bert.resize_token_embeddings(new_vocab_size)
 
     def forward(self, input_ids, token_type_ids, attention_mask, position_ids=None):
         return self.bert(

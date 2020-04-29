@@ -7,8 +7,7 @@ import argparse
 import math
 import os
 
-import wandb
-
+import torch
 import nemo
 import nemo.collections.nlp as nemo_nlp
 import nemo.collections.nlp.data.datasets.sgd_dataset.data_utils as data_utils
@@ -264,8 +263,11 @@ schema_preprocessor = SchemaPreprocessor(
 
 # changed here
 if args.add_status_tokens:
+    orig_vocab_size = len(tokenizer)
     schema_preprocessor.add_slot_status_tokens(tokenizer)
-    pretrained_bert_model.resize_token_embeddings(len(tokenizer))
+    added_vocabs_num = len(tokenizer) - orig_vocab_size
+    embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
+    embeddings.weight[-added_vocabs_num:] = embeddings.weight[tokenizer.cls_id].repeat(added_vocabs_num, 1).clone()
     schema_preprocessor.schemas._add_status_tokens = True
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
@@ -401,6 +403,7 @@ schema_json_file = os.path.join(args.data_dir, args.eval_dataset, 'schema.json')
 prediction_dir = os.path.join(nf.work_dir, 'predictions', 'pred_res_{}_{}'.format(args.eval_dataset, args.task_name))
 output_metric_file = os.path.join(nf.work_dir, 'metrics.txt')
 os.makedirs(prediction_dir, exist_ok=True)
+
 
 wand_callback = nemo.core.WandbCallback(
     train_tensors=train_tensors,
