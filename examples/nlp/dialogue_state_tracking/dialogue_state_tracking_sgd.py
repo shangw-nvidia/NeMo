@@ -267,7 +267,7 @@ if args.add_status_tokens:
     schema_preprocessor.add_slot_status_tokens(tokenizer)
     added_vocabs_num = len(tokenizer) - orig_vocab_size
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    embeddings.weight[-added_vocabs_num:] = embeddings.weight[tokenizer.cls_id].repeat(added_vocabs_num, 1).clone()
+    embeddings.weight[-added_vocabs_num:] = embeddings.weight[tokenizer.cls_id].repeat(added_vocabs_num, 1)
     schema_preprocessor.schemas._add_status_tokens = True
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
