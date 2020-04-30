@@ -185,7 +185,11 @@ parser.add_argument(
     "--checkpoints_to_keep", default=1, type=int, help="The number of last checkpoints to keep",
 )
 parser.add_argument(
-    "--add_status_tokens", action="store_true", help="Adds special tokens for the status of slots",
+    "--slots_status_model",
+    type=str,
+    default="cls_token",
+    choices=['cls_token', 'special_tokens_multi', 'special_tokens_single'],
+    help="Specifies the modelling of the slots statuses",
 )
 
 parser.add_argument("--min_lr", default=0.0, type=float)
@@ -256,13 +260,14 @@ schema_preprocessor = SchemaPreprocessor(
     overwrite_schema_emb_files=args.overwrite_schema_emb_files,
     bert_ckpt_dir=args.bert_checkpoint,
     nf=nf,
+    slots_status_model=args.slots_status_model,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,
     datasets=splits_list,
 )
 
 # changed here
-if args.add_status_tokens:
+if args.slots_status_model == "special_tokens_multi":
     orig_vocab_size = len(tokenizer)
     schema_preprocessor.add_slot_status_tokens(tokenizer)
     added_vocabs_num = len(tokenizer) - orig_vocab_size
@@ -271,7 +276,7 @@ if args.add_status_tokens:
         sys.exit(1)
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
     embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
-    schema_preprocessor.schemas._add_status_tokens = True
+    #schema_preprocessor.schemas._slots_status_model = args.slots_status_model
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,
@@ -285,7 +290,7 @@ dialogues_processor = data_utils.Dstc8DataProcessor(
 # define model pipeline
 encoder = sgd_modules.Encoder(hidden_size=hidden_size, dropout=args.dropout)
 model = sgd_model.SGDModel(embedding_dim=hidden_size, schema_emb_processor=schema_preprocessor)
-dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss(slot_status_token=args.add_status_tokens)
+dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss(slots_status_model=args.slots_status_model)
 
 
 def create_pipeline(dataset_split):

@@ -65,6 +65,7 @@ class SchemaPreprocessor:
         overwrite_schema_emb_files,
         bert_ckpt_dir,
         nf,
+        slots_status_model,
         datasets=['train', 'test', 'dev'],
         mode='baseline',
         is_trainable=False,
@@ -106,10 +107,10 @@ class SchemaPreprocessor:
         all_schema_json_paths = []
         for dataset_split in self.datasets:
             all_schema_json_paths.append(os.path.join(data_dir, dataset_split, "schema.json"))
-        self.schemas = schema.Schema(all_schema_json_paths)
+        self.schemas = schema.Schema(all_schema_json_paths, slots_status_model)
 
         # changed here
-        self.schemas._add_status_tokens = False
+        self.schemas._slots_status_model = slots_status_model
 
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:
             # Generate the schema embeddings if needed or specified
@@ -166,7 +167,7 @@ class SchemaPreprocessor:
     def add_slot_status_tokens(self, tokenizer):
         special_tokens = []
         for schema_name, schema in self.schemas._service_schemas.items():
-            schema._add_status_tokens = True
+            schema._slots_status_model = "special_tokens_multi"
             for slot_idx, slot in enumerate(schema.categorical_slots):
                 token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
                 special_tokens.append(token_name)

@@ -238,7 +238,7 @@ class Dstc8DataProcessor(object):
             user_inv_alignments,
             system_utterance,
             user_utterance,
-            schemas._add_status_tokens,
+            schemas._slots_status_model,
         )
         examples = []
         for service, user_frame in user_frames.items():
@@ -282,7 +282,7 @@ class Dstc8DataProcessor(object):
             example.add_intents(user_frame)
 
             # changed here
-            if schemas._add_status_tokens:
+            if schemas._slots_status_model == "special_tokens_multi":
                 example.add_slot_status_tokens()
 
             examples.append(example)
@@ -533,7 +533,7 @@ class InputExample(object):
         user_inv_alignments,
         system_utterance,
         user_utterance,
-        add_status_tokens,
+        slots_status_model,
     ):
         """Add utterance related features input to bert.
 
@@ -557,9 +557,9 @@ class InputExample(object):
         # Modify lengths of sys & usr utterance so that length of total utt
         # (including [CLS], [SEP], [SEP]) is no more than max_utt_len
         # changed here
-        if add_status_tokens:
+        if slots_status_model == "special_tokens_multi":
             slots_tokens_num = self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
-        else:
+        elif slots_status_model == "cls_token":
             slots_tokens_num = 0
 
         is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - slots_tokens_num)

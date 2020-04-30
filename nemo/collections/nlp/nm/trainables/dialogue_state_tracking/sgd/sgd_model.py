@@ -123,7 +123,7 @@ class SGDModel(TrainableNM):
         super().__init__()
 
         self.schema_config = schema_emb_processor.schema_config
-        self._add_status_tokens = schema_emb_processor.schemas._add_status_tokens
+        self._slots_status_model = schema_emb_processor.schemas._slots_status_model
 
         # Add a trainable vector for the NONE intent
         self.none_intent_vector = torch.empty((1, 1, embedding_dim), requires_grad=True).to(self._device)
@@ -136,20 +136,20 @@ class SGDModel(TrainableNM):
 
         self.cat_slot_value_layer = Logits(1, embedding_dim).to(self._device)
 
-        # Slot status values: none, dontcare, active.
-        self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
-        self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
-
         # dim 2 for non_categorical slot - to represent start and end position
         self.noncat_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
         self.noncat_activation = F.gelu
         self.noncat_layer2 = nn.Linear(embedding_dim, 2).to(self._device)
 
         # slot_status_token layers
-        if self._add_status_tokens:
+        if self._slots_status_model == "special_tokens_multi":
             self.slot_status_token_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
             self.slot_status_token_activation = F.gelu
             self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
+        elif self._slots_status_model == "cls_token":
+            # Slot status values: none, dontcare, active.
+            self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
+            self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
 
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
@@ -229,9 +229,8 @@ class SGDModel(TrainableNM):
         )
 
         logit_cat_slot_status, logit_noncat_slot_status = self._get_slots_status(
-                cat_slot_emb, noncat_slot_emb, token_embeddings, encoded_utterance
+            cat_slot_emb, noncat_slot_emb, token_embeddings, encoded_utterance
         )
-
 
         return (
             logit_intent_status,
@@ -335,16 +334,16 @@ class SGDModel(TrainableNM):
         return span_start_logits, span_end_logits
 
     def _get_slots_status(self, cat_slot_emb, noncat_slot_emb, token_embeddings, encoded_utterance):
-        if not self._add_status_tokens:
+        if self._slots_status_model == "cls_token":
             # Predict the status of all categorical slots.
             logit_cat_slot_status = self.cat_slot_status_layer(encoded_utterance, cat_slot_emb)
 
             # Predict the status of all non-categorical slots.
             logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
-        else:
+        elif self._slots_status_model == "special_tokens_multi":
 
             token_embeddings_status = token_embeddings[
-                :, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]):
+                :, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) :
             ]
             all_slot_emb = torch.cat([cat_slot_emb, noncat_slot_emb], axis=1)
             slot_token_embeddings = torch.cat([token_embeddings_status, all_slot_emb], axis=-1)
