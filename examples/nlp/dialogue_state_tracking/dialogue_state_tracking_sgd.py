@@ -267,26 +267,16 @@ schema_preprocessor = SchemaPreprocessor(
 )
 
 # changed here
-if args.slots_status_model == "special_tokens_multi":
+if args.slots_status_model == "special_tokens_multi" or args.slots_status_model == "special_tokens_single":
     orig_vocab_size = len(tokenizer)
-    schema_preprocessor.add_slot_status_tokens(tokenizer, args.slots_status_model)
+    schema_preprocessor.add_slot_status_tokens(tokenizer)
     added_vocabs_num = len(tokenizer) - orig_vocab_size
     if added_vocabs_num <= 0:
         logging.error("Zero new tokens are added!!")
         sys.exit(1)
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
     embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
-    #schema_preprocessor.schemas._slots_status_model = args.slots_status_model
-elif args.slots_status_model == "special_tokens_single":
-    orig_vocab_size = len(tokenizer)
-    schema_preprocessor.add_slot_status_tokens(tokenizer, args.slots_status_model)
-    added_vocabs_num = len(tokenizer) - orig_vocab_size
-    if added_vocabs_num <= 0:
-        logging.error("Zero new tokens are added!!")
-        sys.exit(1)
-    embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
-    #schema_preprocessor.schemas._slots_status_model = args.slots_status_model
+
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,

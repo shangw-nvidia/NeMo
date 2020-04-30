@@ -109,9 +109,6 @@ class SchemaPreprocessor:
             all_schema_json_paths.append(os.path.join(data_dir, dataset_split, "schema.json"))
         self.schemas = schema.Schema(all_schema_json_paths, slots_status_model)
 
-        # changed here
-        self.schemas._slots_status_model = slots_status_model
-
         if not os.path.exists(self.schema_embedding_file) or overwrite_schema_emb_files:
             # Generate the schema embeddings if needed or specified
             logging.info(f"Start generating the schema embeddings.")
@@ -164,9 +161,9 @@ class SchemaPreprocessor:
     def get_ids_to_service_names_dict(self):
         return self.schemas._services_id_to_vocab
 
-    def add_slot_status_tokens(self, tokenizer, slots_status_model):
+    def add_slot_status_tokens(self, tokenizer):
         special_tokens = []
-        if slots_status_model == "special_tokens_multi":
+        if self.schemas._slots_status_model == "special_tokens_multi":
             for schema_name, schema in self.schemas._service_schemas.items():
                 for slot_idx, slot in enumerate(schema.categorical_slots):
                     token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
@@ -174,7 +171,7 @@ class SchemaPreprocessor:
                 for slot_idx, slot in enumerate(schema.non_categorical_slots):
                     token_name = schema.get_non_categorical_slot_status_token_from_id(slot_idx)
                     special_tokens.append(token_name)
-        elif slots_status_model == "special_tokens_single":
+        elif self.schemas._slots_status_model == "special_tokens_single":
             special_tokens.append("[SLOT_STATUS]")
             #special_tokens.append("[NONCAT_SLOT_STATUS]")
         tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})
