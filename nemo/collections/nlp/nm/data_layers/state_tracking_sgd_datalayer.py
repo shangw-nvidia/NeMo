@@ -61,7 +61,7 @@ class SGDDataLayer(TextDataLayer):
             "num_intents": NeuralType(('B'), LengthsType()),
             "intent_status": NeuralType(('B'), LabelsType()),
             "usr_utterance_mask": NeuralType(('B', 'T'), ChannelType()),
-            "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
+            #"slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
             "position_ids": NeuralType(('B', 'T'), ChannelType()),
         }
 

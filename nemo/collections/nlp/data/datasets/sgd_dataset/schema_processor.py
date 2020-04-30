@@ -164,16 +164,17 @@ class SchemaPreprocessor:
     def get_ids_to_service_names_dict(self):
         return self.schemas._services_id_to_vocab
 
-    def add_slot_status_tokens(self, tokenizer):
+    def add_slot_status_tokens(self, tokenizer, slots_status_model):
         special_tokens = []
-        for schema_name, schema in self.schemas._service_schemas.items():
-            schema._slots_status_model = "special_tokens_multi"
-            for slot_idx, slot in enumerate(schema.categorical_slots):
-                token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
-                special_tokens.append(token_name)
-
-            for slot_idx, slot in enumerate(schema.non_categorical_slots):
-                token_name = schema.get_non_categorical_slot_status_token_from_id(slot_idx)
-                special_tokens.append(token_name)
-
+        if slots_status_model == "special_tokens_multi":
+            for schema_name, schema in self.schemas._service_schemas.items():
+                for slot_idx, slot in enumerate(schema.categorical_slots):
+                    token_name = schema.get_categorical_slot_status_token_from_id(slot_idx)
+                    special_tokens.append(token_name)
+                for slot_idx, slot in enumerate(schema.non_categorical_slots):
+                    token_name = schema.get_non_categorical_slot_status_token_from_id(slot_idx)
+                    special_tokens.append(token_name)
+        elif slots_status_model == "special_tokens_single":
+            special_tokens.append("[SLOT_STATUS]")
+            #special_tokens.append("[NONCAT_SLOT_STATUS]")
         tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})

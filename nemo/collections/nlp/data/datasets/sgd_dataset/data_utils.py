@@ -282,8 +282,7 @@ class Dstc8DataProcessor(object):
             example.add_intents(user_frame)
 
             # changed here
-            if schemas._slots_status_model == "special_tokens_multi":
-                example.add_slot_status_tokens()
+            example.add_slot_status_tokens(schemas._slots_status_model)
 
             examples.append(example)
         return examples, states
@@ -471,7 +470,7 @@ class InputExample(object):
 
         # chnaged here
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
-        self.slot_status_tokens = [-1] * self._max_seq_length
+        #self.slot_status_tokens = [-1] * self._max_seq_length
         self.position_ids = list(range(self._max_seq_length))
 
     @property
@@ -559,6 +558,8 @@ class InputExample(object):
         # changed here
         if slots_status_model == "special_tokens_multi":
             slots_tokens_num = self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
+        elif slots_status_model == "special_tokens_multi":
+            slots_tokens_num = 1
         elif slots_status_model == "cls_token":
             slots_tokens_num = 0
 
@@ -625,7 +626,7 @@ class InputExample(object):
         self.end_char_idx = end_char_idx
         self.usr_utterance_mask = usr_utterance_mask
 
-        self.slot_status_tokens = [-1] * len(utterance_ids)
+        #self.slot_status_tokens = [-1] * len(utterance_ids)
         self.position_ids = list(range(len(utterance_ids)))
 
         self.user_utterance = user_utterance
@@ -651,7 +652,7 @@ class InputExample(object):
         new_example.user_utterance = self.user_utterance
         new_example.system_utterance = self.system_utterance
         new_example.usr_utterance_mask = list(self.usr_utterance_mask)
-        new_example.slot_status_tokens = list(self.slot_status_tokens)
+        #new_example.slot_status_tokens = list(self.slot_status_tokens)
         new_example.position_ids = list(self.position_ids)
         return new_example
 
@@ -755,43 +756,57 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
-            self.slot_status_tokens.append(-1)
+            #self.slot_status_tokens.append(-1)
             self.position_ids.append(0)
 
-    def add_slot_status_tokens(self):
-        for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
+    def add_slot_status_tokens(self, slots_status_model):
+        if slots_status_model == "cls_token":
+            return
+        elif slots_status_model == "special_tokens_multi":
+            for slot_idx in range(self.schema_config["MAX_NUM_CAT_SLOT"]):
+                self.utterance_segment.append(1)
+                self.start_char_idx.append(0)
+                self.end_char_idx.append(0)
+                self.usr_utterance_mask.append(-np.inf)
+                self.position_ids.append(0)
+
+                if slot_idx < self.num_categorical_slots:
+                    self.utterance_mask.append(1)
+                    slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
+                    self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+                    #self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
+                else:
+                    self.utterance_mask.append(0)
+                    self.utterance_ids.append(self._tokenizer.pad_id)
+                    #self.slot_status_tokens.append(0)
+
+            for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
+                self.utterance_segment.append(1)
+                self.start_char_idx.append(0)
+                self.end_char_idx.append(0)
+                self.usr_utterance_mask.append(-np.inf)
+                self.position_ids.append(0)
+
+                if slot_idx < self.num_noncategorical_slots:
+                    self.utterance_mask.append(1)
+                    slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
+                    self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+                    #self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
+                else:
+                    self.utterance_mask.append(0)
+                    self.utterance_ids.append(self._tokenizer.pad_id)
+                    #self.slot_status_tokens.append(0)
+        elif slots_status_model == "special_tokens_single":
             self.utterance_segment.append(1)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             self.position_ids.append(0)
 
-            if slot_idx < self.num_categorical_slots:
-                self.utterance_mask.append(1)
-                slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id(slot_idx)
-                self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
-                self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
-            else:
-                self.utterance_mask.append(0)
-                self.utterance_ids.append(self._tokenizer.pad_id)
-                self.slot_status_tokens.append(0)
-
-        for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
-            self.utterance_segment.append(1)
-            self.start_char_idx.append(0)
-            self.end_char_idx.append(0)
-            self.usr_utterance_mask.append(-np.inf)
-            self.position_ids.append(0)
-
-            if slot_idx < self.num_noncategorical_slots:
-                self.utterance_mask.append(1)
-                slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(slot_idx)
-                self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
-                self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
-            else:
-                self.utterance_mask.append(0)
-                self.utterance_ids.append(self._tokenizer.pad_id)
-                self.slot_status_tokens.append(0)
+            self.utterance_mask.append(1)
+            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-1)
+            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+            #self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):

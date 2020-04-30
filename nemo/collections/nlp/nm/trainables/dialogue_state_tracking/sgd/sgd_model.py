@@ -146,7 +146,7 @@ class SGDModel(TrainableNM):
             self.slot_status_token_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
             self.slot_status_token_activation = F.gelu
             self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
-        elif self._slots_status_model == "cls_token":
+        elif self._slots_status_model == "cls_token" or self._slots_status_model == "special_tokens_single":
             # Slot status values: none, dontcare, active.
             self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
             self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
@@ -337,11 +337,12 @@ class SGDModel(TrainableNM):
         if self._slots_status_model == "cls_token":
             # Predict the status of all categorical slots.
             logit_cat_slot_status = self.cat_slot_status_layer(encoded_utterance, cat_slot_emb)
-
             # Predict the status of all non-categorical slots.
             logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
+        elif self._slots_status_model == "special_tokens_single":
+            logit_cat_slot_status = self.cat_slot_status_layer(token_embeddings[:, -1], cat_slot_emb)
+            logit_noncat_slot_status = self.noncat_slot_status_layer(token_embeddings[:, -1], noncat_slot_emb)
         elif self._slots_status_model == "special_tokens_multi":
-
             token_embeddings_status = token_embeddings[
                 :, -(self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]) :
             ]

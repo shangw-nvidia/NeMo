@@ -134,7 +134,10 @@ class ServiceSchema(object):
 
     def get_non_categorical_slot_status_token_from_id(self, slot_id):
         # changed here
-        return f"[STATUS_NONCAT_{self.service_name}_{self._non_categorical_slots[slot_id]}]"
+        if self._slots_status_model == "special_tokens_multi":
+            return f"[STATUS_NONCAT_{self.service_name}_{self._non_categorical_slots[slot_id]}]"
+        elif self._slots_status_model == "special_tokens_single":
+            return "[SLOT_STATUS]"
 
 
 class Schema(object):
