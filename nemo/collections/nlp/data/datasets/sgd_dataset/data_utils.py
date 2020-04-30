@@ -419,7 +419,7 @@ class InputExample(object):
         self.user_utterance = ''
         self.system_utterance = ''
         # The id of each subword in the vocabulary for BERT.
-        self.utterance_ids = [0] * self._max_seq_length
+        self.utterance_ids = [self._tokenizer.pad_id] * self._max_seq_length
         # Denotes the identity of the sequence. Takes values 0 (system utterance)
         # and 1 (user utterance).
         self.utterance_segment = [0] * self._max_seq_length
@@ -749,7 +749,7 @@ class InputExample(object):
         # changed here
         # Zero-pad up to the BERT input sequence length.
         while len(self.utterance_ids) < max_length:
-            self.utterance_ids.append(0)
+            self.utterance_ids.append(self._tokenizer.pad_id)
             self.utterance_segment.append(0)
             self.utterance_mask.append(0)
             self.start_char_idx.append(0)
@@ -773,7 +773,7 @@ class InputExample(object):
                 self.slot_status_tokens.append(self.categorical_slot_status[slot_idx])
             else:
                 self.utterance_mask.append(0)
-                self.utterance_ids.append(0)
+                self.utterance_ids.append(self._tokenizer.pad_id)
                 self.slot_status_tokens.append(0)
 
         for slot_idx in range(self.schema_config["MAX_NUM_NONCAT_SLOT"]):
@@ -790,7 +790,7 @@ class InputExample(object):
                 self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
             else:
                 self.utterance_mask.append(0)
-                self.utterance_ids.append(0)
+                self.utterance_ids.append(self._tokenizer.pad_id)
                 self.slot_status_tokens.append(0)
 
 
