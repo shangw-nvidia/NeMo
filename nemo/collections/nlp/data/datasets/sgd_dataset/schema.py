@@ -171,6 +171,7 @@ class Schema(object):
         self._services = sorted(schema["service_name"] for schema in all_schemas)
         self._services_vocab = {v: k for k, v in enumerate(self._services)}
         self._services_id_to_vocab = {v: k for k, v in self._services_vocab.items()}
+        self._slots_status_model = slots_status_model
         service_schemas = {}
         for schema in all_schemas:
             service = schema["service_name"]
