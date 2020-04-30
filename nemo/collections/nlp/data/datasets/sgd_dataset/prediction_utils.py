@@ -197,7 +197,6 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
 
                     #####
 
-
                     tok_start_idx = predictions["noncat_slot_start"][slot_idx]
                     tok_end_idx = predictions["noncat_slot_end"][slot_idx]
                     ch_start_idx = predictions["noncat_alignment_start"][tok_start_idx]
@@ -205,7 +204,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     ext_value = None
                     if ch_start_idx > 0 and ch_end_idx > 0:
                         # Add span from the user utterance.
-                        ext_value = user_utterance[ch_start_idx - 1: ch_end_idx]
+                        ext_value = user_utterance[ch_start_idx - 1 : ch_end_idx]
                     # elif ch_start_idx < 0 and ch_end_idx < 0:
                     # Add span from the system utterance.
                     #    slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
