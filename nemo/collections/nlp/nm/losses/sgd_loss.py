@@ -90,13 +90,12 @@ class SGDDialogueStateLoss(LossNM):
         """
         return {"loss": NeuralType(None)}
 
-    def __init__(self, slot_status_token=False):
+    def __init__(self):
         LossNM.__init__(self,)
 
         # changed here
         self._cross_entropy = nn.CrossEntropyLoss(ignore_index=-1, reduction='sum')
         self._criterion_req_slots = nn.BCEWithLogitsLoss(reduction='sum')
-        self._slot_status_token = slot_status_token
 
     def _get_mask(self, max_number, values):
 
