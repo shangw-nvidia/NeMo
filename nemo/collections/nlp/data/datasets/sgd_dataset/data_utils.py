@@ -558,7 +558,7 @@ class InputExample(object):
         # changed here
         if slots_status_model == "special_tokens_multi":
             slots_tokens_num = self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
-        elif slots_status_model == "special_tokens_multi":
+        elif slots_status_model == "special_tokens_single":
             slots_tokens_num = 1
         elif slots_status_model == "cls_token":
             slots_tokens_num = 0
