@@ -785,7 +785,7 @@ class InputExample(object):
                 self.start_char_idx.append(0)
                 self.end_char_idx.append(0)
                 self.usr_utterance_mask.append(-np.inf)
-                self.position_ids.append(0)
+                self.position_ids.append(len(self.position_ids)) #check here
 
                 if slot_idx < self.num_noncategorical_slots:
                     self.utterance_mask.append(1)
@@ -801,7 +801,7 @@ class InputExample(object):
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
-            self.position_ids.append(0)
+            self.position_ids.append(len(self.position_ids)) #check here
 
             self.utterance_mask.append(1)
             slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-1)
