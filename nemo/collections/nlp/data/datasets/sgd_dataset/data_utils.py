@@ -268,12 +268,17 @@ class Dstc8DataProcessor(object):
             # 1 is added for the [CLS] token and for user tokens a bias of 2 +
             # len(system_tokens) is added to account for [CLS], system tokens and
             # [SEP].
+
+            # changed here
             user_span_boundaries = self._find_subword_indices(
-                state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 2 + len(system_tokens)
+                state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 1
             )
+            # user_span_boundaries = self._find_subword_indices(
+            #     state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 2 + len(system_tokens)
+            # )
             if system_frame is not None:
                 system_span_boundaries = self._find_subword_indices(
-                    state_update, system_utterance, system_frame["slots"], system_alignments, system_tokens, 1
+                    state_update, system_utterance, system_frame["slots"], system_alignments, system_tokens, 2 + len(user_tokens)
                 )
             else:
                 system_span_boundaries = {}
@@ -585,13 +590,13 @@ class InputExample(object):
         end_char_idx.append(0)
         usr_utterance_mask.append(0.0)
 
-        for subword_idx, subword in enumerate(system_tokens):
+        for subword_idx, subword in enumerate(user_tokens):
             utterance_subword.append(subword)
-            utterance_segment.append(1)
+            utterance_segment.append(0)
             utterance_mask.append(1)
-            st, en = system_inv_alignments[subword_idx]
-            start_char_idx.append(-(st + 1))
-            end_char_idx.append(-(en + 1))
+            st, en = user_inv_alignments[subword_idx]
+            start_char_idx.append(st + 1)
+            end_char_idx.append(en + 1)
             usr_utterance_mask.append(0.0)
 
         utterance_subword.append("[SEP]")
@@ -601,13 +606,13 @@ class InputExample(object):
         end_char_idx.append(0)
         usr_utterance_mask.append(0.0)  # changed here , check if 1 would help
 
-        for subword_idx, subword in enumerate(user_tokens):
+        for subword_idx, subword in enumerate(system_tokens):
             utterance_subword.append(subword)
-            utterance_segment.append(0)
+            utterance_segment.append(1)
             utterance_mask.append(1)
-            st, en = user_inv_alignments[subword_idx]
-            start_char_idx.append(st + 1)
-            end_char_idx.append(en + 1)
+            st, en = system_inv_alignments[subword_idx]
+            start_char_idx.append(-(st + 1))
+            end_char_idx.append(-(en + 1))
             usr_utterance_mask.append(0.0)
 
         utterance_subword.append("[SEP]")
