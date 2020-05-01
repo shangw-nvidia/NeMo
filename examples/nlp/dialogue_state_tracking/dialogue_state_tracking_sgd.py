@@ -469,7 +469,7 @@ nf.train(
     optimization_params={
         "num_epochs": args.num_epochs,
         "lr": args.learning_rate,
-        "eps": 1e-6,
+        "eps": 1e-8,
         "weight_decay": args.weight_decay,
         "grad_norm_clip": args.grad_norm_clip,
     },
