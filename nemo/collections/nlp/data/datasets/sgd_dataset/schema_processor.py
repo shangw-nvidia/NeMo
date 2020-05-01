@@ -173,5 +173,7 @@ class SchemaPreprocessor:
                     special_tokens.append(token_name)
         elif self.schemas._slots_status_model == "special_tokens_single":
             special_tokens.append("[SLOT_STATUS]")
-            #special_tokens.append("[NONCAT_SLOT_STATUS]")
+        elif self.schemas._slots_status_model == "special_tokens_double":
+            special_tokens.append("[CAT_SLOT_STATUS]")
+            special_tokens.append("[NONCAT_SLOT_STATUS]")
         tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})

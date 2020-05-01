@@ -189,7 +189,7 @@ parser.add_argument(
     "--slots_status_model",
     type=str,
     default="cls_token",
-    choices=['cls_token', 'special_tokens_multi', 'special_tokens_single'],
+    choices=['cls_token', 'special_tokens_multi', 'special_tokens_single', 'special_tokens_double'],
     help="Specifies the modelling of the slots statuses",
 )
 
@@ -272,7 +272,7 @@ schema_preprocessor = SchemaPreprocessor(
 )
 
 # changed here
-if args.slots_status_model == "special_tokens_multi" or args.slots_status_model == "special_tokens_single":
+if args.slots_status_model in ["special_tokens_multi", "special_tokens_single", "special_tokens_double"]:
     orig_vocab_size = len(tokenizer)
     schema_preprocessor.add_slot_status_tokens(tokenizer)
     added_vocabs_num = len(tokenizer) - orig_vocab_size
@@ -281,7 +281,9 @@ if args.slots_status_model == "special_tokens_multi" or args.slots_status_model 
         sys.exit(1)
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
     if args.init_with_cls:
-        embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
+        embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(
+            added_vocabs_num, 1
+        )
 
 
 dialogues_processor = data_utils.Dstc8DataProcessor(

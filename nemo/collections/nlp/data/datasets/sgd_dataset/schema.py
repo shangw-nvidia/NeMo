@@ -138,6 +138,13 @@ class ServiceSchema(object):
             return f"[STATUS_NONCAT_{self.service_name}_{self._non_categorical_slots[slot_id]}]"
         elif self._slots_status_model == "special_tokens_single":
             return "[SLOT_STATUS]"
+        elif self._slots_status_model == "special_tokens_double":
+            if slot_id == -2:
+                return "[CAT_SLOT_STATUS]"
+            elif slot_id == -3:
+                return "[NONCAT_SLOT_STATUS]"
+            else:
+                raise ValueError(f"No valid slot_id={slot_id} for slots_status_model of special_tokens_double")
 
 
 class Schema(object):
@@ -175,7 +182,9 @@ class Schema(object):
         service_schemas = {}
         for schema in all_schemas:
             service = schema["service_name"]
-            service_schemas[service] = ServiceSchema(schema, slots_status_model=slots_status_model, service_id=self.get_service_id(service))
+            service_schemas[service] = ServiceSchema(
+                schema, slots_status_model=slots_status_model, service_id=self.get_service_id(service)
+            )
 
         self._service_schemas = service_schemas
 
