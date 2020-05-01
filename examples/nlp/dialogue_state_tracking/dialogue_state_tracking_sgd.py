@@ -184,12 +184,17 @@ parser.add_argument(
 parser.add_argument(
     "--checkpoints_to_keep", default=1, type=int, help="The number of last checkpoints to keep",
 )
+
 parser.add_argument(
     "--slots_status_model",
     type=str,
     default="cls_token",
     choices=['cls_token', 'special_tokens_multi', 'special_tokens_single'],
     help="Specifies the modelling of the slots statuses",
+)
+
+parser.add_argument(
+    "--init_with_cls", action="store_true", help="Initilizes new special tokens with CLS token embedding.",
 )
 
 parser.add_argument("--min_lr", default=0.0, type=float)
@@ -275,7 +280,8 @@ if args.slots_status_model == "special_tokens_multi" or args.slots_status_model 
         logging.error("Zero new tokens are added!!")
         sys.exit(1)
     embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
+    if args.init_with_cls:
+        embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(added_vocabs_num, 1)
 
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
