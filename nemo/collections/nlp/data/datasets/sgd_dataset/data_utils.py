@@ -768,7 +768,7 @@ class InputExample(object):
                 self.start_char_idx.append(0)
                 self.end_char_idx.append(0)
                 self.usr_utterance_mask.append(-np.inf)
-                self.position_ids.append(0)
+                self.position_ids.append(len(self.position_ids))
 
                 if slot_idx < self.num_categorical_slots:
                     self.utterance_mask.append(1)
