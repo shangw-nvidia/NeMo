@@ -66,6 +66,7 @@ class Roberta(TrainableNM):
             "input_ids": NeuralType(('B', 'T'), ChannelType()),
             "token_type_ids": NeuralType(('B', 'T'), ChannelType()),
             "attention_mask": NeuralType(('B', 'T'), ChannelType()),
+            "position_ids": NeuralType(('B', 'T'), ChannelType(), optional=True),
         }
 
     @property
@@ -159,5 +160,5 @@ class Roberta(TrainableNM):
             pretrained_models.append(model_info)
         return pretrained_models
 
-    def forward(self, input_ids, token_type_ids, attention_mask):
-        return self.roberta(input_ids, attention_mask=attention_mask)[0]
+    def forward(self, input_ids, token_type_ids, attention_mask, position_ids=None):
+        return self.roberta(input_ids, attention_mask=attention_mask, position_ids=position_ids)[0]
