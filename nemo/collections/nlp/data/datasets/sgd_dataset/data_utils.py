@@ -615,7 +615,7 @@ class InputExample(object):
         utterance_mask.append(1)
         start_char_idx.append(0)
         end_char_idx.append(0)
-        usr_utterance_mask.append(-np.inf)
+        usr_utterance_mask.append(0)
 
         utterance_ids = self._tokenizer.tokens_to_ids(utterance_subword)
 
