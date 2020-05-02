@@ -16,7 +16,7 @@ from nemo.core import ChannelType, EmbeddedTextType, LabelsType, LengthsType, Lo
 from nemo.utils.decorators import add_port_docs
 
 
-class oldLogits(nn.Module):
+class Logits(nn.Module):
     def __init__(self, num_classes, embedding_dim):
         """Get logits for elements by conditioning on utterance embedding.
 
@@ -61,7 +61,7 @@ class oldLogits(nn.Module):
         return logits
 
 
-class Logits(nn.Module):
+class LogitsNew(nn.Module):
     def __init__(self, num_classes, embedding_dim, num_elements):
         """Get logits for elements by conditioning on utterance embedding.
 
@@ -81,10 +81,9 @@ class Logits(nn.Module):
         self.utterance_proj = nn.Linear(embedding_dim, embedding_dim)
         self.activation = F.gelu
 
-        weight_matrix = torch.empty((1, num_elements, embedding_dim, num_classes), requires_grad=True).to(self._device)
+        weight_matrix = torch.empty((1, num_elements, 2*embedding_dim, num_classes), requires_grad=True)
         nn.init.normal_(weight_matrix, std=0.02)
-        self.weight_matrix = torch.nn.Parameter(weight_matrix).to(self._device)
-
+        self.weight_matrix = torch.nn.Parameter(weight_matrix)
 
         #self.layer1 = nn.Linear(2 * embedding_dim, embedding_dim)
         #self.layer2 = nn.Linear(embedding_dim, num_elements*num_classes)
@@ -202,8 +201,8 @@ class SGDModel(TrainableNM):
             self.slot_status_token_layer2 = nn.Linear(embedding_dim, 3).to(self._device)
         elif self._slots_status_model in ["cls_token", "special_tokens_single", "special_tokens_double"]:
             # Slot status values: none, dontcare, active.
-            self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
-            self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
+            self.cat_slot_status_layer = LogitsNew(3, embedding_dim, self.schema_config["MAX_NUM_CAT_SLOT"]).to(self._device)
+            self.noncat_slot_status_layer = LogitsNew(3, embedding_dim, self.schema_config["MAX_NUM_NONCAT_SLOT"]).to(self._device)
 
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
