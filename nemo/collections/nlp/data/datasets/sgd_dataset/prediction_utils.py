@@ -139,7 +139,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     elif slot_status == data_utils.STATUS_ACTIVE:
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
-                        if predictions["cat_slot_value"][slot_idx] != "##NONE##":
+                        if service_schema.get_categorical_slot_values(slot)[predictions["cat_slot_value"][slot_idx]] != "##NONE##":
                             # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
                             value_idx = predictions["cat_slot_value"][slot_idx]
                             slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
