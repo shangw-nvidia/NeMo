@@ -16,7 +16,7 @@ from nemo.core import ChannelType, EmbeddedTextType, LabelsType, LengthsType, Lo
 from nemo.utils.decorators import add_port_docs
 
 
-class Logits(nn.Module):
+class oldLogits(nn.Module):
     def __init__(self, num_classes, embedding_dim):
         """Get logits for elements by conditioning on utterance embedding.
 
@@ -58,6 +58,60 @@ class Logits(nn.Module):
         logits = self.layer1(utterance_element_emb)
         logits = self.activation(logits)
         logits = self.layer2(logits)
+        return logits
+
+
+class Logits(nn.Module):
+    def __init__(self, num_classes, embedding_dim, num_elements):
+        """Get logits for elements by conditioning on utterance embedding.
+
+        Args:
+          element_embeddings: A tensor of shape (batch_size, num_elements,
+            embedding_dim).
+          num_classes: An int containing the number of classes for which logits are
+            to be generated.
+
+        Returns:
+          A tensor of shape (batch_size, num_elements, num_classes) containing the
+          logits.
+        """
+        super().__init__()
+
+        self.num_classes = num_classes
+        self.utterance_proj = nn.Linear(embedding_dim, embedding_dim)
+        self.activation = F.gelu
+
+        weight_matrix = torch.empty((1, num_elements, embedding_dim, num_classes), requires_grad=True).to(self._device)
+        nn.init.normal_(weight_matrix, std=0.02)
+        self.weight_matrix = torch.nn.Parameter(weight_matrix).to(self._device)
+
+
+        #self.layer1 = nn.Linear(2 * embedding_dim, embedding_dim)
+        #self.layer2 = nn.Linear(embedding_dim, num_elements*num_classes)
+
+    def forward(self, encoded_utterance, element_embeddings):
+        """
+        encoded_utterance - [CLS] token hidden state from BERT encoding of the utterance
+
+        """
+        _, num_elements, _ = element_embeddings.size()
+
+        # Project the utterance embeddings.
+        utterance_embedding = self.utterance_proj(encoded_utterance)
+        utterance_embedding = self.activation(utterance_embedding)
+
+        # Combine the utterance and element embeddings.
+        repeated_utterance_embedding = utterance_embedding.unsqueeze(1).repeat(1, num_elements, 1)
+
+        utterance_element_emb = torch.cat([repeated_utterance_embedding, element_embeddings], axis=2)
+
+        utterance_element_emb = utterance_element_emb.unsqueeze(-1).repeat(1, 1, 1, self.num_classes)
+
+        logits = utterance_element_emb * self.weight_matrix
+        logits = logits.sum(dim=-2)
+        #logits = self.layer1(utterance_element_emb)
+        #logits = self.activation(logits)
+        #logits = self.layer2(logits)
         return logits
 
 
