@@ -160,4 +160,6 @@ class Albert(TrainableNM):
         return pretrained_models
 
     def forward(self, input_ids, token_type_ids, attention_mask, position_ids=None):
-        return self.albert(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, position_ids=position_ids)[0]
+        return self.albert(
+            input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, position_ids=position_ids
+        )[0]

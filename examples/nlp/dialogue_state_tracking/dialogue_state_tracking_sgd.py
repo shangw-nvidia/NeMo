@@ -194,7 +194,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--init_with_cls", action="store_true", help="Initilizes new special tokens with CLS token embedding.",
+    "--init_with_cls", action="store_true", help="Initializes new special tokens with CLS token embedding.",
 )
 
 parser.add_argument("--min_lr", default=0.0, type=float)

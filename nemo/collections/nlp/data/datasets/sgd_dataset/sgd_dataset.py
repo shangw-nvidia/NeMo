@@ -48,6 +48,6 @@ class SGDDataset(Dataset):
             np.array(ex.num_intents),
             np.array(ex.intent_status),
             np.array(ex.usr_utterance_mask, dtype=np.float32),
-            #np.array(ex.slot_status_tokens, dtype=np.float32),
+            # np.array(ex.slot_status_tokens, dtype=np.float32),
             np.array(ex.position_ids, dtype=np.int),
         )
