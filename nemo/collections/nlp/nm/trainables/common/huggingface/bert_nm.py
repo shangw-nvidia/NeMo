@@ -60,7 +60,7 @@ class BERT(TrainableNM):
         return {
             "input_ids": NeuralType(('B', 'T'), ChannelType()),
             "token_type_ids": NeuralType(('B', 'T'), ChannelType()),
-            "attention_mask": NeuralType((), ChannelType()),
+            "attention_mask": NeuralType(), #changed here
             "position_ids": NeuralType(('B', 'T'), ChannelType(), optional=True),
         }
 
