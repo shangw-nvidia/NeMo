@@ -1,7 +1,3 @@
-import torch
-from torch.utils import data as pt_data
-
-import nemo
 from nemo.collections.nlp.data.datasets.sgd_dataset.sgd_dataset import SGDDataset
 from nemo.collections.nlp.nm.data_layers.text_datalayer import TextDataLayer
 from nemo.core.neural_types import ChannelType, LabelsType, LengthsType, NeuralType
@@ -63,6 +59,7 @@ class SGDDataLayer(TextDataLayer):
             "usr_utterance_mask": NeuralType(('B', 'T'), ChannelType()),
             # "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
             "position_ids": NeuralType(('B', 'T'), ChannelType()),
+            "attention_mask": NeuralType(('B', 'T', 'T'), ChannelType()),
         }
 
     def __init__(

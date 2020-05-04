@@ -217,7 +217,7 @@ else:
     schema_config = {
         "MAX_NUM_CAT_SLOT": 6,
         "MAX_NUM_NONCAT_SLOT": 12,
-#        "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
+        #        "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_VALUE_PER_CAT_SLOT": 12,
         "MAX_NUM_INTENT": 4,
     }
@@ -317,7 +317,7 @@ def create_pipeline(dataset_split):
     # Encode the utterances using BERT.
     token_embeddings = pretrained_bert_model(
         input_ids=data.utterance_ids,
-        attention_mask=data.utterance_mask,
+        attention_mask=data.attention_mask,  # changed here
         token_type_ids=data.utterance_segment,
         position_ids=data.position_ids,
     )

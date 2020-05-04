@@ -283,6 +283,7 @@ class Dstc8DataProcessor(object):
 
             # changed here
             example.add_slot_status_tokens(schemas._slots_status_model)
+            example.add_attention_mask(schemas._slots_status_model)
 
             examples.append(example)
         return examples, states
@@ -472,6 +473,7 @@ class InputExample(object):
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
         # self.slot_status_tokens = [-1] * self._max_seq_length
         self.position_ids = list(range(self._max_seq_length))
+        self.attention_mask = [[0 for i in range(self._max_seq_length)] for j in range(self._max_seq_length)]
 
     @property
     def readable_summary(self):
@@ -829,6 +831,21 @@ class InputExample(object):
             self.utterance_mask.append(1)
             slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-3)
             self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+
+    def add_attention_mask(self, slots_status_model):
+        if slots_status_model == "cls_token":
+            extra_tokens = 0
+        elif slots_status_model == "special_tokens_multi":
+            extra_tokens = self.schema_config["MAX_NUM_CAT_SLOT"] + self.schema_config["MAX_NUM_NONCAT_SLOT"]
+        elif slots_status_model == "special_tokens_single":
+            extra_tokens = 1
+        elif slots_status_model == "special_tokens_double":
+            extra_tokens = 2
+        attention_mask = np.asarray(self.utterance_mask)
+        attention_mask = np.repeat(attention_mask[None, :], len(self.utterance_mask), 0)
+
+        attention_mask[:-extra_tokens, -extra_tokens:] = 0
+        self.attention_mask = list(attention_mask)
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
