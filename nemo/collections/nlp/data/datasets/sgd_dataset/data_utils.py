@@ -692,7 +692,7 @@ class InputExample(object):
                             slot, "##NONE##"
                         )
                         print(
-                            f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in {agg_sys_state}"
+                            f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in prev states: {agg_sys_state}"
                         )
                     else:
                         self.categorical_slot_values[slot_idx] = slot_id
