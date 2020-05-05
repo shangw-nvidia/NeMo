@@ -221,11 +221,11 @@ class SGDModel(TrainableNM):
         #change here
         self.noncat_slot_emb_weights = nn.Embedding(num_services, self.schema_config["MAX_NUM_NONCAT_SLOT"] * embedding_dim * 2 * 3)
         #torch.empty((1, self.schema_config["MAX_NUM_NONCAT_SLOT"], 2*embedding_dim, 3), requires_grad=True)
-        nn.init.normal_(self.noncat_slot_emb_weights.weight, std=0.02)
+        nn.init.uniform_(self.noncat_slot_emb_weights.weight, -0.02, 0.02)
         #self.weight_matrix = torch.nn.Parameter(weight_matrix)
         self.cat_slot_emb_weights = nn.Embedding(num_services, self.schema_config["MAX_NUM_CAT_SLOT"] * embedding_dim * 2 * 3)
         #torch.empty((1, self.schema_config["MAX_NUM_NONCAT_SLOT"], 2*embedding_dim, 3), requires_grad=True)
-        nn.init.normal_(self.cat_slot_emb_weights.weight, std=0.02)
+        nn.init.uniform_(self.cat_slot_emb_weights.weight, -0.02, 0.02)
         #self.weight_matrix = torch.nn.Parameter(weight_matrix)
 
 
