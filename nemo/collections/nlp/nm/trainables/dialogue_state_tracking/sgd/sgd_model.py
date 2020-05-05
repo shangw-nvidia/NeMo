@@ -407,7 +407,8 @@ class SGDModel(TrainableNM):
             # Predict the status of all categorical slots.
             logit_cat_slot_status = self.cat_slot_status_layer(encoded_utterance, cat_slot_emb, cat_slot_emb_weights)
             # Predict the status of all non-categorical slots.
-            logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb, noncat_slot_emb_weights)
+            #logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb, noncat_slot_emb_weights)
+            logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
 
             # # Predict the status of all categorical slots.
             # logit_cat_slot_status = self.cat_slot_status_layer(encoded_utterance, cat_slot_emb)
