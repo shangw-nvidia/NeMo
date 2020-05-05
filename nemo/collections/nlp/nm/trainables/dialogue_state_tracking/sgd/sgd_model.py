@@ -198,7 +198,7 @@ class SGDModel(TrainableNM):
         elif self._slots_status_model in ["cls_token", "special_tokens_single", "special_tokens_double"]:
             # Slot status values: none, dontcare, active.
             self.cat_slot_status_layer = LogitsNew(3, embedding_dim).to(self._device)
-            self.noncat_slot_status_layer = LogitsNew(3, embedding_dim).to(self._device)
+            self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
             # # Slot status values: none, dontcare, active.
             # self.cat_slot_status_layer = Logits(3, embedding_dim, self.schema_config["MAX_NUM_CAT_SLOT"]).to(self._device)
             # self.noncat_slot_status_layer = Logits(3, embedding_dim, self.schema_config["MAX_NUM_NONCAT_SLOT"]).to(self._device)
