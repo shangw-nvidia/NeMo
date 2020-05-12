@@ -209,8 +209,8 @@ class SGDDialogueStateLoss(LossNM):
         #     non_cat_slot_value_mask = (noncategorical_slot_status > -1 ).view(-1)
         # to handle cases with no active categorical slot value
         if sum(non_cat_slot_value_mask) == 0:
-            span_start_loss = 0
-            span_end_loss = 0
+            span_start_loss = 0.0
+            span_end_loss = 0.0
         else:
             noncat_slot_start_active_logits = logit_noncat_slot_start.view(-1, max_num_tokens)[non_cat_slot_value_mask]
             noncat_slot_start_active_labels = noncategorical_slot_value_start.view(-1)[non_cat_slot_value_mask]

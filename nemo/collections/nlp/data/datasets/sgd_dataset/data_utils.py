@@ -79,6 +79,7 @@ class Dstc8DataProcessor(object):
 
         self._task_name = task_name
         self.schema_config = schema_emb_processor.schema_config
+        self.schema_emb_processor = schema_emb_processor
 
         train_file_range = FILE_RANGES[task_name]["train"]
         dev_file_range = FILE_RANGES[task_name]["dev"]
@@ -107,9 +108,9 @@ class Dstc8DataProcessor(object):
                 if master_device:
                     if not os.path.exists(dialogues_example_dir):
                         os.makedirs(dialogues_example_dir)
-                    dial_examples = self._generate_dialog_examples(dataset, schema_emb_processor.schemas)
+                    dial_examples, slots_relation_list = self._generate_dialog_examples(dataset, schema_emb_processor.schemas)
                     with open(dial_file, "wb") as f:
-                        np.save(f, dial_examples)
+                        np.save(f, (dial_examples, slots_relation_list))
                         f.close()
                     logging.debug(f"The dialogue examples for {dataset} dataset saved at {dial_file}")
                 logging.debug(f"Finish generating the dialogue examples for {dataset} dataset.")
@@ -129,8 +130,9 @@ class Dstc8DataProcessor(object):
         dial_file = self.dial_files[(self._task_name, dataset)]
         logging.info(f"Loading dialogue examples from {dial_file}.")
         with open(dial_file, "rb") as f:
-            dial_examples = np.load(f, allow_pickle=True)
+            dial_examples, slots_relation_list = np.load(f, allow_pickle=True)
             f.close()
+        self.schema_emb_processor.schemas.slots_relation_list = slots_relation_list
         return dial_examples
 
     def _generate_dialog_examples(self, dataset, schemas):
@@ -149,16 +151,23 @@ class Dstc8DataProcessor(object):
         ]
         dialogs = load_dialogues(dialog_paths)
 
+        slot_carryover_candlist = collections.defaultdict(int)
         examples = []
         for dialog_idx, dialog in enumerate(dialogs):
             if dialog_idx % 1000 == 0:
-                logging.info(f'Processed {dialog_idx} dialogs.')
-            examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset))
+                logging.info(f'Processed {dialog_idx} dialogues.')
+            examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset, slot_carryover_candlist))
+
+        slots_relation_list = collections.defaultdict(list)
+        for slots_relation, relation_size in slot_carryover_candlist.items():
+            if relation_size > 0:
+                slots_relation_list[(slots_relation[0], slots_relation[1])].append((slots_relation[2], slots_relation[3], relation_size))
+                slots_relation_list[(slots_relation[2], slots_relation[3])].append((slots_relation[0], slots_relation[1], relation_size))
 
         logging.info(f'Finished creating the examples from {len(dialogs)} dialogues.')
-        return examples
+        return examples, slots_relation_list
 
-    def _create_examples_from_dialog(self, dialog, schemas, dataset):
+    def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist):
         """Create examples for every turn in the dialog."""
         dialog_id = dialog["dialogue_id"]
         prev_states = {}
@@ -166,7 +175,6 @@ class Dstc8DataProcessor(object):
         agg_sys_states = collections.defaultdict(dict)
         prev_agg_sys_states = collections.defaultdict(dict)
         # all_slot_values = collections.defaultdict(collections.defaultdict(dict))
-
         for turn_idx, turn in enumerate(dialog["turns"]):
             # Generate an example for every frame in every user turn.
             if turn["speaker"] == "SYSTEM":
@@ -189,7 +197,7 @@ class Dstc8DataProcessor(object):
                     system_frames = {}
 
                 turn_id = "{}-{}-{:02d}".format(dataset, dialog_id, turn_idx)
-                turn_examples, prev_states = self._create_examples_from_turn(
+                turn_examples, prev_states, slot_carryover_values = self._create_examples_from_turn(
                     turn_id,
                     system_utterance,
                     user_utterance,
@@ -199,6 +207,18 @@ class Dstc8DataProcessor(object):
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),
                 )
+
+                for value, slots_list in slot_carryover_values.items():
+                    if len(slots_list) > 1:
+                        for service1, slot1  in slots_list:
+                            for service2, slot2 in slots_list:
+                                if service1 == service2 or (service1 == service2 and slot1 == slot2):
+                                    continue
+                                if service1 > service2:
+                                    service1, service2 = service2, service1
+                                    slot1, slot2 = slot2, slot1
+                                slot_carryover_candlist[(service1, slot1, service2, slot2)] += 1
+
                 examples.extend(turn_examples)
         return examples
 
@@ -240,6 +260,8 @@ class Dstc8DataProcessor(object):
             user_utterance,
             schemas._slots_status_model,
         )
+
+        slot_carryover_values = collections.defaultdict(list)
         examples = []
         for service, user_frame in user_frames.items():
             # Create an example for this service.
@@ -260,6 +282,23 @@ class Dstc8DataProcessor(object):
             state = user_frame["state"]["slot_values"]
             state_update = self._get_state_update(state, prev_states.get(service, {}))
             states[service] = state
+
+            #if len(user_frames) > 1:
+            if service not in prev_states and int(turn_id_) > 0:
+                for slot_name, values in state_update.items():
+                    for value in values:
+                        if value in ["True", "False"]:
+                            continue
+                        slot_carryover_values[value].append((service, slot_name))
+                for prev_service, prev_slot_value_list in prev_states.items():
+                    if prev_service == service:
+                        continue
+                    for prev_slot_name, prev_values in prev_slot_value_list.items():
+                        for prev_value in prev_values:
+                            if prev_value in ["True", "False"]:
+                                continue
+                            slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+
             # Populate features in the example.
             # cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
             example.add_categorical_slots(state_update, system_frame, agg_sys_states[service])
@@ -285,7 +324,7 @@ class Dstc8DataProcessor(object):
             example.add_slot_status_tokens(schemas._slots_status_model)
 
             examples.append(example)
-        return examples, states
+        return examples, states, slot_carryover_values
 
     def _find_subword_indices(self, slot_values, utterance, char_slot_spans, alignments, subwords, bias):
         """Find indices for subwords corresponding to slot values."""
@@ -729,8 +768,7 @@ class InputExample(object):
                     logging.debug(
                         f'Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
                     )
-
-                    continue
+                    start, end = 0, 0
                 self.noncategorical_slot_value_start[slot_idx] = start
                 self.noncategorical_slot_value_end[slot_idx] = end
 

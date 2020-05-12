@@ -48,6 +48,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     sys_rets = {}
     prev_usr_slots = {}
     true_state = {}
+    prev_service = ""
     for turn_idx, turn in enumerate(dialog["turns"]):
         if turn["speaker"] == "SYSTEM":
             for frame in turn["frames"]:
@@ -58,8 +59,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
             user_utterance = turn["utterance"]
             system_utterance = dialog["turns"][turn_idx - 1]["utterance"] if turn_idx else ""
             turn_id = "{:02d}".format(turn_idx)
-            for frame in turn["frames"]:
 
+            for frame in turn["frames"]:
                 cat_slot_status_acc = 0
                 cat_slot_status_num = 0
                 noncat_slot_status_num = 0
@@ -151,7 +152,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             else:
                                 value_idx = predictions["cat_slot_value"][slot_idx]
                                 slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
-                                print("ridi baz", slot_values[slot])
+                                print("ridi baz cat:", slot_values[slot])
                     # elif predictions["cat_slot_status_p"][slot_idx] < 0.6:
                     #     value_idx = predictions["cat_slot_value"][slot_idx]
                     #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
@@ -212,6 +213,18 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         if slot in sys_prev_slots[frame["service"]]:
                             ext_value = sys_prev_slots[frame["service"]][slot]
                             sys_rets[slot] = ext_value
+                        else:
+                            print(system_utterance, "####", user_utterance)
+                            print("ridi baz noncat (slot,sys_ext,true_val):", slot, system_utterance[-ch_start_idx - 1 : -ch_end_idx], true_state['slot_values'])
+                            if (frame["service"], slot) in schemas.slots_relation_list:
+                                cands_list = schemas.slots_relation_list[(frame["service"], slot)]
+                                for dmn, slt, freq in cands_list:
+                                    if dmn in all_slot_values and slot in all_slot_values[dmn]:
+                                        ext_value = all_slot_values[dmn][slot]
+                                if ext_value is None:
+                                    pass
+                                    #print("ridi baz peida nashod bara multi domain to candidate ha!")
+
 
                     if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
                         noncat_slot_value_num += 1
@@ -329,6 +342,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 # because of use of same objects.
                 state["slot_values"] = {s: [v] for s, v in slot_values.items()}
                 frame["state"] = state
+                prev_service = frame["service"]
+
 
     return dialog
 

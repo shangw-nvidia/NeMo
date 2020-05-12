@@ -185,7 +185,7 @@ class Schema(object):
             service_schemas[service] = ServiceSchema(
                 schema, slots_status_model=slots_status_model, service_id=self.get_service_id(service)
             )
-
+        self.slots_relation_list = {}
         self._service_schemas = service_schemas
 
     def get_service_id(self, service):
