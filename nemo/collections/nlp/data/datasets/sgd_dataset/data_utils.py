@@ -80,6 +80,7 @@ class Dstc8DataProcessor(object):
         self._task_name = task_name
         self.schema_config = schema_emb_processor.schema_config
         self.schema_emb_processor = schema_emb_processor
+        self._add_none_token = schema_emb_processor.schemas._add_none_token
 
         train_file_range = FILE_RANGES[task_name]["train"]
         dev_file_range = FILE_RANGES[task_name]["dev"]
@@ -315,12 +316,14 @@ class Dstc8DataProcessor(object):
             # 1 is added for the [CLS] token and for user tokens a bias of 2 +
             # len(system_tokens) is added to account for [CLS], system tokens and
             # [SEP].
+
+            # changed here
             user_span_boundaries = self._find_subword_indices(
-                state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 2 + len(system_tokens)
+                state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 2 + int(self._add_none_token) + len(system_tokens)
             )
             if system_frame is not None:
                 system_span_boundaries = self._find_subword_indices(
-                    state_update, system_utterance, system_frame["slots"], system_alignments, system_tokens, 1
+                    state_update, system_utterance, system_frame["slots"], system_alignments, system_tokens, 1 + int(self._add_none_token)
                 )
             else:
                 system_span_boundaries = {}
