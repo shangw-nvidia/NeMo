@@ -253,7 +253,7 @@ class Dstc8DataProcessor(object):
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
         user_tokens, user_alignments, user_inv_alignments = self._tokenize(user_utterance)
         states = {}
-        base_example = InputExample(schema_config=self.schema_config, is_real_example=True, tokenizer=self._tokenizer,)
+        base_example = InputExample(schema_config=self.schema_config, is_real_example=True, tokenizer=self._tokenizer, service_schema=schemas)
         base_example.example_id = turn_id
 
         _, dialog_id, turn_id_ = turn_id.split('-')
@@ -267,6 +267,7 @@ class Dstc8DataProcessor(object):
             system_utterance,
             user_utterance,
             schemas._slots_status_model,
+            schemas._add_none_token
         )
 
         slot_carryover_values = collections.defaultdict(list)
@@ -454,6 +455,7 @@ class InputExample(object):
         self.service_schema = service_schema
         self.example_id = example_id
         self.example_id_num = example_id_num
+        self.none_token_id = int(service_schema._add_none_token)
 
         self.is_real_example = is_real_example
         self._max_seq_length = schema_config["MAX_SEQ_LENGTH"]
@@ -496,10 +498,10 @@ class InputExample(object):
         self.noncategorical_slot_status = [-1] * schema_config["MAX_NUM_NONCAT_SLOT"]
         # The index of the starting subword corresponding to the slot span for a
         # non-categorical slot value.
-        self.noncategorical_slot_value_start = [0] * schema_config["MAX_NUM_NONCAT_SLOT"]
+        self.noncategorical_slot_value_start = [self.none_token_id] * schema_config["MAX_NUM_NONCAT_SLOT"]
         # The index of the ending (inclusive) subword corresponding to the slot span
         # for a non-categorical slot value.
-        self.noncategorical_slot_value_end = [0] * schema_config["MAX_NUM_NONCAT_SLOT"]
+        self.noncategorical_slot_value_end = [self.none_token_id] * schema_config["MAX_NUM_NONCAT_SLOT"]
 
         # Total number of slots present in the service. All slots are included here
         # since every slot can be requested.
@@ -579,6 +581,7 @@ class InputExample(object):
         system_utterance,
         user_utterance,
         slots_status_model,
+        add_none_token
     ):
         """Add utterance related features input to bert.
 
@@ -611,6 +614,9 @@ class InputExample(object):
         elif slots_status_model == "cls_token":
             slots_tokens_num = 0
 
+        if add_none_token:
+            slots_tokens_num += 1
+
         is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - slots_tokens_num)
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
@@ -632,6 +638,14 @@ class InputExample(object):
         start_char_idx.append(0)
         end_char_idx.append(0)
         usr_utterance_mask.append(0.0)
+
+        if add_none_token:
+            utterance_subword.append("[EMPTY_VALUE]")
+            utterance_segment.append(0)
+            utterance_mask.append(1)
+            start_char_idx.append(0)
+            end_char_idx.append(0)
+            usr_utterance_mask.append(0.0)
 
         for subword_idx, subword in enumerate(system_tokens):
             utterance_subword.append(subword)
@@ -775,7 +789,7 @@ class InputExample(object):
                     logging.debug(
                         f'Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
                     )
-                    start, end = 0, 0
+                    start, end = self.none_token_id, self.none_token_id #changed here
                 self.noncategorical_slot_value_start[slot_idx] = start
                 self.noncategorical_slot_value_end[slot_idx] = end
 

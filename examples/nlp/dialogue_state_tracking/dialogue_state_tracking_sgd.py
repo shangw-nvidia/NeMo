@@ -291,11 +291,12 @@ if len(special_tokens) > 0:
     if added_vocabs_num <= 0:
         logging.error("Zero new tokens are added!!")
         sys.exit(1)
-    embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
-    if args.init_with_cls:
-        embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(
-            added_vocabs_num, 1
-        )
+    if args.num_epochs > 0:
+        embeddings = pretrained_bert_model.resize_token_embeddings(len(tokenizer))
+        if args.init_with_cls:
+            embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(
+                added_vocabs_num, 1
+            )
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,
