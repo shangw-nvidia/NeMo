@@ -63,6 +63,6 @@ class BertInferDataLayer(TextDataLayer):
             "input_mask": NeuralType(('B', 'T'), ChannelType()),
         }
 
-    def __init__(self, dataset_type, dataset_params, batch_size=1, shuffle=False):
+    def __init__(self, dataset_type, dataset_params, batch_size=1, shuffle=False, num_workers=-1):
 
-        super().__init__(dataset_type, dataset_params, batch_size=batch_size, shuffle=shuffle)
+        super().__init__(dataset_type, dataset_params, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)

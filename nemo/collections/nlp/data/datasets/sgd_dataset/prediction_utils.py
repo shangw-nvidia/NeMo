@@ -30,6 +30,7 @@ __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
 
 def carry_over_slots(cur_usr_frame, all_slot_values, slots_relation_list, prev_frame_service, slot_values, sys_prev_slots, last_sys_slots):
+    # return
     if prev_frame_service == cur_usr_frame["service"]:
         return
     for (service_dest, slot_dest), cands_list in slots_relation_list.items():
@@ -51,17 +52,17 @@ def get_carryover_value(slot, cur_usr_frame, all_slot_values, sys_prev_slots, sl
     if slot in sys_prev_slots[cur_usr_frame["service"]]:
         ext_value = sys_prev_slots[cur_usr_frame["service"]][slot]
         sys_rets[slot] = ext_value
-    # elif (cur_usr_frame["service"], slot) in slots_relation_list:
-    #     cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
-    #     for dmn, slt, freq in cands_list:
-    #         if freq < 25:
-    #             continue
-    #         if dmn in all_slot_values and slt in all_slot_values[dmn]:
-    #             ext_value = all_slot_values[dmn][slt]
-    #         if dmn in sys_prev_slots and slt in sys_prev_slots[dmn]:
-    #             ext_value = sys_prev_slots[dmn][slt]
-    #         if dmn in last_sys_slots and slt in last_sys_slots[dmn]:
-    #             ext_value = last_sys_slots[dmn][slt]
+    elif (cur_usr_frame["service"], slot) in slots_relation_list:
+        cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
+        for dmn, slt, freq in cands_list:
+            if freq < 25:
+                continue
+            if dmn in all_slot_values and slt in all_slot_values[dmn]:
+                ext_value = all_slot_values[dmn][slt]
+            if dmn in sys_prev_slots and slt in sys_prev_slots[dmn]:
+                ext_value = sys_prev_slots[dmn][slt]
+            if dmn in last_sys_slots and slt in last_sys_slots[dmn]:
+                ext_value = last_sys_slots[dmn][slt]
     return ext_value
 
 
@@ -229,8 +230,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         # Add span from the user utterance.
                         ext_value = user_utterance[ch_start_idx - 1 : ch_end_idx]
                     # elif ch_start_idx < 0 and ch_end_idx < 0:
-                    # Add span from the system utterance.
-                    #    slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
+                    # # Add span from the system utterance.
+                    #    ext_value = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                     else:
                         if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE and frame["service"] in in_domain_services:
                             print("=================================================")
