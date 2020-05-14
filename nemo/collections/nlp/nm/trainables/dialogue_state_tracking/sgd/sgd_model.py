@@ -150,7 +150,7 @@ class SGDModel(TrainableNM):
             # Slot status values: none, dontcare, active.
             self.cat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
             self.noncat_slot_status_layer = Logits(3, embedding_dim).to(self._device)
-            #self.noncat_slot_status_layer = self.cat_slot_status_layer
+            # self.noncat_slot_status_layer = self.cat_slot_status_layer
 
         num_services = len(schema_emb_processor.schemas.services)
         self.intents_emb = nn.Embedding(num_services, self.schema_config["MAX_NUM_INTENT"] * embedding_dim)
@@ -342,7 +342,7 @@ class SGDModel(TrainableNM):
             logit_noncat_slot_status = self.noncat_slot_status_layer(encoded_utterance, noncat_slot_emb)
         elif self._slots_status_model == "special_tokens_single":
             logit_cat_slot_status = self.cat_slot_status_layer(token_embeddings[:, -1], cat_slot_emb)
-            #logit_noncat_slot_status = self.noncat_slot_status_layer(token_embeddings[:, -1], noncat_slot_emb)
+            # logit_noncat_slot_status = self.noncat_slot_status_layer(token_embeddings[:, -1], noncat_slot_emb)
             logit_noncat_slot_status = self.cat_slot_status_layer(token_embeddings[:, -1], noncat_slot_emb)
         elif self._slots_status_model == "special_tokens_double":
             logit_cat_slot_status = self.cat_slot_status_layer(token_embeddings[:, -2], cat_slot_emb)

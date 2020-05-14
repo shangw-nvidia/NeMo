@@ -201,7 +201,7 @@ class SGDDialogueStateLoss(LossNM):
         max_num_tokens = logit_noncat_slot_start.size()[-1]
         # Zero out losses for non-categorical slot spans when the slot status is not active.
         # changed here
-        from random import random
+        #from random import random
 
         # if random() < 0.5:
         non_cat_slot_value_mask = (noncategorical_slot_status == STATUS_ACTIVE).view(-1)

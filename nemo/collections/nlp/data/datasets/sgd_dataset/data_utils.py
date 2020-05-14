@@ -108,7 +108,9 @@ class Dstc8DataProcessor(object):
                 if master_device:
                     if not os.path.exists(dialogues_example_dir):
                         os.makedirs(dialogues_example_dir)
-                    dial_examples, slots_relation_list = self._generate_dialog_examples(dataset, schema_emb_processor.schemas)
+                    dial_examples, slots_relation_list = self._generate_dialog_examples(
+                        dataset, schema_emb_processor.schemas
+                    )
                     with open(dial_file, "wb") as f:
                         np.save(f, (dial_examples, slots_relation_list))
                         f.close()
@@ -161,8 +163,12 @@ class Dstc8DataProcessor(object):
         slots_relation_list = collections.defaultdict(list)
         for slots_relation, relation_size in slot_carryover_candlist.items():
             if relation_size > 0:
-                slots_relation_list[(slots_relation[0], slots_relation[1])].append((slots_relation[2], slots_relation[3], relation_size))
-                slots_relation_list[(slots_relation[2], slots_relation[3])].append((slots_relation[0], slots_relation[1], relation_size))
+                slots_relation_list[(slots_relation[0], slots_relation[1])].append(
+                    (slots_relation[2], slots_relation[3], relation_size)
+                )
+                slots_relation_list[(slots_relation[2], slots_relation[3])].append(
+                    (slots_relation[0], slots_relation[1], relation_size)
+                )
 
         logging.info(f'Finished creating the examples from {len(dialogs)} dialogues.')
         return examples, slots_relation_list
@@ -209,8 +215,10 @@ class Dstc8DataProcessor(object):
                 )
 
                 for value, slots_list in slot_carryover_values.items():
+                    if value in ["True", "False"]:
+                        continue
                     if len(slots_list) > 1:
-                        for service1, slot1  in slots_list:
+                        for service1, slot1 in slots_list:
                             for service2, slot2 in slots_list:
                                 if service1 == service2 or (service1 == service2 and slot1 == slot2):
                                     continue
@@ -283,20 +291,19 @@ class Dstc8DataProcessor(object):
             state_update = self._get_state_update(state, prev_states.get(service, {}))
             states[service] = state
 
-            #if len(user_frames) > 1:
+            # if len(user_frames) > 1:
             if service not in prev_states and int(turn_id_) > 0:
                 for slot_name, values in state_update.items():
                     for value in values:
-                        if value in ["True", "False"]:
-                            continue
                         slot_carryover_values[value].append((service, slot_name))
+
                 for prev_service, prev_slot_value_list in prev_states.items():
                     if prev_service == service:
                         continue
+                    if prev_service in state:
+                        prev_slot_value_list = state[prev_service]
                     for prev_slot_name, prev_values in prev_slot_value_list.items():
                         for prev_value in prev_values:
-                            if prev_value in ["True", "False"]:
-                                continue
                             slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
 
             # Populate features in the example.
@@ -633,7 +640,7 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utterance_mask.append(0.0)
+            usr_utterance_mask.append(-np.inf)
 
         utterance_subword.append("[SEP]")
         utterance_segment.append(0)
