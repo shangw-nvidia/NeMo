@@ -197,6 +197,10 @@ parser.add_argument(
     "--init_with_cls", action="store_true", help="Initializes new special tokens with CLS token embedding.",
 )
 
+parser.add_argument(
+    "--add_none_token", action="store_true", help="Add a special token for empty non-categorical slots.",
+)
+
 parser.add_argument("--min_lr", default=0.0, type=float)
 
 args = parser.parse_args()
@@ -273,9 +277,15 @@ schema_preprocessor = SchemaPreprocessor(
 )
 
 # changed here
+special_tokens = []
 if args.slots_status_model in ["special_tokens_multi", "special_tokens_single", "special_tokens_double"]:
+    special_tokens.extend(schema_preprocessor.get_slot_status_tokens(tokenizer))
+if args.add_none_token:
+    special_tokens.append("[EMPTY_VALUE]")
+
+if len(special_tokens) > 0:
     orig_vocab_size = len(tokenizer)
-    schema_preprocessor.add_slot_status_tokens(tokenizer)
+    tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})
     added_vocabs_num = len(tokenizer) - orig_vocab_size
     if added_vocabs_num <= 0:
         logging.error("Zero new tokens are added!!")
@@ -285,7 +295,6 @@ if args.slots_status_model in ["special_tokens_multi", "special_tokens_single", 
         embeddings.weight.data[-added_vocabs_num:] = embeddings.weight.data[tokenizer.cls_id].repeat(
             added_vocabs_num, 1
         )
-
 
 dialogues_processor = data_utils.Dstc8DataProcessor(
     task_name=args.task_name,

@@ -651,7 +651,7 @@ class InputExample(object):
 
         for subword_idx, subword in enumerate(user_tokens):
             utterance_subword.append(subword)
-            utterance_segment.append(0)
+            utterance_segment.append(1) # changed here
             utterance_mask.append(1)
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)

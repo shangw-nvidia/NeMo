@@ -161,7 +161,7 @@ class SchemaPreprocessor:
     def get_ids_to_service_names_dict(self):
         return self.schemas._services_id_to_vocab
 
-    def add_slot_status_tokens(self, tokenizer):
+    def get_slot_status_tokens(self, tokenizer):
         special_tokens = []
         if self.schemas._slots_status_model == "special_tokens_multi":
             for schema_name, schema in self.schemas._service_schemas.items():
@@ -176,4 +176,4 @@ class SchemaPreprocessor:
         elif self.schemas._slots_status_model == "special_tokens_double":
             special_tokens.append("[CAT_SLOT_STATUS]")
             special_tokens.append("[NONCAT_SLOT_STATUS]")
-        tokenizer.add_special_tokens({"additional_special_tokens": special_tokens})
+        return special_tokens
