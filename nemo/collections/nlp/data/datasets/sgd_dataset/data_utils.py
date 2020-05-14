@@ -614,10 +614,7 @@ class InputExample(object):
         elif slots_status_model == "cls_token":
             slots_tokens_num = 0
 
-        if add_none_token:
-            slots_tokens_num += 1
-
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - slots_tokens_num)
+        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - int(add_none_token) - slots_tokens_num)
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 
