@@ -25,7 +25,7 @@ __all__ = ['ServiceSchema', 'Schema']
 class ServiceSchema(object):
     """A wrapper for schema for a service."""
 
-    def __init__(self, schema_json, slots_status_model, service_id=None):
+    def __init__(self, schema_json, slots_status_model, add_none_token, service_id=None):
         self._service_name = schema_json["service_name"]
         self._description = schema_json["description"]
         self._schema_json = schema_json
@@ -33,6 +33,7 @@ class ServiceSchema(object):
 
         # changed here
         self._slots_status_model = slots_status_model
+        self._add_none_token = add_none_token
 
         # Construct the vocabulary for intents, slots, categorical slots,
         # non-categorical slots and categorical slot values. These vocabs are used
@@ -128,29 +129,29 @@ class ServiceSchema(object):
             return -1
         return self._categorical_slot_value_ids[slot][value]
 
-    def get_categorical_slot_status_token_from_id(self, slot_id):
+    def get_categorical_slot_status_token_from_id(self, slot_id=None):
         # changed here
-        return f"[STATUS_CAT_{self.service_name}_{self._categorical_slots[slot_id]}]"
+        if self._slots_status_model == "special_tokens_multi":
+            return f"[STATUS_CAT_{self.service_name}_{self._categorical_slots[slot_id]}]"
+        elif self._slots_status_model == "special_tokens_single":
+            return "[SLOT_STATUS]"
+        elif self._slots_status_model == "special_tokens_double":
+            return "[CAT_SLOT_STATUS]"
 
-    def get_non_categorical_slot_status_token_from_id(self, slot_id):
+    def get_non_categorical_slot_status_token_from_id(self, slot_id=None):
         # changed here
         if self._slots_status_model == "special_tokens_multi":
             return f"[STATUS_NONCAT_{self.service_name}_{self._non_categorical_slots[slot_id]}]"
         elif self._slots_status_model == "special_tokens_single":
             return "[SLOT_STATUS]"
         elif self._slots_status_model == "special_tokens_double":
-            if slot_id == -2:
-                return "[CAT_SLOT_STATUS]"
-            elif slot_id == -3:
-                return "[NONCAT_SLOT_STATUS]"
-            else:
-                raise ValueError(f"No valid slot_id={slot_id} for slots_status_model of special_tokens_double")
+            return "[NONCAT_SLOT_STATUS]"
 
 
 class Schema(object):
     """Wrapper for schemas for all services in a dataset."""
 
-    def __init__(self, schema_json_paths, slots_status_model):
+    def __init__(self, schema_json_paths, slots_status_model, add_none_token):
         """
         TODO fix:
         schema_json_paths: list of .json path to schema files of a single str with path to the json file.
@@ -179,11 +180,12 @@ class Schema(object):
         self._services_vocab = {v: k for k, v in enumerate(self._services)}
         self._services_id_to_vocab = {v: k for k, v in self._services_vocab.items()}
         self._slots_status_model = slots_status_model
+        self._add_none_token = add_none_token
         service_schemas = {}
         for schema in all_schemas:
             service = schema["service_name"]
             service_schemas[service] = ServiceSchema(
-                schema, slots_status_model=slots_status_model, service_id=self.get_service_id(service)
+                schema, slots_status_model=slots_status_model, add_none_token=add_none_token, service_id=self.get_service_id(service)
             )
         self.slots_relation_list = {}
         self._service_schemas = service_schemas

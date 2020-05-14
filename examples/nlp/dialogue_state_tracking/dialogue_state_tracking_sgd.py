@@ -271,6 +271,7 @@ schema_preprocessor = SchemaPreprocessor(
     bert_ckpt_dir=args.bert_checkpoint,
     nf=nf,
     slots_status_model=args.slots_status_model,
+    add_none_token=args.add_none_token,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,
     datasets=splits_list,

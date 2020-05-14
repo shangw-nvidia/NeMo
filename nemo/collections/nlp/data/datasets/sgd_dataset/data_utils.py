@@ -851,7 +851,7 @@ class InputExample(object):
             self.position_ids.append(len(self.position_ids))  # check here
 
             self.utterance_mask.append(1)
-            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-1)
+            slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id()
             self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
             # self.slot_status_tokens.append(self.noncategorical_slot_status[slot_idx])
         elif slots_status_model == "special_tokens_double":
@@ -860,20 +860,20 @@ class InputExample(object):
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             self.position_ids.append(len(self.position_ids))  # check here
-
             self.utterance_mask.append(1)
-            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-2)
-            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+
+            cat_slot_status_token = self.service_schema.get_categorical_slot_status_token_from_id()
+            self.utterance_ids.append(self._tokenizer.tokens_to_ids(cat_slot_status_token))
 
             self.utterance_segment.append(1)
             self.start_char_idx.append(0)
             self.end_char_idx.append(0)
             self.usr_utterance_mask.append(-np.inf)
             self.position_ids.append(len(self.position_ids))  # check here
-
             self.utterance_mask.append(1)
-            slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id(-3)
-            self.utterance_ids.append(self._tokenizer.tokens_to_ids(slot_status_token))
+
+            noncat_slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id()
+            self.utterance_ids.append(self._tokenizer.tokens_to_ids(noncat_slot_status_token))
 
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
