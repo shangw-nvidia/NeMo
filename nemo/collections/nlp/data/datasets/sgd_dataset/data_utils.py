@@ -212,7 +212,7 @@ class Dstc8DataProcessor(object):
                     user_frames,
                     prev_states,
                     schemas,
-                    copy.deepcopy(prev_agg_sys_states),
+                    copy.deepcopy(agg_sys_states), #changed here prev_agg_sys_states or agg_sys_states
                 )
 
                 for value, slots_list in slot_carryover_values.items():
@@ -254,7 +254,9 @@ class Dstc8DataProcessor(object):
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
         user_tokens, user_alignments, user_inv_alignments = self._tokenize(user_utterance)
         states = {}
-        base_example = InputExample(schema_config=self.schema_config, is_real_example=True, tokenizer=self._tokenizer, service_schema=schemas)
+        base_example = InputExample(
+            schema_config=self.schema_config, is_real_example=True, tokenizer=self._tokenizer, service_schema=schemas
+        )
         base_example.example_id = turn_id
 
         _, dialog_id, turn_id_ = turn_id.split('-')
@@ -268,7 +270,7 @@ class Dstc8DataProcessor(object):
             system_utterance,
             user_utterance,
             schemas._slots_status_model,
-            schemas._add_none_token
+            schemas._add_none_token,
         )
 
         slot_carryover_values = collections.defaultdict(list)
@@ -319,11 +321,21 @@ class Dstc8DataProcessor(object):
 
             # changed here
             user_span_boundaries = self._find_subword_indices(
-                state_update, user_utterance, user_frame["slots"], user_alignments, user_tokens, 2 + int(self._add_none_token) + len(system_tokens)
+                state_update,
+                user_utterance,
+                user_frame["slots"],
+                user_alignments,
+                user_tokens,
+                2 + int(self._add_none_token) + len(system_tokens),
             )
             if system_frame is not None:
                 system_span_boundaries = self._find_subword_indices(
-                    state_update, system_utterance, system_frame["slots"], system_alignments, system_tokens, 1 + int(self._add_none_token)
+                    state_update,
+                    system_utterance,
+                    system_frame["slots"],
+                    system_alignments,
+                    system_tokens,
+                    1 + int(self._add_none_token),
                 )
             else:
                 system_span_boundaries = {}
@@ -584,7 +596,7 @@ class InputExample(object):
         system_utterance,
         user_utterance,
         slots_status_model,
-        add_none_token
+        add_none_token,
     ):
         """Add utterance related features input to bert.
 
@@ -617,7 +629,9 @@ class InputExample(object):
         elif slots_status_model == "cls_token":
             slots_tokens_num = 0
 
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3 - int(add_none_token) - slots_tokens_num)
+        is_too_long = truncate_seq_pair(
+            system_tokens, user_tokens, max_utt_len - 3 - int(add_none_token) - slots_tokens_num
+        )
         if is_too_long:
             logging.warning(f'Utterance sequence truncated in example id - {self.example_id}.')
 
@@ -654,7 +668,7 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utterance_mask.append(0) #-np.inf) # changed here
+            usr_utterance_mask.append(0)  # -np.inf) # changed here
 
         utterance_subword.append("[SEP]")
         utterance_segment.append(0)
@@ -665,7 +679,7 @@ class InputExample(object):
 
         for subword_idx, subword in enumerate(user_tokens):
             utterance_subword.append(subword)
-            utterance_segment.append(1) # changed here
+            utterance_segment.append(1)  # changed here
             utterance_mask.append(1)
             st, en = user_inv_alignments[subword_idx]
             start_char_idx.append(st + 1)
@@ -789,7 +803,7 @@ class InputExample(object):
                     logging.debug(
                         f'Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
                     )
-                    start, end = self.none_token_id, self.none_token_id #changed here
+                    start, end = self.none_token_id, self.none_token_id  # changed here
                 self.noncategorical_slot_value_start[slot_idx] = start
                 self.noncategorical_slot_value_end[slot_idx] = end
 

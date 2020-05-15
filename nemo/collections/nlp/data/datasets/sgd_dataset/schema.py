@@ -185,7 +185,10 @@ class Schema(object):
         for schema in all_schemas:
             service = schema["service_name"]
             service_schemas[service] = ServiceSchema(
-                schema, slots_status_model=slots_status_model, add_none_token=add_none_token, service_id=self.get_service_id(service)
+                schema,
+                slots_status_model=slots_status_model,
+                add_none_token=add_none_token,
+                service_id=self.get_service_id(service),
             )
         self.slots_relation_list = {}
         self._service_schemas = service_schemas
