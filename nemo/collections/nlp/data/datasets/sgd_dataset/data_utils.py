@@ -29,6 +29,7 @@ import re
 
 import numpy as np
 import torch
+import inflect
 
 from nemo import logging
 
@@ -81,6 +82,7 @@ class Dstc8DataProcessor(object):
         self.schema_config = schema_emb_processor.schema_config
         self.schema_emb_processor = schema_emb_processor
         self._add_none_token = schema_emb_processor.schemas._add_none_token
+        self._add_text_nums = schema_emb_processor._add_text_nums
 
         train_file_range = FILE_RANGES[task_name]["train"]
         dev_file_range = FILE_RANGES[task_name]["dev"]
@@ -154,6 +156,9 @@ class Dstc8DataProcessor(object):
         ]
         dialogs = load_dialogues(dialog_paths)
 
+        # changed here
+        #dialogs = self.add_text_nums(dialogs)
+
         slot_carryover_candlist = collections.defaultdict(int)
         examples = []
         for dialog_idx, dialog in enumerate(dialogs):
@@ -173,6 +178,41 @@ class Dstc8DataProcessor(object):
 
         logging.info(f'Finished creating the examples from {len(dialogs)} dialogues.')
         return examples, slots_relation_list
+
+    def add_text_nums(self, dialogs):
+        import re
+        p = inflect.engine()
+        for dialog_idx, dialog in enumerate(dialogs):
+            for turn_idx, turn in enumerate(dialog["turns"]):
+                utt_orig = turn["utterance"]
+                int_list = [(num.start(0), num.end(0)) for num in re.finditer("\\d+", utt_orig)]
+                #int_list = [s for s in utt_orig.split() if s.isdigit()]
+                valid_int_list = []
+                for (start_idx, end_idx) in int_list[-1::-1]:
+                    #start_idx = turn["utterance"].index(i)
+                    #turn["utterance"] = turn["utterance"][:start_idx+len(i)] + " " + p.number_to_words(int(i)) + turn["utterance"][start_idx+len(i):]
+                    inside_noncat = False
+                    for frame in turn["frames"]:
+                        for slot in frame["slots"]:
+                            if (start_idx >= slot["start"] and start_idx < slot["exclusive_end"]) or (end_idx > slot["start"] and end_idx <= slot["exclusive_end"]):
+                                inside_noncat = True
+                                break
+                    if not inside_noncat:
+                        valid_int_list.append((start_idx, end_idx, utt_orig[start_idx:end_idx]))
+
+                for (start_idx, end_idx, num) in valid_int_list:
+                    new_start_idx = start_idx #turn["utterance"].rindex(num, start=start_idx)
+                    turn["utterance"] = turn["utterance"][:new_start_idx+len(num)] + " " + p.number_to_words(int(num)) + turn["utterance"][new_start_idx+len(num):]
+                if turn["utterance"] != utt_orig:
+                    print("Replaced cat number!")
+                    for frame in turn["frames"]:
+                        for slot in frame["slots"]:
+                            slot_value = utt_orig[slot["start"]: slot["exclusive_end"]]
+                            slot["start"] = turn["utterance"].index(slot_value, slot["start"])
+                            slot["exclusive_end"] = slot["start"] + len(slot_value)
+                            pass
+        return dialogs
+
 
     def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist):
         """Create examples for every turn in the dialog."""
@@ -212,7 +252,7 @@ class Dstc8DataProcessor(object):
                     user_frames,
                     prev_states,
                     schemas,
-                    copy.deepcopy(agg_sys_states), #changed here prev_agg_sys_states or agg_sys_states
+                    copy.deepcopy(prev_agg_sys_states), #changed here prev_agg_sys_states or agg_sys_states
                 )
 
                 for value, slots_list in slot_carryover_values.items():
