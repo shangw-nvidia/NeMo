@@ -189,8 +189,6 @@ class Dstc8DataProcessor(object):
                 #int_list = [s for s in utt_orig.split() if s.isdigit()]
                 valid_int_list = []
                 for (start_idx, end_idx) in int_list[-1::-1]:
-                    #start_idx = turn["utterance"].index(i)
-                    #turn["utterance"] = turn["utterance"][:start_idx+len(i)] + " " + p.number_to_words(int(i)) + turn["utterance"][start_idx+len(i):]
                     inside_noncat = False
                     for frame in turn["frames"]:
                         for slot in frame["slots"]:
