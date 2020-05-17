@@ -16,7 +16,6 @@
 """Wrappers for schemas of different services."""
 
 import json
-import inflect
 
 from nemo import logging
 
@@ -26,7 +25,7 @@ __all__ = ['ServiceSchema', 'Schema']
 class ServiceSchema(object):
     """A wrapper for schema for a service."""
 
-    def __init__(self, schema_json, slots_status_model, add_none_token, add_text_nums, service_id=None):
+    def __init__(self, schema_json, slots_status_model, add_none_token, service_id=None):
         self._service_name = schema_json["service_name"]
         self._description = schema_json["description"]
         self._schema_json = schema_json
@@ -48,18 +47,11 @@ class ServiceSchema(object):
             s["name"] for s in schema_json["slots"] if not s["is_categorical"] and s["name"] in self.state_slots
         )
         slot_schemas = {s["name"]: s for s in schema_json["slots"]}
-
-        p = inflect.engine()
         categorical_slot_values = {}
         categorical_slot_value_ids = {}
         for slot in self._categorical_slots:
             slot_schema = slot_schemas[slot]
-            values = slot_schema["possible_values"]
-
-            # changed here
-            if add_text_nums:
-                values = [p.number_to_words(int(value)) if value.isdigit() else value for value in values]
-            values = sorted(values)
+            values = sorted(slot_schema["possible_values"])
 
             # changed here
             values.append("##NONE##")
@@ -189,6 +181,8 @@ class Schema(object):
         self._services_id_to_vocab = {v: k for k, v in self._services_vocab.items()}
         self._slots_status_model = slots_status_model
         self._add_none_token = add_none_token
+        self._add_text_nums = add_text_nums
+
         service_schemas = {}
         for schema in all_schemas:
             service = schema["service_name"]
@@ -196,7 +190,6 @@ class Schema(object):
                 schema,
                 slots_status_model=slots_status_model,
                 add_none_token=add_none_token,
-                add_text_nums=add_text_nums,
                 service_id=self.get_service_id(service),
             )
         self.slots_relation_list = {}

@@ -23,6 +23,7 @@ import re
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+import inflect
 
 from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
@@ -45,6 +46,7 @@ class SchemaEmbeddingDataset(Dataset):
         self._tokenizer = tokenizer
         self.schema_config = schema_config
         self.schemas = schemas
+        self._add_text_nums = schemas._add_text_nums
 
         input_features = self._get_input_features()
 
@@ -229,10 +231,15 @@ class SchemaEmbeddingDataset(Dataset):
             nl_seq = " ".join([service_des, _NL_SEPARATOR, slot, slot_descriptions[slot]])
             features.append(self._create_feature(nl_seq, "noncat_slot_emb", service_schema.service_id, slot_id))
 
+        inflect_engine = inflect.engine()
+
         for slot_id, slot in enumerate(service_schema.categorical_slots):
             nl_seq = " ".join([service_des, _NL_SEPARATOR, slot, slot_descriptions[slot]])
             features.append(self._create_feature(nl_seq, "cat_slot_emb", service_schema.service_id, slot_id))
             for value_id, value in enumerate(service_schema.get_categorical_slot_values(slot)):
+                # changed here
+                if self._add_text_nums and value.isdigit():
+                    value = inflect_engine.number_to_words(int(value))
                 nl_seq = " ".join([slot, slot_descriptions[slot], _NL_SEPARATOR, value])
                 features.append(
                     self._create_feature(nl_seq, "cat_slot_value_emb", service_schema.service_id, slot_id, value_id)
