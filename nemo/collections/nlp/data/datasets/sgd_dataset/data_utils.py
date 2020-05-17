@@ -157,7 +157,9 @@ class Dstc8DataProcessor(object):
         dialogs = load_dialogues(dialog_paths)
 
         # changed here
-        #dialogs = self.add_text_nums(dialogs)
+
+        if self._add_text_nums:
+            dialogs = self.add_text_nums(dialogs)
 
         slot_carryover_candlist = collections.defaultdict(int)
         examples = []
