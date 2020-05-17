@@ -157,7 +157,6 @@ class Dstc8DataProcessor(object):
         dialogs = load_dialogues(dialog_paths)
 
         # changed here
-
         if self._add_text_nums:
             dialogs = self.add_text_nums(dialogs)
 
@@ -182,7 +181,6 @@ class Dstc8DataProcessor(object):
         return examples, slots_relation_list
 
     def add_text_nums(self, dialogs):
-        import re
         p = inflect.engine()
         for dialog_idx, dialog in enumerate(dialogs):
             for turn_idx, turn in enumerate(dialog["turns"]):
