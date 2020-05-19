@@ -10,6 +10,7 @@ from nemo.utils.decorators import add_port_docs
 
 try:
     from warprnnt_pytorch import RNNTLoss as WarpRNNTLoss
+
     WARP_RNNT_LOSS_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
     WARP_RNNT_LOSS_AVAILABLE = False
@@ -114,22 +115,20 @@ class RNNTLoss(LossNM):
         # return {"loss": NeuralType(None)}
         return {"loss": NeuralType(elements_type=LossType())}
 
-    def __init__(self, num_classes: int, reduction='mean'):
+    def __init__(self, num_classes: int, reduction=None):
         super().__init__()
 
         if not WARP_RNNT_LOSS_AVAILABLE:
-            raise ValueError("RNNTLoss could not be imported. Please make sure that "
-                             "RNNTLoss is properly installed by following the "
-                             "instructions at https://github.com/HawkAaron/warp-transducer")
+            raise ValueError(
+                "RNNTLoss could not be imported. Please make sure that "
+                "RNNTLoss is properly installed by following the "
+                "instructions at https://github.com/HawkAaron/warp-transducer"
+            )
 
         self._blank = num_classes
         self.rnnt_loss = WarpRNNTLoss(blank=self._blank, reduction=reduction)
 
-    def forward(
-        self,
-        inputs: Tuple[torch.Tensor, torch.Tensor],
-        targets: Tuple[torch.Tensor, torch.Tensor],
-    ) -> torch.Tensor:
+    def forward(self, log_probs, targets, input_length, target_length,) -> torch.Tensor:
         """Computes RNNT loss.
 
         Args:
@@ -150,9 +149,12 @@ class RNNTLoss(LossNM):
                 sequence to achieve masking under the assumption that sequences
                 are padded to equal lengths.
         """
+        input_length = input_length.int()
+        target_length = target_length.int()
+        targets = targets.int()
 
-        logits, logit_lens = inputs
-        y, y_lens = targets
+        logits, logit_lens = log_probs, input_length
+        y, y_lens = targets, target_length
 
         # cast to required types
         if logits.dtype != torch.float:
@@ -160,20 +162,11 @@ class RNNTLoss(LossNM):
             logits = logits.float()
             del logits_orig  # save memory *before* computing the loss
 
-        if y.dtype != torch.int32:
-            y = y.int()
+        loss = self.rnnt_loss(acts=logits, labels=y, act_lens=logit_lens, label_lens=y_lens)
 
-        if logit_lens.dtype != torch.int32:
-            logit_lens = logit_lens.int()
-
-        if y_lens.dtype != torch.int32:
-            y_lens = y_lens.int()
-
-        loss = self.rnnt_loss(
-            acts=logits, labels=y, act_lens=logit_lens, label_lens=y_lens
-        )
+        loss = torch.mean(loss)
 
         # del new variables that may have been created due to float/int/cuda()
-        del logits, y, logit_lens, y_lens, inputs, targets
+        del logits, y, logit_lens, y_lens, targets
 
         return loss

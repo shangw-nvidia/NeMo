@@ -67,14 +67,12 @@ class GreedyRNNTDecoder(NonTrainableNM):
 
     def __init__(
         self,
-        encoder_model: TrainableNM,
         decoder_model: RNNTDecoder,
         joint_model: RNNTJoint,
         blank_index: int,
         max_symbols_per_step: int = 30,
     ):
         super().__init__()
-        self.encoder = encoder_model
         self.decoder = decoder_model
         self.joint = joint_model
 
