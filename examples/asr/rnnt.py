@@ -69,6 +69,7 @@ def parse_args():
     parser.add_argument("--update_freq", default=50, type=int, help="Metrics update freq")
     parser.add_argument("--eval_freq", default=1000, type=int, help="Evaluation frequency")
     parser.add_argument('--kernel_size_factor', default=1.0, type=float)
+    parser.add_argument('--max_symbols_per_step', default=30, type=int, help='Maximum number of symbols per step')
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -167,7 +168,10 @@ def create_all_dags(args, neural_factory):
     rnnt_loss = nemo_asr.RNNTLoss(num_classes=len(vocab), reduction=None)
 
     greedy_decoder = nemo_asr.GreedyRNNTDecoder(
-        decoder_model=decoder, joint_model=joint, blank_index=len(vocab) - 1, max_symbols_per_step=30
+        decoder_model=decoder,
+        joint_model=joint,
+        blank_index=len(vocab) - 1,
+        max_symbols_per_step=args.max_symbols_per_step,
     )
 
     # create augmentation modules (only used for training) if their configs
@@ -248,7 +252,7 @@ def create_all_dags(args, neural_factory):
             wandb_project = None
 
         eval_callback = nemo.core.EvaluatorCallback(
-            eval_tensors=[loss_e, predictions_e, transcript_e, transcript_len_e,],
+            eval_tensors=[loss_e, predictions_e, transcript_e, transcript_len_e],
             user_iter_callback=partial(process_evaluation_batch, labels=vocab),
             user_epochs_done_callback=partial(process_evaluation_epoch, tag=tagname),
             eval_step=args.eval_freq,

@@ -1,0 +1,63 @@
+model: "RNNT"
+sample_rate: 16000
+repeat: &repeat 1
+dropout: &dropout 0.0
+rnn_dropout: &rnn_dropout 0.0
+stride: &stride 1
+
+
+AudioToTextDataLayer:
+    max_duration: 16.7
+    trim_silence: true
+
+    train:
+        shuffle: true
+
+    eval:
+        shuffle: false
+        max_duration: null
+
+AudioToMelSpectrogramPreprocessor:
+    window_size: 0.02
+    window_stride: 0.01
+    window: "hann"
+    normalize: "per_feature"
+    n_fft: 512
+    features: 80
+    frame_splicing: 3
+    dither: 0.00001
+    pad_to: 16
+    stft_conv: false
+
+SpectrogramAugmentation:
+    freq_masks: 2
+    time_masks: 2
+    freq_width: 25
+    time_width: 0.05
+
+RNNTEncoder:
+    normalization_mode: null
+    rnnt:
+        encoder_hidden: &enc_hidden 1024
+        encoder_pre_rnn_layers: 2
+        encoder_stack_time_factor: 2
+        encoder_post_rnn_layers: 3
+        dropout: *rnn_dropout
+
+RNNTDecoder:
+    normalization_mode: null
+    rnnt:
+        pred_hidden: &dec_hidden 512
+        pred_rnn_layers: 2
+        dropout: *rnn_dropout
+
+RNNTJoint:
+    normalization_mode: null
+    rnnt:
+        joint_hidden: 512
+        encoder_hidden: *enc_hidden
+        pred_hidden: *dec_hidden
+        dropout: *rnn_dropout
+
+labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+         "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
