@@ -30,11 +30,11 @@ logging = nemo.logging
 
 
 __all__ = [
-    'RNNTGreedyDecoder'
+    'GreedyRNNTDecoder'
 ]
 
 
-class RNNTGreedyDecoder(NonTrainableNM):
+class GreedyRNNTDecoder(NonTrainableNM):
     """A greedy transducer decoder.
     Args:
         blank_symbol: See `Decoder`.

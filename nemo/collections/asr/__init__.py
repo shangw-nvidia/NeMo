@@ -26,6 +26,7 @@ from nemo.collections.asr.data_layer import (
     TranscriptDataLayer,
 )
 from nemo.collections.asr.greedy_ctc_decoder import GreedyCTCDecoder
+from nemo.collections.asr.greedy_rnnt_decoder import GreedyRNNTDecoder
 from nemo.collections.asr.jasper import (
     JasperDecoderForClassification,
     JasperDecoderForCTC,
@@ -33,7 +34,8 @@ from nemo.collections.asr.jasper import (
     JasperEncoder,
 )
 from nemo.collections.asr.las.misc import JasperRNNConnector
-from nemo.collections.asr.losses import CTCLossNM
+from nemo.collections.asr.rnnt import RNNTDecoder, RNNTEncoder, RNNTJoint
+from nemo.collections.asr.losses import CTCLossNM, RNNTLoss
 
 __all__ = [
     'AudioToTextDataLayer',
@@ -51,6 +53,7 @@ __all__ = [
     'TranscriptDataLayer',
     'GreedyCTCDecoder',
     'BeamSearchDecoderWithLM',
+    'GreedyRNNTDecoder',
     'JasperEncoder',
     'JasperDecoderForCTC',
     'JasperDecoderForClassification',
@@ -58,6 +61,10 @@ __all__ = [
     'JasperRNNConnector',
     'ContextNetEncoder',
     'ContextNetDecoderForCTC',
+    'RNNTEncoder',
+    'RNNTDecoder',
+    'RNNTJoint',
     'CTCLossNM',
+    'RNNTLoss',
     'CrossEntropyLossNM',
 ]
