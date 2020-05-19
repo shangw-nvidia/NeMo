@@ -15,6 +15,7 @@
 import math
 from typing import Final, List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 from torch import Tensor
 
@@ -25,10 +26,11 @@ def rnn(
     num_layers: int,
     norm: Optional[str] = None,
     forget_gate_bias: Optional[float] = 1.0,
-    dropout=0.0,
+    dropout: Optional[float] = 0.0,
+    norm_first_rnn: Optional[bool] = None
 ) -> torch.nn.Module:
 
-    if norm not in [None, "batch_norm", "layer_norm"]:
+    if norm not in [None, "batch", "layer"]:
         raise ValueError(f"unknown norm={norm}")
 
     if norm is None:
@@ -40,7 +42,7 @@ def rnn(
             forget_gate_bias=forget_gate_bias,
         )
 
-    if norm == "batch_norm":
+    if norm == "batch":
         return BNRNNSum(
             input_size=input_size,
             hidden_size=hidden_size,
@@ -48,9 +50,10 @@ def rnn(
             batch_norm=True,
             dropout=dropout,
             forget_gate_bias=forget_gate_bias,
+            norm_first_rnn=norm_first_rnn
         )
 
-    if norm == "layer_norm":
+    if norm == "layer":
         return torch.jit.script(
             ln_lstm(
                 input_size=input_size,
@@ -161,7 +164,7 @@ class RNNLayer(torch.nn.Module):
                 input_size=input_size,
                 hidden_size=hidden_size,
                 num_layers=1,
-                dropout=None,
+                dropout=0.0,
                 forget_gate_bias=forget_gate_bias,
             )
         else:
@@ -216,7 +219,7 @@ class BNRNNSum(torch.nn.Module):
                 )
             )
 
-            if dropout > 0.0 and not final_layer:
+            if dropout is not None and dropout > 0.0 and not final_layer:
                 self.layers.append(torch.nn.Dropout(dropout))
 
             input_size = hidden_size
@@ -399,3 +402,28 @@ class StackedLSTM(torch.nn.Module):
             output_states += [out_state]
             i += 1
         return output, output_states
+
+
+def label_collate(labels):
+    """Collates the label inputs for the rnn-t prediction network.
+    If `labels` is already in torch.Tensor form this is a no-op.
+    Args:
+        labels: A torch.Tensor List of label indexes or a torch.Tensor.
+    Returns:
+        A padded torch.Tensor of shape (batch, max_seq_len).
+    """
+
+    if isinstance(labels, torch.Tensor):
+        return labels.type(torch.int64)
+    if not isinstance(labels, (list, tuple)):
+        raise ValueError(f"`labels` should be a list or tensor not {type(labels)}")
+
+    batch_size = len(labels)
+    max_len = max(len(label) for label in labels)
+
+    cat_labels = np.full((batch_size, max_len), fill_value=0.0, dtype=np.int32)
+    for e, l in enumerate(labels):
+        cat_labels[e, : len(l)] = l
+    labels = torch.LongTensor(cat_labels)
+
+    return labels
