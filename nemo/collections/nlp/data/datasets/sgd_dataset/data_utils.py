@@ -208,9 +208,7 @@ class Dstc8DataProcessor(object):
                             slot_value = utt_orig[slot["start"]: slot["exclusive_end"]]
                             slot["start"] = turn["utterance"].index(slot_value, slot["start"])
                             slot["exclusive_end"] = slot["start"] + len(slot_value)
-                            pass
         return dialogs
-
 
     def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist):
         """Create examples for every turn in the dialog."""
@@ -455,7 +453,7 @@ class Dstc8DataProcessor(object):
         return bert_tokens, alignments, inverse_alignments
 
     def get_num_dialog_examples(self, dataset):
-        """Get the number of dilaog examples in the data split.
+        """Get the number of dialogue examples in the data split.
 
         Args:
           dataset: str. can be "train", "dev", or "test".
@@ -801,7 +799,7 @@ class InputExample(object):
                     # changed here
                     if values[0] in agg_sys_state.get(slot, []):
                         self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                            slot, "##NONE##"
+                            slot, "#CARRYVALUE#"
                         )
                         print(
                             f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in prev states: {agg_sys_state}"

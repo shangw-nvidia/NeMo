@@ -25,7 +25,7 @@ __all__ = ['ServiceSchema', 'Schema']
 class ServiceSchema(object):
     """A wrapper for schema for a service."""
 
-    def __init__(self, schema_json, slots_status_model, add_none_token, service_id=None):
+    def __init__(self, schema_json, slots_status_model, add_carry_value, add_none_token, service_id=None):
         self._service_name = schema_json["service_name"]
         self._description = schema_json["description"]
         self._schema_json = schema_json
@@ -34,6 +34,7 @@ class ServiceSchema(object):
         # changed here
         self._slots_status_model = slots_status_model
         self._add_none_token = add_none_token
+        self._add_carry_value = add_carry_value
 
         # Construct the vocabulary for intents, slots, categorical slots,
         # non-categorical slots and categorical slot values. These vocabs are used
@@ -54,7 +55,8 @@ class ServiceSchema(object):
             values = sorted(slot_schema["possible_values"])
 
             # changed here
-            values.append("##NONE##")
+            if add_carry_value:
+                values.append("#CARRYVALUE#")
 
             categorical_slot_values[slot] = values
             value_ids = {value: idx for idx, value in enumerate(values)}
@@ -151,7 +153,7 @@ class ServiceSchema(object):
 class Schema(object):
     """Wrapper for schemas for all services in a dataset."""
 
-    def __init__(self, schema_json_paths, slots_status_model, add_none_token, add_text_nums):
+    def __init__(self, schema_json_paths, slots_status_model, add_carry_value, add_none_token, add_text_nums):
         """
         TODO fix:
         schema_json_paths: list of .json path to schema files of a single str with path to the json file.
@@ -189,6 +191,7 @@ class Schema(object):
             service_schemas[service] = ServiceSchema(
                 schema,
                 slots_status_model=slots_status_model,
+                add_carry_value=add_carry_value,
                 add_none_token=add_none_token,
                 service_id=self.get_service_id(service),
             )
