@@ -24,11 +24,11 @@ class SGDDataset(Dataset):
 
     def __getitem__(self, idx):
         # changed here badly!
-        #print(idx, len(self.features))
-        #ex = self.features[(idx + 180*64) % len(self.features)]
+        # print(idx, len(self.features))
+        # ex = self.features[(idx + 180*64) % len(self.features)]
         ex = self.features[idx]
         service_id = ex.service_schema.service_id
-        #print(ex.user_utterance)
+        # print(ex.user_utterance)
 
         return (
             np.array(ex.example_id_num),

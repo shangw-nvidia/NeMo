@@ -209,7 +209,7 @@ class Dstc8DataProcessor(object):
                         + turn["utterance"][new_start_idx + len(num) :]
                     )
                 if turn["utterance"] != utt_orig:
-                    #print("Replaced cat number!")
+                    # print("Replaced cat number!")
                     for frame in turn["frames"]:
                         for slot in frame["slots"]:
                             slot_value = utt_orig[slot["start"] : slot["exclusive_end"]]
