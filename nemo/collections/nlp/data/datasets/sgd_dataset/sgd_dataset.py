@@ -23,6 +23,9 @@ class SGDDataset(Dataset):
         return len(self.features)
 
     def __getitem__(self, idx):
+        # changed here badly!
+        #print(idx, len(self.features))
+        #ex = self.features[(idx + 180*64) % len(self.features)]
         ex = self.features[idx]
         service_id = ex.service_schema.service_id
         #print(ex.user_utterance)
