@@ -201,12 +201,11 @@ class Dstc8DataProcessor(object):
                         valid_int_list.append((start_idx, end_idx, utt_orig[start_idx:end_idx]))
 
                 for (start_idx, end_idx, num) in valid_int_list:
-                    new_start_idx = start_idx  # turn["utterance"].rindex(num, start=start_idx)
                     turn["utterance"] = (
-                        turn["utterance"][: new_start_idx + len(num)]
+                        turn["utterance"][: start_idx + len(num)]
                         + " "
                         + p.number_to_words(int(num))
-                        + turn["utterance"][new_start_idx + len(num) :]
+                        + turn["utterance"][start_idx + len(num) :]
                     )
                 if turn["utterance"] != utt_orig:
                     # print("Replaced cat number!")
