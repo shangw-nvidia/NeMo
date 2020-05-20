@@ -514,6 +514,7 @@ class InputExample(object):
         self.example_id = example_id
         self.example_id_num = example_id_num
         self.none_token_id = int(service_schema._add_none_token)
+        self._add_carry_value = service_schema._add_carry_value
 
         self.is_real_example = is_real_example
         self._max_seq_length = schema_config["MAX_SEQ_LENGTH"]
@@ -804,7 +805,7 @@ class InputExample(object):
                 slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])
                 if slot_id >= 0:
                     # changed here
-                    if values[0] in agg_sys_state.get(slot, []):
+                    if self._add_carry_value and values[0] in agg_sys_state.get(slot, []):
                         self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
                             slot, "#CARRYVALUE#"
                         )
