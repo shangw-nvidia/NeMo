@@ -27,9 +27,9 @@ import json
 import os
 import re
 
+import inflect
 import numpy as np
 import torch
-import inflect
 
 from nemo import logging
 
@@ -186,26 +186,33 @@ class Dstc8DataProcessor(object):
             for turn_idx, turn in enumerate(dialog["turns"]):
                 utt_orig = turn["utterance"]
                 int_list = [(num.start(0), num.end(0)) for num in re.finditer("\\d+", utt_orig)]
-                #int_list = [s for s in utt_orig.split() if s.isdigit()]
+                # int_list = [s for s in utt_orig.split() if s.isdigit()]
                 valid_int_list = []
                 for (start_idx, end_idx) in int_list[-1::-1]:
                     inside_noncat = False
                     for frame in turn["frames"]:
                         for slot in frame["slots"]:
-                            if (start_idx >= slot["start"] and start_idx < slot["exclusive_end"]) or (end_idx > slot["start"] and end_idx <= slot["exclusive_end"]):
+                            if (start_idx >= slot["start"] and start_idx < slot["exclusive_end"]) or (
+                                end_idx > slot["start"] and end_idx <= slot["exclusive_end"]
+                            ):
                                 inside_noncat = True
                                 break
                     if not inside_noncat:
                         valid_int_list.append((start_idx, end_idx, utt_orig[start_idx:end_idx]))
 
                 for (start_idx, end_idx, num) in valid_int_list:
-                    new_start_idx = start_idx #turn["utterance"].rindex(num, start=start_idx)
-                    turn["utterance"] = turn["utterance"][:new_start_idx+len(num)] + " " + p.number_to_words(int(num)) + turn["utterance"][new_start_idx+len(num):]
+                    new_start_idx = start_idx  # turn["utterance"].rindex(num, start=start_idx)
+                    turn["utterance"] = (
+                        turn["utterance"][: new_start_idx + len(num)]
+                        + " "
+                        + p.number_to_words(int(num))
+                        + turn["utterance"][new_start_idx + len(num) :]
+                    )
                 if turn["utterance"] != utt_orig:
                     print("Replaced cat number!")
                     for frame in turn["frames"]:
                         for slot in frame["slots"]:
-                            slot_value = utt_orig[slot["start"]: slot["exclusive_end"]]
+                            slot_value = utt_orig[slot["start"] : slot["exclusive_end"]]
                             slot["start"] = turn["utterance"].index(slot_value, slot["start"])
                             slot["exclusive_end"] = slot["start"] + len(slot_value)
         return dialogs
@@ -248,7 +255,7 @@ class Dstc8DataProcessor(object):
                     user_frames,
                     prev_states,
                     schemas,
-                    copy.deepcopy(prev_agg_sys_states), #changed here prev_agg_sys_states or agg_sys_states
+                    copy.deepcopy(prev_agg_sys_states),  # changed here prev_agg_sys_states or agg_sys_states
                 )
 
                 for value, slots_list in slot_carryover_values.items():

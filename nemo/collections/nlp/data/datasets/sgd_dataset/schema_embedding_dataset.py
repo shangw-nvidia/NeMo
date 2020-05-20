@@ -20,10 +20,10 @@ import collections
 import random
 import re
 
+import inflect
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import inflect
 
 from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils

@@ -325,6 +325,7 @@ dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss()
 
 def create_pipeline(dataset_split):
     import torch
+
     with torch.autograd.detect_anomaly():
         datalayer = nemo_nlp.nm.data_layers.SGDDataLayer(
             dataset_split=dataset_split,

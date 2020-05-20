@@ -288,19 +288,19 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     # # Add span from the system utterance.
                     #    ext_value = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                     else:
-                        if (
-                            predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE
-                            and frame["service"] in in_domain_services
-                        ):
-                            print("=================================================")
-                            print(system_utterance, "####", user_utterance)
-                            print(
-                                "ridi baz noncat (slot,sys_ext,true_val):",
-                                slot,
-                                system_utterance[-ch_start_idx - 1 : -ch_end_idx],
-                                true_state['slot_values'],
-                            )
-                            print("predicted slots:", all_slot_values)
+                        # if (
+                        #     predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE
+                        #     and frame["service"] in in_domain_services
+                        # ):
+                        #     print("=================================================")
+                        #     print(system_utterance, "####", user_utterance)
+                        #     print(
+                        #         "ridi baz noncat (slot,sys_ext,true_val):",
+                        #         slot,
+                        #         system_utterance[-ch_start_idx - 1 : -ch_end_idx],
+                        #         true_state['slot_values'],
+                        #     )
+                        #     print("predicted slots:", all_slot_values)
                         ext_value = get_carryover_value(
                             slot,
                             frame,
