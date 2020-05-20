@@ -162,7 +162,7 @@ class SGDDialogueStateLoss(LossNM):
 
         if sum(cat_slot_status_mask) == 0:
             logging.warning(f'No active categorical slots in the batch')
-            cat_slot_status_loss = 0
+            cat_slot_status_loss = torch.tensor(0.0, device=self._device, requires_grad = True)
         else:
             cat_slot_status_loss = self._cross_entropy(
                 logit_cat_slot_status.reshape(-1, 3)[cat_slot_status_mask],
@@ -181,7 +181,7 @@ class SGDDialogueStateLoss(LossNM):
         # to handle cases with no active categorical slot value
         if sum(cat_slot_value_mask) == 0:
             logging.warning(f'No active categorical slots in the batch')
-            cat_slot_value_loss = 0
+            cat_slot_value_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             slot_values_active_logits = logit_cat_slot_value.view(-1, max_num_slot_values)[cat_slot_value_mask]
             slot_values_active_labels = categorical_slot_values.view(-1)[cat_slot_value_mask]
@@ -209,8 +209,8 @@ class SGDDialogueStateLoss(LossNM):
         #     non_cat_slot_value_mask = (noncategorical_slot_status > -1 ).view(-1)
         # to handle cases with no active categorical slot value
         if sum(non_cat_slot_value_mask) == 0:
-            span_start_loss = 0.0
-            span_end_loss = 0.0
+            span_start_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
+            span_end_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             noncat_slot_start_active_logits = logit_noncat_slot_start.view(-1, max_num_tokens)[non_cat_slot_value_mask]
             noncat_slot_start_active_labels = noncategorical_slot_value_start.view(-1)[non_cat_slot_value_mask]
@@ -242,4 +242,4 @@ class SGDDialogueStateLoss(LossNM):
         # changed here
         # total_loss = sum(losses.values()) / len(losses)
         total_loss = sum(losses.values()) / intent_status.size()[0]
-        return total_loss
+        return total_loss #torch.tensor(0.0, device=self._device, requires_grad = True) #total_loss
