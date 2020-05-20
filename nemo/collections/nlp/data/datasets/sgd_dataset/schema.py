@@ -184,6 +184,7 @@ class Schema(object):
         self._slots_status_model = slots_status_model
         self._add_none_token = add_none_token
         self._add_text_nums = add_text_nums
+        self._add_carry_value = add_carry_value
 
         service_schemas = {}
         for schema in all_schemas:
