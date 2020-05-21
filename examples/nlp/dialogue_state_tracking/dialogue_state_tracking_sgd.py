@@ -223,6 +223,7 @@ if args.task_name == "multiwoz":
         "MAX_NUM_NONCAT_SLOT": 4,
         "MAX_NUM_VALUE_PER_CAT_SLOT": 50,
         "MAX_NUM_INTENT": 1,
+        "MAX_NUM_USER_ACT": 2
     }
     splits_list = ["train", "test", "dev"]
 else:
@@ -232,6 +233,7 @@ else:
         #        "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_VALUE_PER_CAT_SLOT": 12,
         "MAX_NUM_INTENT": 4,
+        "MAX_NUM_USER_ACT": 2
     }
     splits_list = ["train", "dev", "test"]
 
@@ -355,6 +357,7 @@ def create_pipeline(dataset_split):
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
+            logit_user_action_status,
             # logit_slot_status_tokens,
         ) = model(
             encoded_utterance=encoded_utterance,
@@ -376,6 +379,7 @@ def create_pipeline(dataset_split):
                 logit_noncat_slot_status=logit_noncat_slot_status,
                 logit_noncat_slot_start=logit_noncat_slot_start,
                 logit_noncat_slot_end=logit_noncat_slot_end,
+                logit_user_action_status=logit_user_action_status,
                 # logit_slot_status_tokens=logit_slot_status_tokens,
                 intent_status=data.intent_status,
                 requested_slot_status=data.requested_slot_status,
@@ -387,6 +391,7 @@ def create_pipeline(dataset_split):
                 num_noncategorical_slots=data.num_noncategorical_slots,
                 noncategorical_slot_value_start=data.noncategorical_slot_value_start,
                 noncategorical_slot_value_end=data.noncategorical_slot_value_end,
+                user_action_status=data.user_action_status,
                 # slot_status_tokens=data.slot_status_tokens,
             )
             tensors = [loss]
@@ -404,6 +409,7 @@ def create_pipeline(dataset_split):
                 logit_noncat_slot_status,
                 logit_noncat_slot_start,
                 logit_noncat_slot_end,
+                logit_user_action_status,
                 data.intent_status,
                 data.requested_slot_status,
                 data.categorical_slot_status,
@@ -412,6 +418,7 @@ def create_pipeline(dataset_split):
                 data.noncategorical_slot_status,
                 data.num_noncategorical_slots,
                 data.usr_utterance_mask,
+                data.user_action_status,
             ]
 
         steps_per_epoch = math.ceil(len(datalayer) / (args.train_batch_size * args.num_gpus))

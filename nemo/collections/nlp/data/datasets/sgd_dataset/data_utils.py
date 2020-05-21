@@ -51,6 +51,9 @@ STATUS_OFF = 0
 STATUS_ACTIVE = 1
 STATUS_DONTCARE = 2
 
+USR_ACT_AFFIRM = 0
+USR_ACT_NOAFFIRM = 1
+
 FILE_RANGES = {
     "dstc8_single_domain": {"train": range(1, 44), "dev": range(1, 8), "test": range(1, 12)},
     "dstc8_multi_domain": {"train": range(44, 128), "dev": range(8, 21), "test": range(12, 35)},
@@ -384,6 +387,7 @@ class Dstc8DataProcessor(object):
             example.add_noncategorical_slots(state_update, user_span_boundaries, system_span_boundaries)
             example.add_requested_slots(user_frame)
             example.add_intents(user_frame)
+            example.add_user_action(user_frame["actions"])
 
             # changed here
             example.add_slot_status_tokens(schemas._slots_status_model)
@@ -573,6 +577,7 @@ class InputExample(object):
         self.num_intents = 0
         # Takes value 1 if the intent is active, 0 otherwise.
         self.intent_status = [STATUS_OFF] * schema_config["MAX_NUM_INTENT"]
+        self.user_act_status = [USR_ACT_NOAFFIRM] * schema_config["MAX_NUM_USER_ACT"]
 
         # chnaged here
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
@@ -863,6 +868,17 @@ class InputExample(object):
         for intent_idx, intent in enumerate(all_intents):
             if intent == frame["state"]["active_intent"]:
                 self.intent_status[intent_idx] = STATUS_ACTIVE
+
+    def add_user_action(self, user_actions):
+        affirm = False
+        for action in user_actions:
+            if action["act"] == "AFFIRM" or action["act"] == "SELECT":
+                affirm = True
+                break
+        if affirm:
+            self.user_act_status = 1
+        else:
+            self.user_act_status = 0
 
     def pad_to_max(self, max_length):
         # changed here

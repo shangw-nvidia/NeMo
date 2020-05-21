@@ -103,6 +103,7 @@ class SGDModel(TrainableNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
+            "logit_user_action_status": NeuralType(('B', 'C'), LogitsType()),
             # "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
         }
 
@@ -130,6 +131,8 @@ class SGDModel(TrainableNM):
         # TODO truncated norm init
         nn.init.normal_(self.none_intent_vector, std=0.02)
         self.none_intent_vector = torch.nn.Parameter(self.none_intent_vector).to(self._device)
+
+        self.user_action_layer = nn.Linear(embedding_dim, self.schema_config["MAX_NUM_USER_ACT"]).to(self._device)
 
         self.intent_layer = Logits(1, embedding_dim).to(self._device)
         self.requested_slots_layer = Logits(1, embedding_dim).to(self._device)
@@ -233,6 +236,8 @@ class SGDModel(TrainableNM):
             cat_slot_emb, noncat_slot_emb, token_embeddings, encoded_utterance
         )
 
+        logits_user_action_status = self.user_action_layer(encoded_utterance)
+
         return (
             logit_intent_status,
             logit_req_slot_status,
@@ -242,6 +247,7 @@ class SGDModel(TrainableNM):
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
+            logits_user_action_status
         )
 
     def _get_intents(self, encoded_utterance, intent_embeddings, num_intents):

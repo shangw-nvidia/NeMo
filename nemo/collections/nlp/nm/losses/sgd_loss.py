@@ -68,6 +68,7 @@ class SGDDialogueStateLoss(LossNM):
             "logit_noncat_slot_status": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_start": NeuralType(('B', 'T', 'C'), LogitsType()),
             "logit_noncat_slot_end": NeuralType(('B', 'T', 'C'), LogitsType()),
+            "logit_user_action_status": NeuralType(('B', 'C'), LogitsType()),
             # "logit_slot_status_tokens": NeuralType(('B', 'T', 'C'), LogitsType()),
             "intent_status": NeuralType(('B'), LabelsType()),
             "requested_slot_status": NeuralType(('B', 'T'), LabelsType()),
@@ -78,6 +79,7 @@ class SGDDialogueStateLoss(LossNM):
             "num_noncategorical_slots": NeuralType(('B'), LengthsType()),
             "noncategorical_slot_value_start": NeuralType(('B', 'T'), LabelsType()),
             "noncategorical_slot_value_end": NeuralType(('B', 'T'), LabelsType()),
+            "user_action_status": NeuralType(('B'), LabelsType()),
             # "slot_status_tokens": NeuralType(('B', 'T'), LabelsType()),
         }
 
@@ -111,6 +113,7 @@ class SGDDialogueStateLoss(LossNM):
         logit_noncat_slot_status,
         logit_noncat_slot_start,
         logit_noncat_slot_end,
+        logit_user_action_status,
         # logit_slot_status_tokens,
         intent_status,
         requested_slot_status,
@@ -122,6 +125,7 @@ class SGDDialogueStateLoss(LossNM):
         num_noncategorical_slots,
         noncategorical_slot_value_start,
         noncategorical_slot_value_end,
+        user_action_status,
         # slot_status_tokens,
     ):
         """
@@ -134,6 +138,7 @@ class SGDDialogueStateLoss(LossNM):
             intent_status (labels) Shape: (batch_size, max_num_intents) - one-hot encoded
         """
 
+        user_action_status_loss = self._cross_entropy(logit_user_action_status, user_action_status)
         # Intent loss
         # Add label corresponding to NONE intent.
         num_active_intents = torch.sum(intent_status, axis=1).unsqueeze(1)
@@ -252,6 +257,7 @@ class SGDDialogueStateLoss(LossNM):
             "noncat_slot_status_loss": noncat_slot_status_loss,
             "span_start_loss": span_start_loss,
             "span_end_loss": span_end_loss,
+            "user_action_status_loss": user_action_status_loss
         }
 
         #print(losses)
