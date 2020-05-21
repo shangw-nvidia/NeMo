@@ -247,7 +247,7 @@ class SGDModel(TrainableNM):
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
-            logits_user_action_status
+            logits_user_action_status,
         )
 
     def _get_intents(self, encoded_utterance, intent_embeddings, num_intents):

@@ -223,7 +223,7 @@ if args.task_name == "multiwoz":
         "MAX_NUM_NONCAT_SLOT": 4,
         "MAX_NUM_VALUE_PER_CAT_SLOT": 50,
         "MAX_NUM_INTENT": 1,
-        "MAX_NUM_USER_ACT": 2
+        "MAX_NUM_USER_ACT": 2,
     }
     splits_list = ["train", "test", "dev"]
 else:
@@ -233,7 +233,7 @@ else:
         #        "MAX_NUM_VALUE_PER_CAT_SLOT": 11,
         "MAX_NUM_VALUE_PER_CAT_SLOT": 12,
         "MAX_NUM_INTENT": 4,
-        "MAX_NUM_USER_ACT": 2
+        "MAX_NUM_USER_ACT": 2,
     }
     splits_list = ["train", "dev", "test"]
 
