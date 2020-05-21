@@ -210,7 +210,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--fix_intent_slot_name", action="store_true", help="Fixes the name of slots and intents for generating the schema embeddings.",
+    "--fix_slot_intent_name", action="store_true", help="Fixes the name of slots and intents for generating the schema embeddings.",
 )
 
 
@@ -287,7 +287,7 @@ schema_preprocessor = SchemaPreprocessor(
     add_carry_value=args.add_carry_value,
     add_none_token=args.add_none_token,
     add_text_nums=args.add_text_nums,
-    fix_intent_slot_name=args.fix_intent_slot_name,
+    fix_slot_intent_name=args.fix_slot_intent_name,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,
     datasets=splits_list,
