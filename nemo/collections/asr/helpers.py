@@ -1,9 +1,17 @@
 # Copyright (c) 2019 NVIDIA Corporation
-
 import torch
 
 from .metrics import classification_accuracy, word_error_rate
 from nemo.utils import logging
+
+try:
+    from nemo.collections.asr.parts import numba_utils
+
+    HAVE_NUMBA = True
+except (ImportError, ModuleNotFoundError):
+    HAVE_NUMBA = False
+
+logging = nemo.logging
 
 
 def __ctc_decoder_predictions_tensor(tensor, labels):
@@ -29,7 +37,34 @@ def __ctc_decoder_predictions_tensor(tensor, labels):
     return hypotheses
 
 
-def monitor_asr_train_progress(tensors: list, labels: list, eval_metric='WER', tb_logger=None):
+def __rnnt_decoder_predictions_list(decoded_predictions, labels):
+    """
+    Decodes a sequence of labels to words
+    """
+    blank_id = len(labels)
+    hypotheses = []
+    labels_map = dict([(i, labels[i]) for i in range(len(labels))])
+    # iterate over batch
+    decoded_predictions = decoded_predictions.cpu().numpy()
+    for ind in range(decoded_predictions.shape[0]):
+        if HAVE_NUMBA:
+            decoded_prediction = numba_utils.decode_rnnt_hypothesis(decoded_predictions[ind], blank_id)
+        else:
+            prediction = decoded_predictions[ind]
+            # CTC decoding procedure
+            decoded_prediction = []
+            previous = len(labels)  # id of a blank symbol
+            for p in prediction:
+                for c in p:
+                    if (c != previous or previous == blank_id) and c != blank_id:
+                        decoded_prediction.append(c)
+                    previous = c
+        hypothesis = ''.join([labels_map[c] for c in decoded_prediction])
+        hypotheses.append(hypothesis)
+    return hypotheses
+
+
+def monitor_asr_train_progress(tensors: list, labels: list, eval_metric='WER', tb_logger=None, decoder_type='ctc'):
     """
     Takes output of greedy ctc decoder and performs ctc decoding algorithm to
     remove duplicates and special symbol. Prints sample to screen, computes
@@ -39,9 +74,14 @@ def monitor_asr_train_progress(tensors: list, labels: list, eval_metric='WER', t
       labels: A list of labels
       eval_metric: An optional string from 'WER', 'CER'. Defaults to 'WER'.
       tb_logger: Tensorboard logging object
+      decoder_type: String value to select type of decoding required.
+        Can be `ctc` or `rnnt`.
     Returns:
       None
     """
+    if decoder_type not in ('ctc', 'rnnt'):
+        raise ValueError('`decoder_type` must be either `ctc` or `rnnr`')
+
     references = []
 
     labels_map = dict([(i, labels[i]) for i in range(len(labels))])
@@ -56,7 +96,11 @@ def monitor_asr_train_progress(tensors: list, labels: list, eval_metric='WER', t
             target = targets_cpu_tensor[ind][:tgt_len].numpy().tolist()
             reference = ''.join([labels_map[c] for c in target])
             references.append(reference)
-        hypotheses = __ctc_decoder_predictions_tensor(tensors[1], labels=labels)
+
+        if decoder_type == 'ctc':
+            hypotheses = __ctc_decoder_predictions_tensor(tensors[1], labels=labels)
+        elif decoder_type == 'rnnt':
+            hypotheses = __rnnt_decoder_predictions_list(tensors[1], labels=labels)
 
     eval_metric = eval_metric.upper()
     if eval_metric not in {'WER', 'CER'}:
@@ -112,10 +156,15 @@ def __gather_losses(losses_list: list) -> list:
     return [torch.mean(torch.stack(losses_list))]
 
 
-def __gather_predictions(predictions_list: list, labels: list) -> list:
+def __gather_predictions(predictions_list: list, labels: list, decoder_type: str) -> list:
     results = []
+    if decoder_type == 'ctc':
+        decoder_func = __ctc_decoder_predictions_tensor
+    else:
+        decoder_func = __rnnt_decoder_predictions_list
+
     for prediction in predictions_list:
-        results += __ctc_decoder_predictions_tensor(prediction, labels=labels)
+        results += decoder_func(prediction, labels=labels)
     return results
 
 
@@ -135,10 +184,13 @@ def __gather_transcripts(transcript_list: list, transcript_len_list: list, label
     return results
 
 
-def process_evaluation_batch(tensors: dict, global_vars: dict, labels: list):
+def process_evaluation_batch(tensors: dict, global_vars: dict, labels: list, decoder_type: str = 'ctc'):
     """
     Creates a dictionary holding the results from a batch of audio
     """
+    if decoder_type not in ('ctc', 'rnnt'):
+        raise ValueError('`decoder_type` must be either `ctc` or `rnnr`')
+
     if 'EvalLoss' not in global_vars.keys():
         global_vars['EvalLoss'] = []
     if 'predictions' not in global_vars.keys():
@@ -153,7 +205,7 @@ def process_evaluation_batch(tensors: dict, global_vars: dict, labels: list):
         if kv.startswith('loss'):
             global_vars['EvalLoss'] += __gather_losses(v)
         elif kv.startswith('predictions'):
-            global_vars['predictions'] += __gather_predictions(v, labels=labels)
+            global_vars['predictions'] += __gather_predictions(v, labels=labels, decoder_type=decoder_type)
         elif kv.startswith('transcript_length'):
             transcript_len_list = v
         elif kv.startswith('transcript'):
@@ -192,8 +244,11 @@ def process_evaluation_epoch(global_vars: dict, eval_metric='WER', tag=None):
         }
 
 
-def post_process_predictions(predictions, labels):
-    return __gather_predictions(predictions, labels=labels)
+def post_process_predictions(predictions, labels, decoder_type: str = 'ctc'):
+    if decoder_type not in ('ctc', 'rnnt'):
+        raise ValueError('`decoder_type` must be either `ctc` or `rnnt`')
+
+    return __gather_predictions(predictions, labels=labels, decoder_type=decoder_type)
 
 
 def post_process_transcripts(transcript_list, transcript_len_list, labels):

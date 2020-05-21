@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import math
-from typing import Final, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -279,7 +279,7 @@ class StackTime(torch.nn.Module):
         super().__init__()
         self.factor = int(factor)
 
-    def forward(self, x: List[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: List[Tuple[torch.Tensor]]) -> (torch.Tensor, torch.Tensor):
         # T, B, U
         x, x_lens = x
         seq = [x]
@@ -376,7 +376,7 @@ def init_stacked_lstm(
 class StackedLSTM(torch.nn.Module):
     def __init__(self, num_layers: int, layer: torch.nn.Module, first_layer_args: List, other_layer_args: List):
         super(StackedLSTM, self).__init__()
-        self.layers: Final[torch.nn.ModuleList] = init_stacked_lstm(
+        self.layers: torch.nn.ModuleList = init_stacked_lstm(
             num_layers, layer, first_layer_args, other_layer_args
         )
 

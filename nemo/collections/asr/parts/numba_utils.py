@@ -91,3 +91,21 @@ def _phase_vocoder_kernel(D, time_steps, phi_advance, d_stretch, phase_acc, scal
         phase_acc += phi_advance + dphase
 
     return d_stretch
+
+
+@jit(nopython=True)
+def decode_rnnt_hypothesis(decoded_predictions, blank_id):
+    prediction = decoded_predictions
+    length = prediction.shape[0]
+    # CTC decoding procedure
+    decoded_prediction = []
+    previous = blank_id  # id of a blank symbol
+    for p_idx in range(length):
+        p = prediction[p_idx]
+
+        for c in p:
+            if (c != previous or previous == blank_id) and c != blank_id:
+                decoded_prediction.append(c)
+            previous = c
+
+    return decoded_prediction

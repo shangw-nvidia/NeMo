@@ -28,6 +28,9 @@ from nemo.utils.decorators import add_port_docs
 logging = nemo.logging
 
 
+torch.autograd.set_detect_anomaly(True)
+
+
 class RNNTEncoder(TrainableNM):
     """A Recurrent Neural Network Transducer (RNN-T).
     Args:
@@ -92,7 +95,7 @@ class RNNTEncoder(TrainableNM):
 
         self.encoder = self._encoder(
             feat_in,
-            encoder_n_hidden=rnnt["encoder_hidden"],
+            encoder_n_hidden=self.encoder_n_hidden,
             encoder_pre_rnn_layers=self.encoder_pre_rnn_layers,
             encoder_post_rnn_layers=self.encoder_post_rnn_layers,
             forget_gate_bias=forget_gate_bias,
@@ -212,7 +215,7 @@ class RNNTDecoder(TrainableNM):
         super().__init__()
 
         # Required arguments
-        pred_hidden = rnnt['pred_hidden']
+        self.pred_hidden = rnnt['pred_hidden']
         pred_rnn_layers = rnnt["pred_rnn_layers"]
 
         # Optional arguments
@@ -220,8 +223,8 @@ class RNNTDecoder(TrainableNM):
         dropout = rnnt.get('dropout', 0.0)
 
         self.prediction = self._predict(
-            num_classes,
-            pred_n_hidden=pred_hidden,
+            num_classes + 1,  # add 1 for blank symbol
+            pred_n_hidden=self.pred_hidden,
             pred_rnn_layers=pred_rnn_layers,
             forget_gate_bias=forget_gate_bias,
             norm=normalization_mode,
@@ -259,7 +262,7 @@ class RNNTDecoder(TrainableNM):
             y = self.prediction["embed"](y)
         else:
             B = 1 if state is None else state[0].size(1)
-            y = torch.zeros((B, 1, self.pred_n_hidden)).to(device=self._device)
+            y = torch.zeros((B, 1, self.pred_hidden)).to(device=self._device)
 
         # preprend blank "start of sequence" symbol
         if add_sos:
@@ -334,7 +337,7 @@ class RNNTJoint(TrainableNM):
         """Returns definitions of module output ports.
         """
         return {
-            "outputs": NeuralType(('B', 'T', 'D', 'D'), EncodedRepresentation()),
+            "outputs": NeuralType(('B', 'T', 'D', 'D'), LogitsType()),
         }
 
     def __init__(
@@ -352,8 +355,8 @@ class RNNTJoint(TrainableNM):
         # Optional arguments
         dropout = rnnt.get('dropout', 0.0)
 
-        self.joint_net = self._joint_net(
-            vocab_size=num_classes,
+        self.pred, self.enc, self.joint_net = self._joint_net(
+            vocab_size=num_classes + 1,  # add 1 for blank symbol
             pred_n_hidden=pred_hidden,
             enc_n_hidden=encoder_hidden,
             joint_n_hidden=joint_hidden,
@@ -381,21 +384,36 @@ class RNNTJoint(TrainableNM):
         B, T, H = f.shape
         B, U_, H2 = g.shape
 
-        f = f.unsqueeze(dim=2)  # (B, T, 1, H)
-        f = f.expand((B, T, U_, H))
+        f = self.enc(f)
+        f.unsqueeze_(dim=2)  # (B, T, 1, D)
+        # f = f.expand((B, T, U_, H))
 
-        g = g.unsqueeze(dim=1)  # (B, 1, U + 1, H)
-        g = g.expand((B, T, U_, H2))
+        g = self.pred(g)
+        g.unsqueeze_(dim=1)  # (B, 1, U + 1, H)
+        # g = g.expand((B, T, U_, H2))
 
-        inp = torch.cat([f, g], dim=3)  # (B, T, U, 2H)
+        # print("f", f.shape, "g", g.shape)
+
+        # inp = torch.cat([f, g], dim=3)  # (B, T, U, H + H2)
+        inp = f + g
+
+        del f, g
+        # print("inp to jointnet shape :", inp.shape)
+
         res = self.joint_net(inp)
-        del f, g, inp
+
+        # print("joint res", res.shape)
+
+        del inp
         return res
 
     def _joint_net(self, vocab_size, pred_n_hidden, enc_n_hidden, joint_n_hidden, dropout):
+        pred = torch.nn.Linear(pred_n_hidden, joint_n_hidden)
+        enc = torch.nn.Linear(enc_n_hidden, joint_n_hidden)
+
         layers = (
-            [torch.nn.Linear(pred_n_hidden + enc_n_hidden, joint_n_hidden), torch.nn.ReLU()]
+            [torch.nn.ReLU(inplace=True)]
             + ([torch.nn.Dropout(p=dropout)] if dropout else [])
             + [torch.nn.Linear(joint_n_hidden, vocab_size)]
         )
-        return torch.nn.Sequential(*layers)
+        return pred, enc, torch.nn.Sequential(*layers)

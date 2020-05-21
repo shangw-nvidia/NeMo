@@ -99,7 +99,7 @@ class RNNTLoss(LossNM):
             # "targets": NeuralType({0: AxisType(BatchTag), 1: AxisType(TimeTag)}),
             # "input_length": NeuralType({0: AxisType(BatchTag)}),
             # "target_length": NeuralType({0: AxisType(BatchTag)}),
-            "log_probs": NeuralType(('B', 'T', 'D'), LogprobsType()),
+            "log_probs": NeuralType(('B', 'T', 'D', 'D'), LogitsType()),
             "targets": NeuralType(('B', 'T'), LabelsType()),
             "input_length": NeuralType(tuple('B'), LengthsType()),
             "target_length": NeuralType(tuple('B'), LengthsType()),
@@ -128,7 +128,7 @@ class RNNTLoss(LossNM):
         self._blank = num_classes
         self.rnnt_loss = WarpRNNTLoss(blank=self._blank, reduction=reduction)
 
-    def forward(self, log_probs, targets, input_length, target_length,) -> torch.Tensor:
+    def _loss(self, log_probs, targets, input_length, target_length) -> torch.Tensor:
         """Computes RNNT loss.
 
         Args:
@@ -156,12 +156,22 @@ class RNNTLoss(LossNM):
         logits, logit_lens = log_probs, input_length
         y, y_lens = targets, target_length
 
+        max_logit_len = logit_lens.max()
+        max_label_len = y_lens.max()
+
         # cast to required types
         if logits.dtype != torch.float:
             logits_orig = logits
             logits = logits.float()
             del logits_orig  # save memory *before* computing the loss
 
+        # print("rnnt loss", logits.shape, y.shape, logit_lens.shape, y_lens.shape)
+        # print("rnnt max len", torch.max(input_length), "max target", torch.max(target_length))
+        # print("logit lens", logit_lens)
+        # print("y lens", y_lens)
+
+        # Ensure that shape mismatch does not occur due to padding
+        logits = logits[:, :max_logit_len, :, :].contiguous()
         loss = self.rnnt_loss(acts=logits, labels=y, act_lens=logit_lens, label_lens=y_lens)
 
         loss = torch.mean(loss)
@@ -170,3 +180,6 @@ class RNNTLoss(LossNM):
         del logits, y, logit_lens, y_lens, targets
 
         return loss
+
+    def _loss_function(self, **kwargs):
+        return self._loss(*(kwargs.values()))
