@@ -212,7 +212,7 @@ class SchemaEmbeddingDataset(Dataset):
     # changed here
     def fix_name(self, name):
         if self._fix_slot_intent_name:
-            return " ".join(re.sub("_", " ", re.sub("([A-Z])", " \\1", name)).split())
+            return (" ".join(re.sub("_", " ", re.sub("([A-Z])", " \\1", name)).split())).lower()
         else:
             return name
 
