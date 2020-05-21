@@ -209,6 +209,11 @@ parser.add_argument(
     "--add_text_nums", action="store_true", help="Add text format of numbers not a part of non-categorical values.",
 )
 
+parser.add_argument(
+    "--fix_intent_slot_name", action="store_true", help="Fixes the name of slots and intents for generating the schema embeddings.",
+)
+
+
 parser.add_argument("--min_lr", default=0.0, type=float)
 
 args = parser.parse_args()
@@ -282,6 +287,7 @@ schema_preprocessor = SchemaPreprocessor(
     add_carry_value=args.add_carry_value,
     add_none_token=args.add_none_token,
     add_text_nums=args.add_text_nums,
+    fix_intent_slot_name=args.fix_intent_slot_name,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,
     datasets=splits_list,

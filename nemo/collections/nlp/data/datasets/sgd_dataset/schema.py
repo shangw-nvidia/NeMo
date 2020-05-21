@@ -65,10 +65,6 @@ class ServiceSchema(object):
         self._categorical_slot_values = categorical_slot_values
         self._categorical_slot_value_ids = categorical_slot_value_ids
 
-    # chnaged here
-    def fix_names(self):
-        return " ".join(re.sub("_", " ", re.sub("([A-Z])", " \\1", "test_tyeATY")).split())
-
     @property
     def schema_json(self):
         return self._schema_json
@@ -130,7 +126,7 @@ class ServiceSchema(object):
         return self._categorical_slot_values[slot][value_id]
 
     def get_categorical_slot_value_id(self, slot, value):
-        # debugging info
+        # changed here
         if value not in self._categorical_slot_value_ids[slot]:
             logging.warning(f"Not found value:'{value}' for slot:{slot} in {self._service_name}")
             return -1
@@ -158,7 +154,7 @@ class ServiceSchema(object):
 class Schema(object):
     """Wrapper for schemas for all services in a dataset."""
 
-    def __init__(self, schema_json_paths, slots_status_model, add_carry_value, add_none_token, add_text_nums):
+    def __init__(self, schema_json_paths, slots_status_model, add_carry_value, add_none_token, add_text_nums, fix_intent_slot_name):
         """
         TODO fix:
         schema_json_paths: list of .json path to schema files of a single str with path to the json file.
@@ -190,6 +186,7 @@ class Schema(object):
         self._add_none_token = add_none_token
         self._add_text_nums = add_text_nums
         self._add_carry_value = add_carry_value
+        self._fix_intent_slot_name = fix_intent_slot_name
 
         service_schemas = {}
         for schema in all_schemas:
