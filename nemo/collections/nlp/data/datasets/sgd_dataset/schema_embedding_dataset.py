@@ -179,10 +179,10 @@ class SchemaEmbeddingDataset(Dataset):
 
         features = []
         intent_descriptions = {
-            self.fix_name(i["name"]): i["description"] for i in service_schema.schema_json["intents"]
+            i["name"]: i["description"] for i in service_schema.schema_json["intents"]
         }
         for intent_id, intent in enumerate(service_schema.intents):
-            nl_seq = " ".join([service_des, _NL_SEPARATOR, intent, intent_descriptions[intent]])
+            nl_seq = " ".join([service_des, _NL_SEPARATOR, self.fix_name(intent), intent_descriptions[intent]])
             features.append(self._create_feature(nl_seq, "intent_emb", service_schema.service_id, intent_id))
         return features
 
@@ -202,10 +202,10 @@ class SchemaEmbeddingDataset(Dataset):
       """
         service_des = service_schema.description
 
-        slot_descriptions = {self.fix_name(s["name"]): s["description"] for s in service_schema.schema_json["slots"]}
+        slot_descriptions = {s["name"]: s["description"] for s in service_schema.schema_json["slots"]}
         features = []
         for slot_id, slot in enumerate(service_schema.slots):
-            nl_seq = " ".join([service_des, _NL_SEPARATOR, slot, slot_descriptions[slot]])
+            nl_seq = " ".join([service_des, _NL_SEPARATOR, self.fix_name(slot), slot_descriptions[slot]])
             features.append(self._create_feature(nl_seq, "req_slot_emb", service_schema.service_id, slot_id))
         return features
 
@@ -235,10 +235,10 @@ class SchemaEmbeddingDataset(Dataset):
         service_des = service_schema.description
 
         features = []
-        slot_descriptions = {self.fix_name(s["name"]): s["description"] for s in service_schema.schema_json["slots"]}
+        slot_descriptions = {s["name"]: s["description"] for s in service_schema.schema_json["slots"]}
 
         for slot_id, slot in enumerate(service_schema.non_categorical_slots):
-            nl_seq = " ".join([service_des, _NL_SEPARATOR, slot, slot_descriptions[slot]])
+            nl_seq = " ".join([service_des, _NL_SEPARATOR, self.fix_name(slot), slot_descriptions[slot]])
             features.append(self._create_feature(nl_seq, "noncat_slot_emb", service_schema.service_id, slot_id))
 
         inflect_engine = inflect.engine()
