@@ -51,7 +51,7 @@ class Encoder(TrainableNM):
             "hidden_states": NeuralType(('B', 'T', 'C'), ChannelType()),
         }
 
-    def __init__(self, hidden_size, activation='tanh', dropout=0.0, use_transformer_pretrained=True):
+    def __init__(self, hidden_size, dropout=0.0, activation='tanh', use_transformer_pretrained=True):
         super().__init__()
         self.fc = nn.Linear(hidden_size, hidden_size).to(self._device)
 
@@ -70,5 +70,4 @@ class Encoder(TrainableNM):
         first_token_hidden_states = hidden_states[:, 0]
         logits = self.fc(first_token_hidden_states)
         logits = self.activation(logits)
-        logits = self.dropout1(logits)
-        return logits, self.dropout2(hidden_states)
+        return self.dropout1(logits), self.dropout2(hidden_states)

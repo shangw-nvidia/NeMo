@@ -45,6 +45,7 @@ def eval_iter_callback(tensors, global_vars, schema_processor, eval_dataset):
     predictions['is_real_example'] = output['is_real_example']
 
     predictions['user_action_status'] = torch.argmax(output['logit_user_action_status'], -1)
+    predictions['user_action_status_GT'] = output['user_action_status']
 
     # Scores are output for each intent.
     # Note that the intent indices are shifted by 1 to account for NONE intent.
