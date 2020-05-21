@@ -199,7 +199,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
 
                 if predictions["user_action_status"] == data_utils.USR_ACT_AFFIRM:
                     accept_offer(
-                        frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["servoice"]], sys_slots_last[frame["servoice"]],
+                        frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["service"]], sys_slots_last[frame["service"]],
                     )
 
                 for slot_idx, slot in enumerate(service_schema.categorical_slots):
