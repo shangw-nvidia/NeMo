@@ -16,9 +16,9 @@
 """Wrappers for schemas of different services."""
 
 import json
+import re
 
 from nemo import logging
-import re
 
 __all__ = ['ServiceSchema', 'Schema']
 
@@ -65,11 +65,9 @@ class ServiceSchema(object):
         self._categorical_slot_values = categorical_slot_values
         self._categorical_slot_value_ids = categorical_slot_value_ids
 
-
-    #chnaged here
+    # chnaged here
     def fix_names(self):
         return " ".join(re.sub("_", " ", re.sub("([A-Z])", " \\1", "test_tyeATY")).split())
-
 
     @property
     def schema_json(self):
