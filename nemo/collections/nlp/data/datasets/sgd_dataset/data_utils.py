@@ -577,7 +577,7 @@ class InputExample(object):
         self.num_intents = 0
         # Takes value 1 if the intent is active, 0 otherwise.
         self.intent_status = [STATUS_OFF] * schema_config["MAX_NUM_INTENT"]
-        self.user_act_status = [USR_ACT_NOAFFIRM] * schema_config["MAX_NUM_USER_ACT"]
+        self.user_action_status = [USR_ACT_NOAFFIRM] * schema_config["MAX_NUM_USER_ACT"]
 
         # chnaged here
         self.usr_utterance_mask = [-np.inf] * self._max_seq_length
@@ -876,9 +876,9 @@ class InputExample(object):
                 affirm = True
                 break
         if affirm:
-            self.user_act_status = 1
+            self.user_action_status = 1
         else:
-            self.user_act_status = 0
+            self.user_action_status = 0
 
     def pad_to_max(self, max_length):
         # changed here
