@@ -210,7 +210,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--fix_slot_intent_name", action="store_true", help="Fixes the name of slots and intents for generating the schema embeddings.",
+    "--fix_slot_intent_name",
+    action="store_true",
+    help="Fixes the name of slots and intents for generating the schema embeddings.",
 )
 
 

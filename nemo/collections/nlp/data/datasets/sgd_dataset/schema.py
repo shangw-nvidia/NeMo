@@ -154,7 +154,15 @@ class ServiceSchema(object):
 class Schema(object):
     """Wrapper for schemas for all services in a dataset."""
 
-    def __init__(self, schema_json_paths, slots_status_model, add_carry_value, add_none_token, add_text_nums, fix_slot_intent_name):
+    def __init__(
+        self,
+        schema_json_paths,
+        slots_status_model,
+        add_carry_value,
+        add_none_token,
+        add_text_nums,
+        fix_slot_intent_name,
+    ):
         """
         TODO fix:
         schema_json_paths: list of .json path to schema files of a single str with path to the json file.
