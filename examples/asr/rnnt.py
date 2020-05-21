@@ -14,7 +14,9 @@
 
 import argparse
 import copy
+import glob
 import os
+from datetime import datetime
 from functools import partial
 
 from ruamel.yaml import YAML
@@ -287,21 +289,38 @@ def main():
         args.optimizer,
         args.kernel_size_factor,
     )
-    work_dir = name
+    # time stamp
+    date_time = datetime.now().strftime("%m-%d-%Y -- %H-%M-%S")
+
+    log_dir = name
     if args.work_dir:
-        work_dir = os.path.join(args.work_dir, name)
+        log_dir = os.path.join(args.work_dir, name)
+
+    if args.tensorboard_dir is None:
+        tensorboard_dir = os.path.join(name, 'tensorboard', date_time)
+    else:
+        tensorboard_dir = args.tensorboard_dir
+
+    if args.checkpoint_dir is None:
+        checkpoint_dir = os.path.join(name, date_time)
+    else:
+        base_checkpoint_dir = args.checkpoint_dir
+        if len(glob.glob(os.path.join(base_checkpoint_dir, '*.pt'))) > 0:
+            checkpoint_dir = base_checkpoint_dir
+        else:
+            checkpoint_dir = os.path.join(args.checkpoint_dir, date_time)
 
     # instantiate Neural Factory with supported backend
     neural_factory = nemo.core.NeuralModuleFactory(
         backend=nemo.core.Backend.PyTorch,
         local_rank=args.local_rank,
         optimization_level=args.amp_opt_level,
-        log_dir=work_dir,
-        checkpoint_dir=args.checkpoint_dir,
+        log_dir=log_dir,
+        checkpoint_dir=checkpoint_dir,
         create_tb_writer=args.create_tb_writer,
         files_to_copy=[args.model_config, __file__],
         cudnn_benchmark=args.cudnn_benchmark,
-        tensorboard_dir=args.tensorboard_dir,
+        tensorboard_dir=tensorboard_dir,
     )
     args.num_gpus = neural_factory.world_size
 

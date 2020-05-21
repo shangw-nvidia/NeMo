@@ -26,7 +26,7 @@ AudioToMelSpectrogramPreprocessor:
     features: 80
     frame_splicing: &frame_splicing 1
     dither: 0.00001
-    pad_to: 16
+    pad_to: 0
     stft_conv: false
 
 SpectrogramAugmentation:
@@ -41,9 +41,9 @@ RNNTEncoder:
 
     rnnt:
         encoder_hidden: &enc_hidden 1024
-        encoder_pre_rnn_layers: 1
-        encoder_stack_time_factor: 2
-        encoder_post_rnn_layers: 1
+        encoder_pre_rnn_layers: 1  # 2
+        encoder_stack_time_factor: 8
+        encoder_post_rnn_layers: 1  # 3
         dropout: *rnn_dropout
 
 RNNTDecoder:
@@ -51,7 +51,7 @@ RNNTDecoder:
 
     rnnt:
         pred_hidden: &dec_hidden 512
-        pred_rnn_layers: 2
+        pred_rnn_layers: 1
         dropout: *rnn_dropout
 
 RNNTJoint:

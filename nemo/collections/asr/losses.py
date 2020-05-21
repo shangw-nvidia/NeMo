@@ -157,7 +157,7 @@ class RNNTLoss(LossNM):
         y, y_lens = targets, target_length
 
         max_logit_len = logit_lens.max()
-        max_label_len = y_lens.max()
+        # max_label_len = y_lens.max()
 
         # cast to required types
         if logits.dtype != torch.float:

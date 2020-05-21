@@ -343,7 +343,7 @@ class RNNTJoint(TrainableNM):
     def __init__(
         self,
         rnnt: Dict[str, Any],
-        num_classes: int,
+        num_classes: int
     ):
         super().__init__()
 
@@ -362,6 +362,7 @@ class RNNTJoint(TrainableNM):
             joint_n_hidden=joint_hidden,
             dropout=dropout,
         )
+
         self.to(self._device)
 
     def forward(self, encoder_outputs: torch.Tensor, decoder_outputs: torch.Tensor) -> torch.Tensor:
@@ -380,17 +381,11 @@ class RNNTJoint(TrainableNM):
         returns:
             logits of shape (B, T, U, K + 1)
         """
-        # Combine the input states and the output states
-        B, T, H = f.shape
-        B, U_, H2 = g.shape
-
         f = self.enc(f)
         f.unsqueeze_(dim=2)  # (B, T, 1, D)
-        # f = f.expand((B, T, U_, H))
 
         g = self.pred(g)
         g.unsqueeze_(dim=1)  # (B, 1, U + 1, H)
-        # g = g.expand((B, T, U_, H2))
 
         # print("f", f.shape, "g", g.shape)
 
