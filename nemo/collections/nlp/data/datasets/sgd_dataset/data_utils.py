@@ -51,8 +51,8 @@ STATUS_OFF = 0
 STATUS_ACTIVE = 1
 STATUS_DONTCARE = 2
 
-USR_ACT_AFFIRM = 0
-USR_ACT_NOAFFIRM = 1
+USR_ACT_NOAFFIRM = 0
+USR_ACT_AFFIRM = 1
 
 FILE_RANGES = {
     "dstc8_single_domain": {"train": range(1, 44), "dev": range(1, 8), "test": range(1, 12)},
@@ -876,9 +876,9 @@ class InputExample(object):
                 affirm = True
                 break
         if affirm:
-            self.user_action_status = 1
+            self.user_action_status = USR_ACT_AFFIRM
         else:
-            self.user_action_status = 0
+            self.user_action_status = USR_ACT_NOAFFIRM
 
     def pad_to_max(self, max_length):
         # changed here
