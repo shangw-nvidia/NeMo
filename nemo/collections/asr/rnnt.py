@@ -280,7 +280,9 @@ class RNNTDecoder(TrainableNM):
         y = y.transpose(0, 1)  # .contiguous()   # (U + 1, B, H)
         g, hid = self.prediction["dec_rnn"](y, state)
         g = g.transpose(0, 1)  # .contiguous()   # (B, U + 1, H)
+
         del y, start, state
+
         return g, hid
 
     def _predict(self, vocab_size, pred_n_hidden, pred_rnn_layers, forget_gate_bias, norm, dropout):
@@ -340,9 +342,12 @@ class RNNTJoint(TrainableNM):
     def __init__(
         self,
         rnnt: Dict[str, Any],
-        num_classes: int
+        num_classes: int,
+        preserve_memory: bool = False
     ):
         super().__init__()
+
+        self.preserve_memory = preserve_memory
 
         # Required arguments
         encoder_hidden = rnnt["encoder_hidden"]
@@ -382,14 +387,15 @@ class RNNTJoint(TrainableNM):
             logits of shape (B, T, U, K + 1)
         """
         f = self.enc(f)
-        f = f.unsqueeze(dim=2)  # (B, T, 1, D)
+        f.unsqueeze_(dim=2)  # (B, T, 1, D)
 
         g = self.pred(g)
-        g = g.unsqueeze(dim=1)  # (B, 1, U + 1, H)
+        g.unsqueeze_(dim=1)  # (B, 1, U + 1, H)
 
         # print("f", f.shape, "g", g.shape)
 
         # inp = torch.cat([f, g], dim=3)  # (B, T, U, H + H2)
+
         inp = f + g
 
         del f, g
@@ -400,6 +406,9 @@ class RNNTJoint(TrainableNM):
         # print("joint res", res.shape)
 
         del inp
+        if self.preserve_memory:
+            torch.cuda.empty_cache()
+
         return res
 
     def _joint_net(self, vocab_size, pred_n_hidden, enc_n_hidden, joint_n_hidden, dropout):

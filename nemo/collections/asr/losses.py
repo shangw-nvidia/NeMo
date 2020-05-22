@@ -166,7 +166,8 @@ class RNNTLoss(LossNM):
         if logits.dtype != torch.float:
             logits_orig = logits
             logits = logits.float()
-            del logits_orig  # save memory *before* computing the loss
+            del logits_orig  # save memory *before* computing the loss1
+            torch.cuda.empty_cache()
 
         # print("rnnt loss", logits.shape, y.shape, logit_lens.shape, y_lens.shape)
         # print("rnnt max len", torch.max(input_length), "max target", torch.max(target_length))
