@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:20.01-py3
+ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:20.03-py3
 
 # build an image that includes only the nemo dependencies, ensures that dependencies
 # are included first for optimal caching, and useful for building a development
@@ -48,6 +48,27 @@ ARG DEB=python-libnvinfer_7.0.0-1+cuda10.2_amd64.deb
 RUN curl -sL --output ${DEB} ${NV_REPO}/${DEB}
 RUN dpkg -i *.deb && cd ../.. && rm -rf /tmp/trt-oss
 
+# install warp-ctc
+RUN COMMIT_SHA=f546575109111c455354861a0567c8aa794208a2 && \
+    git clone https://github.com/HawkAaron/warp-transducer deps/warp-transducer && \
+    cd deps/warp-transducer && \
+    git checkout $COMMIT_SHA && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make VERBOSE=1 && \
+	export CUDA_HOME="/usr/local/cuda" && \
+    export WARP_RNNT_PATH=`pwd` && \
+    export CUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME && \
+    export LD_LIBRARY_PATH="$CUDA_HOME/extras/CUPTI/lib64:$LD_LIBRARY_PATH" && \
+    export LIBRARY_PATH=$CUDA_HOME/lib64:$LIBRARY_PATH && \
+    export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH && \
+    export CFLAGS="-I$CUDA_HOME/include $CFLAGS" && \
+    cd ../pytorch_binding && \
+    python3 setup.py install && \
+    rm -rf ../tests test ../tensorflow_binding && \
+    cd ../../..
+
 # install nemo dependencies
 WORKDIR /tmp/nemo
 COPY requirements/requirements_docker.txt requirements.txt
@@ -78,4 +99,3 @@ COPY README.rst LICENSE /workspace/nemo/
 
 RUN printf "#!/bin/bash\njupyter lab --no-browser --allow-root --ip=0.0.0.0" >> start-jupyter.sh && \
     chmod +x start-jupyter.sh
-
