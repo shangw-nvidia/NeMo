@@ -359,12 +359,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             ):
                                 noncat_slot_status_acc += 1
                     #############################################################################
-                if predictions["user_action_status"] == data_utils.USR_ACT_AFFIRM:
-                    accept_offer(
-                        frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["service"]],
-                        sys_slots_last[frame["service"]], service_schema
-                    )
-                    print("salam")
+                # if predictions["user_action_status"] == data_utils.USR_ACT_AFFIRM:
+                #     accept_offer(
+                #         frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["service"]],
+                #         sys_slots_last[frame["service"]], service_schema
+                #     )
+                #     print("salam")
 
                 carryover_slots_crossdomain(
                     frame,
