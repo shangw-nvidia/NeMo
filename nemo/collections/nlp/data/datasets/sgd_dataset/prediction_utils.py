@@ -35,8 +35,8 @@ def carryover_slots_crossdomain(
     slots_relation_list,
     prev_frame_service,
     slot_values,
-    sys_prev_slots,
-    last_sys_slots,
+    sys_slots_agg,
+    sys_slots_last,
 ):
     if prev_frame_service == cur_usr_frame["service"]:
         return
@@ -54,16 +54,16 @@ def carryover_slots_crossdomain(
                 slot_values[slot_dest] = all_slot_values[service_src][slot_src]
             if (
                 service_src == prev_frame_service
-                and service_src in sys_prev_slots
-                and slot_src in sys_prev_slots[service_src]
+                and service_src in sys_slots_agg
+                and slot_src in sys_slots_agg[service_src]
             ):
-                slot_values[slot_dest] = sys_prev_slots[service_src][slot_src]
+                slot_values[slot_dest] = sys_slots_agg[service_src][slot_src]
             if (
                 service_src == prev_frame_service
-                and service_src in last_sys_slots
-                and slot_src in last_sys_slots[service_src]
+                and service_src in sys_slots_last
+                and slot_src in sys_slots_last[service_src]
             ):
-                slot_values[slot_dest] = last_sys_slots[service_src][slot_src]
+                slot_values[slot_dest] = sys_slots_last[service_src][slot_src]
 
 
 def get_carryover_value(
@@ -95,10 +95,11 @@ def get_carryover_value(
 
 
 def accept_offer(
-    user_frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg, sys_slots_last,
+    user_frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg, sys_slots_last, service_schema
 ):
-    for slot, value in sys_slots_last.items():
-        slot_values[slot] = value
+    for slot, value in sys_slots_agg.items():
+        if slot in service_schema.state_slots:
+            slot_values[slot] = value
     return
 
 
@@ -126,8 +127,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     user_true_state = OrderedDict()
     prev_frame_service = ""
     for turn_idx, turn in enumerate(dialog["turns"]):
-        sys_slots_last = collections.defaultdict(OrderedDict)
         if turn["speaker"] == "SYSTEM":
+            sys_slots_last = collections.defaultdict(OrderedDict)
             for frame in turn["frames"]:
                 for action in frame["actions"]:
                     if action["slot"] and len(action["values"]) > 0:
@@ -196,11 +197,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 predictions["noncat_alignment_end"] = predictions["noncat_alignment_end"].cpu().numpy()
                 predictions["cat_slot_status_GT"] = predictions["cat_slot_status_GT"].cpu().numpy()
                 predictions["noncat_slot_status_GT"] = predictions["noncat_slot_status_GT"].cpu().numpy()
+                predictions["user_action_status"] =  predictions["user_action_status"].cpu().numpy()[0]
+                predictions["user_action_status_GT"] =  predictions["user_action_status_GT"].cpu().numpy()[0]
 
-                if predictions["user_action_status"] == data_utils.USR_ACT_AFFIRM:
-                    accept_offer(
-                        frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["service"]], sys_slots_last[frame["service"]],
-                    )
+
 
                 for slot_idx, slot in enumerate(service_schema.categorical_slots):
                     slot_status = predictions["cat_slot_status"][slot_idx]
@@ -334,6 +334,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             #     slot_values[slot] = system_utterance[-ch_start_idx - 1 : -ch_end_idx]
                             #     print("hoooy", slot_values[slot])
 
+
                     ############################################### debugging info
                     if predictions["noncat_slot_status_GT"][slot_idx] == data_utils.STATUS_ACTIVE:
                         noncat_slot_value_num += 1
@@ -358,6 +359,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             ):
                                 noncat_slot_status_acc += 1
                     #############################################################################
+                if predictions["user_action_status"] == data_utils.USR_ACT_AFFIRM:
+                    accept_offer(
+                        frame, all_slot_values, prev_frame_service, slot_values, sys_slots_agg[frame["service"]],
+                        sys_slots_last[frame["service"]], service_schema
+                    )
+                    print("salam")
 
                 carryover_slots_crossdomain(
                     frame,
@@ -380,6 +387,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             equal_state = False
                             break
                     if not equal_state:
+
                         cat_slot_status_acc = (
                             "NAN" if cat_slot_status_num == 0 else cat_slot_status_acc / cat_slot_status_num
                         )
@@ -403,7 +411,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
                             found_err = True
 
-                        if found_err:
+                        if not found_err:
                             logging.debug("-----------------------------------New Frame------------------------------")
                             logging.debug(f'DIALOGUE ID : {dialog_id}, TURN ID: {turn_id}')
 
@@ -436,10 +444,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             found_err = False
                             if cat_slot_status_acc != "NAN" and cat_slot_status_acc < 1.0:
                                 logging.debug("CAT_STATUS_ERR")
-                                found_err = True
+
                             if noncat_slot_status_acc != "NAN" and noncat_slot_status_acc < 1.0:
                                 logging.debug("NONCAT_STATUS_ERR")
-                                found_err = True
+
                             if (
                                 noncat_slot_status_acc != "NAN"
                                 and noncat_slot_status_acc < 1.0
@@ -447,14 +455,13 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                                 and cat_slot_status_acc < 1.0
                             ):
                                 logging.debug("BOTH_STATUS_ERR")
-                                found_err = True
 
                             if cat_slot_value_acc != "NAN" and cat_slot_value_acc != 1.0:
                                 logging.debug("CAT_VALUE_ERR")
-                                found_err = True
+
                             if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
                                 logging.debug("NONCAT_VALUE_ERR")
-                                found_err = True
+
                             if (
                                 noncat_slot_value_acc != "NAN"
                                 and noncat_slot_value_acc != 1.0
@@ -462,9 +469,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                                 and cat_slot_value_acc != 1.0
                             ):
                                 logging.debug("BOTH_VALUE_ERR")
-                                found_err = True
-                            if not found_err:
-                                logging.debug("CLEAN_FRAME")
+                        else:
+                            logging.debug("NOT_EQUAL_STATE_NOERR")
 
                 # Create a new dict to avoid overwriting the state in previous turns
                 # because of use of same objects.
