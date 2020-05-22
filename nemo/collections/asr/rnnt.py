@@ -28,9 +28,6 @@ from nemo.utils.decorators import add_port_docs
 logging = nemo.logging
 
 
-torch.autograd.set_detect_anomaly(True)
-
-
 class RNNTEncoder(TrainableNM):
     """A Recurrent Neural Network Transducer (RNN-T).
     Args:
@@ -368,10 +365,13 @@ class RNNTJoint(TrainableNM):
     def forward(self, encoder_outputs: torch.Tensor, decoder_outputs: torch.Tensor) -> torch.Tensor:
         # encoder = (B, D, T)
         # decoder = (B, D, U + 1)
-        encoder_outputs = encoder_outputs.transpose(1, 2)  # (B, T, D)
-        decoder_outputs = decoder_outputs.transpose(1, 2)  # (B, U + 1, D)
+        encoder_outputs.transpose_(1, 2)  # (B, T, D)
+        decoder_outputs.transpose_(1, 2)  # (B, U + 1, D)
 
         out = self.joint(encoder_outputs, decoder_outputs)  # [B, T, U, K + 1]
+
+        encoder_outputs.transpose_(1, 2)  # (B, D, T)
+        decoder_outputs.transpose_(1, 2)  # (B, D, U + 1)
         return out
 
     def joint(self, f: torch.Tensor, g: torch.Tensor):
@@ -382,10 +382,10 @@ class RNNTJoint(TrainableNM):
             logits of shape (B, T, U, K + 1)
         """
         f = self.enc(f)
-        f.unsqueeze_(dim=2)  # (B, T, 1, D)
+        f = f.unsqueeze(dim=2)  # (B, T, 1, D)
 
         g = self.pred(g)
-        g.unsqueeze_(dim=1)  # (B, 1, U + 1, H)
+        g = g.unsqueeze(dim=1)  # (B, 1, U + 1, H)
 
         # print("f", f.shape, "g", g.shape)
 
@@ -407,7 +407,7 @@ class RNNTJoint(TrainableNM):
         enc = torch.nn.Linear(enc_n_hidden, joint_n_hidden)
 
         layers = (
-            [torch.nn.ReLU(inplace=True)]
+            [torch.nn.Tanh()]
             + ([torch.nn.Dropout(p=dropout)] if dropout else [])
             + [torch.nn.Linear(joint_n_hidden, vocab_size)]
         )

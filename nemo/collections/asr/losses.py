@@ -115,7 +115,7 @@ class RNNTLoss(LossNM):
         # return {"loss": NeuralType(None)}
         return {"loss": NeuralType(elements_type=LossType())}
 
-    def __init__(self, num_classes: int, reduction=None):
+    def __init__(self, num_classes: int, reduction=None, zero_infinity=False):
         super().__init__()
 
         if not WARP_RNNT_LOSS_AVAILABLE:
@@ -125,6 +125,7 @@ class RNNTLoss(LossNM):
                 "instructions at https://github.com/HawkAaron/warp-transducer"
             )
 
+        self._zero_infinity = zero_infinity
         self._blank = num_classes
         self.rnnt_loss = WarpRNNTLoss(blank=self._blank, reduction=reduction)
 
@@ -159,6 +160,8 @@ class RNNTLoss(LossNM):
         max_logit_len = logit_lens.max()
         # max_label_len = y_lens.max()
 
+        logits_dtype = logits.dtype
+
         # cast to required types
         if logits.dtype != torch.float:
             logits_orig = logits
@@ -173,6 +176,14 @@ class RNNTLoss(LossNM):
         # Ensure that shape mismatch does not occur due to padding
         logits = logits[:, :max_logit_len, :, :].contiguous()
         loss = self.rnnt_loss(acts=logits, labels=y, act_lens=logit_lens, label_lens=y_lens)
+
+        if loss.dtype != logits_dtype:
+            loss = loss.to(logits_dtype)
+
+        if self._zero_infinity:
+            mask = torch.isnan(loss)
+            mask |= torch.isinf(loss)
+            loss[mask] = 0
 
         loss = torch.mean(loss)
 

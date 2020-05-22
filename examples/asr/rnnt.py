@@ -176,7 +176,7 @@ def create_all_dags(args, neural_factory):
     #     max_symbols_per_step=args.max_symbols_per_step,
     # )
 
-    greedy_decoder = nemo_asr.GreedyFastRNNTDecoder(
+    greedy_decoder = nemo_asr.GreedyRNNTDecoder(
         blank_index=len(vocab),
         max_symbols_per_step=args.max_symbols_per_step,
     )

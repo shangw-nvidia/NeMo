@@ -29,10 +29,36 @@ from nemo.utils.decorators import add_port_docs
 logging = nemo.logging
 
 
-__all__ = ['GreedyRNNTDecoder', 'GreedyFastRNNTDecoder']
+__all__ = ['GreedyRNNTDecoderInfer', 'GreedyRNNTDecoder']
 
 
-class GreedyFastRNNTDecoder(NonTrainableNM):
+@torch.jit.script
+def _greedy_decode(
+    x: torch.Tensor, out_len: int, results: torch.Tensor, batch_idx: int, max_symbols: int, blank_index: int
+):
+    x = x.float()
+    for time_idx in range(out_len):
+        not_blank = True
+        symbols_added = 0
+
+        while not_blank and (max_symbols < 0 or symbols_added < max_symbols):
+            logp = x[time_idx, symbols_added, :]  # [K]
+
+            # get index k, of max prob
+            v, k = logp.max(0)
+            k = k.item()
+
+            if k == blank_index:
+                not_blank = False
+            else:
+                # chars.append(k)
+                results[batch_idx, time_idx, symbols_added] = k
+            symbols_added += 1
+
+    return results
+
+
+class GreedyRNNTDecoder(NonTrainableNM):
     """A greedy transducer decoder.
     Args:
         blank_symbol: See `Decoder`.
@@ -73,6 +99,9 @@ class GreedyFastRNNTDecoder(NonTrainableNM):
         if max_symbols_per_step is not None and max_symbols_per_step <= 0:
             raise ValueError('`max_symbols_per_step` must be None or positive integer')
 
+        if max_symbols_per_step is None:
+            max_symbols_per_step = -1
+
         self.max_symbols = max_symbols_per_step
 
     @torch.no_grad()
@@ -87,50 +116,19 @@ class GreedyFastRNNTDecoder(NonTrainableNM):
         """
         log_probs = self._joint_step(joint_output, log_normalize=self.log_normalize)  # [B, T, U + 1, K + 1]
         log_probs = log_probs.to('cpu')
+        logitlen = encoded_lengths.to('cpu').numpy()
 
-        # create a result buffer of shape [B, T, U + 1]
+        # create a result buffer of shape [B, T, max_symbols]
         results = torch.full(
             log_probs.shape[:-1], fill_value=self._blank_index, dtype=torch.int32, device=log_probs.device
         )
 
-        output = []
         for batch_idx in range(log_probs.size(0)):
             inseq = log_probs[batch_idx, :, :, :]  # [T, U + 1, K + 1]
-            logitlen = encoded_lengths[batch_idx]
-            results = self._greedy_decode(inseq, logitlen, results, batch_idx)
-            # output.append(sentence)
-
-        # print('RNN FAST OUT', len(output))
-        # [output]
+            out_len = logitlen[batch_idx]
+            results = _greedy_decode(inseq, out_len, results, batch_idx, self.max_symbols, self._blank_index)
 
         results = results.to(self._device)
-
-        return results
-
-    @torch.no_grad()
-    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: int):
-        # label = []
-        x = x.float()
-
-        for time_idx in range(out_len):
-            not_blank = True
-            symbols_added = 0
-            chars = []
-
-            while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
-                logp = x[time_idx, symbols_added, :]  # [K]
-
-                # get index k, of max prob
-                v, k = logp.max(0)
-                k = k.item()
-
-                if k == self._blank_index:
-                    not_blank = False
-                else:
-                    # chars.append(k)
-                    results[batch_idx, time_idx, symbols_added] = k
-                symbols_added += 1
-
         return results
 
     @torch.no_grad()
@@ -153,7 +151,7 @@ class GreedyFastRNNTDecoder(NonTrainableNM):
         return probs
 
 
-class GreedyRNNTDecoder(NonTrainableNM):
+class GreedyRNNTDecoderInfer(NonTrainableNM):
     """A greedy transducer decoder.
     Args:
         blank_symbol: See `Decoder`.
@@ -211,6 +209,15 @@ class GreedyRNNTDecoder(NonTrainableNM):
         """
         # Apply optional preprocessing
         encoder_output = encoder_output.transpose(1, 2)  # (B, T, D)
+        logitlen = encoded_lengths.to('cpu').numpy()
+
+        # create a result buffer of shape [B, T, max_symbols]
+        results = torch.full(
+            (*encoder_output.shape[:-1], self.max_symbols),
+            fill_value=self._blank_index,
+            dtype=torch.int32,
+            device='cpu',
+        )
 
         # Preserve decoder and joint training state
         decoder_training_state = self.decoder.training
@@ -219,21 +226,18 @@ class GreedyRNNTDecoder(NonTrainableNM):
         self.decoder.eval()
         self.joint.eval()
 
-        output = []
         for batch_idx in range(encoder_output.size(0)):
             inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
             logitlen = encoded_lengths[batch_idx]
-            sentence = self._greedy_decode(inseq, logitlen)
-            output.append(sentence)
+            results = self._greedy_decode(inseq, logitlen, results, batch_idx)
 
         self.decoder.train(decoder_training_state)
         self.joint.train(joint_training_state)
 
-        # output = torch.tensor(output, device=self._device)
+        results = results.to(self._device)
+        return results
 
-        return output
-
-    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
+    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: torch.Tensor):
         hidden = None
         label = []
         for time_idx in range(out_len):
@@ -242,13 +246,13 @@ class GreedyRNNTDecoder(NonTrainableNM):
             not_blank = True
             symbols_added = 0
 
-            chars = []
-
             while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
                 last_label = self._SOS if label == [] else label[-1]
                 g, hidden_prime = self._pred_step(last_label, hidden)
                 # print("g", g.shape)
                 logp = self._joint_step(f, g, log_normalize=False)[0, :]
+
+                logp = logp.to('cpu').float()
 
                 # get index k, of max prob
                 v, k = logp.max(0)
@@ -257,13 +261,11 @@ class GreedyRNNTDecoder(NonTrainableNM):
                 if k == self._blank_index:
                     not_blank = False
                 else:
-                    chars.append(k)
+                    results[batch_idx, time_idx, symbols_added] = k
                     hidden = hidden_prime
 
                 symbols_added += 1
-            label.append(chars)
-
-        return label
+        return results
 
     def _pred_step(
         self, label: Union[torch.Tensor, int], hidden: Optional[torch.Tensor]
