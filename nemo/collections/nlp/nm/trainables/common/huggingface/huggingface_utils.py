@@ -21,7 +21,7 @@ from nemo.collections.nlp.nm.trainables.common.huggingface.roberta_nm import Rob
 __all__ = ['MODELS', 'get_huggingface_model', 'get_bert_models_list']
 
 
-def get_huggingface_model(pretrained_model_name, bert_config=None):
+def get_huggingface_model(pretrained_model_name, bert_config=None, **kwargs):
     '''
     Return the dict of special tokens associated with the model.
     Args:
@@ -32,9 +32,9 @@ def get_huggingface_model(pretrained_model_name, bert_config=None):
     model_type = pretrained_model_name.split('-')[0]
     if model_type in MODELS:
         if bert_config:
-            return MODELS[model_type]['class'](config_filename=bert_config)
+            return MODELS[model_type]['class'](config_filename=bert_config, **kwargs)
         else:
-            return MODELS[model_type]['class'](pretrained_model_name=pretrained_model_name)
+            return MODELS[model_type]['class'](pretrained_model_name=pretrained_model_name, **kwargs)
     else:
         raise ValueError(f'Choose pretrained model from the following list: {get_bert_models_list()}.')
 

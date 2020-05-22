@@ -33,6 +33,7 @@ parser.add_argument(
     "than this will be padded.",
 )
 parser.add_argument("--dropout", default=0.1, type=float, help="Dropout rate for BERT representations.")
+
 parser.add_argument(
     "--pretrained_model_name",
     default="bert-base-cased",
@@ -215,6 +216,7 @@ parser.add_argument(
     help="Fixes the name of slots and intents for generating the schema embeddings.",
 )
 
+parser.add_argument("--bert_dropout", default=0.1, type=float, help="Dropout rate for BERT model.")
 
 parser.add_argument("--min_lr", default=0.0, type=float)
 
@@ -257,7 +259,8 @@ nf = nemo.core.NeuralModuleFactory(
 )
 
 pretrained_bert_model = nemo_nlp.nm.trainables.get_huggingface_model(
-    bert_config=args.bert_config, pretrained_model_name=args.pretrained_model_name
+    bert_config=args.bert_config, pretrained_model_name=args.pretrained_model_name,
+    hidden_dropout_prob=args.bert_dropout, attention_probs_dropout_prob=args.bert_dropout
 )
 
 schema_config["EMBEDDING_DIMENSION"] = pretrained_bert_model.hidden_size

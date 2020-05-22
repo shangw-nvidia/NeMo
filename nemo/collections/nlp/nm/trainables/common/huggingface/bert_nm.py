@@ -128,7 +128,7 @@ class BERT(TrainableNM):
             )
             model = BertModel(config)
         elif pretrained_model_name is not None:
-            model = BertModel.from_pretrained(pretrained_model_name)
+            model = BertModel.from_pretrained(pretrained_model_name, hidden_dropout_prob=hidden_dropout_prob, attention_probs_dropout_prob=attention_probs_dropout_prob)
         elif config_filename is not None:
             config = BertConfig.from_json_file(config_filename)
             model = BertModel(config)
