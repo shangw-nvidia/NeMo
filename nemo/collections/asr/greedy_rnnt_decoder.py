@@ -37,6 +37,7 @@ def _greedy_decode(
     x: torch.Tensor, out_len: int, results: torch.Tensor, batch_idx: int, max_symbols: int, blank_index: int
 ):
     x = x.float()
+
     for time_idx in range(out_len):
         not_blank = True
         symbols_added = 0
@@ -56,6 +57,19 @@ def _greedy_decode(
             symbols_added += 1
 
     return results
+
+
+@torch.jit.script
+def _greedy_decode_v2(x: torch.Tensor, max_symbols: int):
+    # x = [B, T, U, K] -> [B, T, max_symbols, K]
+    x = x[:, :, :max_symbols, :]
+
+    if x.dtype != torch.float32:
+        x = x.float()
+
+    # symbols : [B, T, max_symbols]
+    k, symbols = x.max(-1)
+    return symbols
 
 
 class GreedyRNNTDecoder(NonTrainableNM):
@@ -115,20 +129,27 @@ class GreedyRNNTDecoder(NonTrainableNM):
             list containing batch number of sentences (strings).
         """
         log_probs = self._joint_step(joint_output, log_normalize=self.log_normalize)  # [B, T, U + 1, K + 1]
-        log_probs = log_probs.to('cpu')
-        logitlen = encoded_lengths.to('cpu').numpy()
+        # log_probs = log_probs.to('cpu')
+        # logitlen = encoded_lengths.to('cpu').numpy()
+
+        if self.max_symbols < 0:
+            max_symbols = int(log_probs.size(2))
+        else:
+            max_symbols = self.max_symbols
 
         # create a result buffer of shape [B, T, max_symbols]
-        results = torch.full(
-            log_probs.shape[:-1], fill_value=self._blank_index, dtype=torch.int32, device=log_probs.device
-        )
+        # results = torch.full(
+        #     log_probs.shape[:-1], fill_value=self._blank_index, dtype=torch.int32, device=log_probs.device
+        # )
 
-        for batch_idx in range(log_probs.size(0)):
-            inseq = log_probs[batch_idx, :, :, :]  # [T, U + 1, K + 1]
-            out_len = logitlen[batch_idx]
-            results = _greedy_decode(inseq, out_len, results, batch_idx, self.max_symbols, self._blank_index)
+        # for batch_idx in range(log_probs.size(0)):
+        #     inseq = log_probs[batch_idx, :, :, :]  # [T, U + 1, K + 1]
+        #     out_len = logitlen[batch_idx]
+        #     results = _greedy_decode(inseq, out_len, results, batch_idx, self.max_symbols, self._blank_index)
 
-        results = results.to(self._device)
+        results = _greedy_decode_v2(log_probs, max_symbols)
+
+        # results = results.to(self._device)
         return results
 
     @torch.no_grad()
@@ -237,11 +258,45 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         results = results.to(self._device)
         return results
 
+    # def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: torch.Tensor):
+    #     hidden = None
+    #     label = []
+    #     for time_idx in range(out_len):
+    #         f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
+    #
+    #         not_blank = True
+    #         symbols_added = 0
+    #
+    #         while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
+    #             last_label = self._SOS if label == [] else label[-1]
+    #             g, hidden_prime = self._pred_step(last_label, hidden)
+    #             # print("g", g.shape)
+    #             logp = self._joint_step(f, g, log_normalize=False)[0, :]
+    #
+    #             logp = logp.to('cpu').float()
+    #
+    #             # get index k, of max prob
+    #             v, k = logp.max(0)
+    #             k = k.item()
+    #
+    #             if k == self._blank_index:
+    #                 not_blank = False
+    #             else:
+    #                 results[batch_idx, time_idx, symbols_added] = k
+    #                 hidden = hidden_prime
+    #
+    #             symbols_added += 1
+    #     return results
+
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: torch.Tensor):
         hidden = None
         label = []
-        for time_idx in range(out_len):
-            f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
+
+        max_out_len = out_len.max()
+        blank_mask = torch.full(x.size(0), fill_value=False, dtype=torch.bool, device=x.device)
+
+        for time_idx in range(max_out_len):
+            f = x[:, time_idx, :, :].unsqueeze(1)  # [1, 1, D]
 
             not_blank = True
             symbols_added = 0

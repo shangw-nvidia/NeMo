@@ -416,7 +416,7 @@ class RNNTJoint(TrainableNM):
         enc = torch.nn.Linear(enc_n_hidden, joint_n_hidden)
 
         layers = (
-            [torch.nn.Tanh()]
+            [torch.nn.ReLU(inplace=True)]
             + ([torch.nn.Dropout(p=dropout)] if dropout else [])
             + [torch.nn.Linear(joint_n_hidden, vocab_size)]
         )
