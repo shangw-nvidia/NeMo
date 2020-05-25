@@ -11,8 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
 import numpy as np
+from joblib import Parallel, delayed
 from numba import jit
+
+from .beam_search_rnnt import decode_static as _rnnt_beam_search
 
 
 def phase_vocoder(D: np.ndarray, rate: float, phi_advance: np.ndarray, scale_buffer: np.ndarray):
@@ -109,3 +114,29 @@ def decode_rnnt_hypothesis(decoded_predictions, blank_id):
             previous = c
 
     return decoded_prediction
+
+
+# @jit(nopython=False, parallel=True, forceobj=True)
+def rnnt_beam_decode(x, blank_idx, beam_size):
+    beam_search = (_rnnt_beam_search)
+
+    # results = [None] * len(x)
+    # for batch_idx in range(len(results)):
+    #     result, log_proba = beam_search(x[batch_idx], blank_idx, beam_size)
+    #     results[batch_idx] = result
+
+    n_jobs = min(os.cpu_count(), x.shape[0])
+
+    with Parallel(n_jobs=n_jobs, verbose=0) as parallel:
+        results = parallel(delayed(beam_search)(x[batch_idx], blank_idx, beam_size)
+                           for batch_idx in range(x.shape[0]))
+
+        # hypotheses = []
+        # for i in range(len(results)):
+        #     res = results[i][0]
+        #     # res = [int(r) for r in res]
+        #     hypotheses.append(res)
+
+        results = [res[0] for res in results]
+
+    return results

@@ -46,20 +46,29 @@ def __rnnt_decoder_predictions_list(decoded_predictions, labels):
     labels_map = dict([(i, labels[i]) for i in range(len(labels))])
     # iterate over batch
     decoded_predictions = decoded_predictions.cpu().numpy()
+
+    decoded_prediction = numba_utils.rnnt_beam_decode(
+                decoded_predictions, blank_id, beam_size=4
+            )
+
     for ind in range(decoded_predictions.shape[0]):
-        if HAVE_NUMBA:
-            decoded_prediction = numba_utils.decode_rnnt_hypothesis(decoded_predictions[ind], blank_id)
-        else:
-            prediction = decoded_predictions[ind]
-            # CTC decoding procedure
-            decoded_prediction = []
-            previous = len(labels)  # id of a blank symbol
-            for p in prediction:
-                for c in p:
-                    if (c != previous or previous == blank_id) and c != blank_id:
-                        decoded_prediction.append(c)
-                    previous = c
-        hypothesis = ''.join([labels_map[c] for c in decoded_prediction])
+        # if HAVE_NUMBA:
+        #     decoded_prediction = numba_utils.decode_rnnt_hypothesis(decoded_predictions[ind], blank_id)
+        #     # decoded_prediction = numba_utils.rnnt_beam_decode(
+        #     #     decoded_predictions[ind], blank_id, beam_size=4
+        #     # )
+        # else:
+        #     prediction = decoded_predictions[ind]
+        #     # CTC decoding procedure
+        #     decoded_prediction = []
+        #     previous = len(labels)  # id of a blank symbol
+        #     for p in prediction:
+        #         for c in p:
+        #             if (c != previous or previous == blank_id) and c != blank_id:
+        #                 decoded_prediction.append(c)
+        #             previous = c
+
+        hypothesis = ''.join([labels_map[c] for c in decoded_prediction[ind]])
         hypotheses.append(hypothesis)
     return hypotheses
 

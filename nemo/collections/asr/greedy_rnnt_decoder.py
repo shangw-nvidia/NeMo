@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import nemo
+from .parts.numba_utils import rnnt_beam_decode
 from .parts.rnn import label_collate
 from .rnnt import RNNTDecoder, RNNTJoint
 from nemo.backends.pytorch.nm import NonTrainableNM, TrainableNM
@@ -59,17 +60,63 @@ def _greedy_decode(
     return results
 
 
-@torch.jit.script
-def _greedy_decode_v2(x: torch.Tensor, max_symbols: int):
+# @torch.jit.script
+# def _greedy_decode_v2(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
+#     # x = [B, T, U, K] -> [B, T, max_symbols, K]
+#     x = x[:, :, :max_symbols, :]
+#
+#     if x.dtype != torch.float32:
+#         x = x.float()
+#
+#     # symbols : [B, T, max_symbols]
+#     k, symbols = x.max(-1)
+#
+#     # At each timestep, if blank occurs, remaining of all symbols should also be blank for that timestep
+#     # To broadcast this, we first take create a bool mask for all locations of blanks
+#     # Then we take cumulative sum to obtain a 1 or more at the first or later instances of blanks
+#     # Then we cast it to binary with a > 0 check. This avoids filling values before the first blank
+#     # with blank tokens.
+#     blank_mask = (symbols == blank_index).cumsum(-1)
+#     blank_mask = (blank_mask > 0)
+#
+#     # Mask out entries after out_seq timesteps
+#     # This ensures that for each sample in batch, we only predict
+#     # tokens as long as the length of the original sequence without padding
+#     time_mask = torch.full([x.size(0), x.size(1), 1], fill_value=0, dtype=torch.bool, device=x.device)
+#
+#     for seq_id in range(out_seq.size(0)):
+#         seq_len = out_seq[seq_id]
+#         time_mask[seq_id, seq_len:, :] = 1
+#
+#     # bitwise or the masks to combine them
+#     blank_mask = blank_mask.bitwise_or(time_mask)
+#
+#     symbols.masked_fill_(blank_mask, blank_index)
+#     return symbols
+
+
+def _greedy_decode_v2(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
     # x = [B, T, U, K] -> [B, T, max_symbols, K]
     x = x[:, :, :max_symbols, :]
 
     if x.dtype != torch.float32:
         x = x.float()
 
-    # symbols : [B, T, max_symbols]
-    k, symbols = x.max(-1)
-    return symbols
+    # symbols : [B, T, max_symbols, vocab + 1]
+    x = x.log_softmax(dim=-1)
+
+    # Mask out entries after out_seq timesteps
+    # This ensures that for each sample in batch, we only predict
+    # tokens as long as the length of the original sequence without padding
+    time_mask = torch.full([x.size(0), x.size(1), 1, 1], fill_value=0, dtype=torch.bool, device=x.device)
+
+    for seq_id in range(out_seq.size(0)):
+        seq_len = out_seq[seq_id]
+        time_mask[seq_id, seq_len:, :, :] = 1
+
+    x.masked_fill_(time_mask, 0.0)
+
+    return x
 
 
 class GreedyRNNTDecoder(NonTrainableNM):
@@ -130,7 +177,7 @@ class GreedyRNNTDecoder(NonTrainableNM):
         """
         log_probs = self._joint_step(joint_output, log_normalize=self.log_normalize)  # [B, T, U + 1, K + 1]
         # log_probs = log_probs.to('cpu')
-        # logitlen = encoded_lengths.to('cpu').numpy()
+        logitlen = encoded_lengths.to('cpu')  # .numpy()
 
         if self.max_symbols < 0:
             max_symbols = int(log_probs.size(2))
@@ -147,7 +194,7 @@ class GreedyRNNTDecoder(NonTrainableNM):
         #     out_len = logitlen[batch_idx]
         #     results = _greedy_decode(inseq, out_len, results, batch_idx, self.max_symbols, self._blank_index)
 
-        results = _greedy_decode_v2(log_probs, max_symbols)
+        results = _greedy_decode_v2(log_probs, logitlen, max_symbols, self._blank_index)
 
         # results = results.to(self._device)
         return results
@@ -168,6 +215,7 @@ class GreedyRNNTDecoder(NonTrainableNM):
         if not log_normalize:
             return logits
 
+        logits = logits.float()
         probs = F.log_softmax(logits, dim=len(logits.shape) - 1)
         return probs
 
@@ -213,8 +261,8 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         self._blank_index = blank_index
         self._SOS = -1  # Start of single index
 
-        if max_symbols_per_step is not None and max_symbols_per_step <= 0:
-            raise ValueError('`max_symbols_per_step` must be None or positive integer')
+        if max_symbols_per_step is None:
+            max_symbols_per_step = -1
 
         self.max_symbols = max_symbols_per_step
 
@@ -237,7 +285,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
             (*encoder_output.shape[:-1], self.max_symbols),
             fill_value=self._blank_index,
             dtype=torch.int32,
-            device='cpu',
+            device=self._device,
         )
 
         # Preserve decoder and joint training state
@@ -247,10 +295,14 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         self.decoder.eval()
         self.joint.eval()
 
-        for batch_idx in range(encoder_output.size(0)):
-            inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
-            logitlen = encoded_lengths[batch_idx]
-            results = self._greedy_decode(inseq, logitlen, results, batch_idx)
+        # for batch_idx in range(encoder_output.size(0)):
+        #     inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
+        #     logitlen = encoded_lengths[batch_idx]
+        #     results = self._greedy_decode(inseq, logitlen, results, batch_idx)
+
+        inseq = encoder_output  # [batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
+        logitlen = encoded_lengths  # [batch_idx]
+        results = self._greedy_decode(inseq, logitlen, results, 0)
 
         self.decoder.train(decoder_training_state)
         self.joint.train(joint_training_state)
@@ -288,47 +340,84 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
     #             symbols_added += 1
     #     return results
 
-    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: torch.Tensor):
+    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor, batch_idx: int):
+        # x : [B, T, D]
+        # out_len : [B]
         hidden = None
-        label = []
 
+        batch_size = x.size(0)
         max_out_len = out_len.max()
-        blank_mask = torch.full(x.size(0), fill_value=False, dtype=torch.bool, device=x.device)
+
+        # construct masks
+        # mask out entries after out_seq timesteps
+        time_mask = torch.full([x.size(0), x.size(1), 1], fill_value=0, dtype=torch.bool, device=x.device)
+
+        for seq_id in range(out_len.size(0)):
+            seq_len = out_len[seq_id]
+            time_mask[seq_id, seq_len:, :] = 1
+
+        blank_mask = torch.full([x.size(0)], fill_value=0, dtype=torch.bool, device=x.device)
 
         for time_idx in range(max_out_len):
-            f = x[:, time_idx, :, :].unsqueeze(1)  # [1, 1, D]
+            label = []
 
+            f = x[:, time_idx, :].unsqueeze(1)  # [B, 1, D]
+
+            # reset blank mask
+            blank_mask.fill_(0)
             not_blank = True
             symbols_added = 0
 
-            while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
-                last_label = self._SOS if label == [] else label[-1]
-                g, hidden_prime = self._pred_step(last_label, hidden)
+            while not_blank and (self.max_symbols < 0 or symbols_added < self.max_symbols):
+                last_label = self._SOS if len(label) == 0 else label
+                g, hidden_prime = self._pred_step(last_label, hidden, batch_size=batch_size)
                 # print("g", g.shape)
-                logp = self._joint_step(f, g, log_normalize=False)[0, :]
 
-                logp = logp.to('cpu').float()
+                # logp : [B, 1, K] -> [B, K]
+                logp = self._joint_step(f, g, log_normalize=False)[:, :]
+                logp = logp.float()
 
                 # get index k, of max prob
-                v, k = logp.max(0)
-                k = k.item()
+                # k = [B]
+                v, k = logp.max(-1)
 
-                if k == self._blank_index:
+                # k_is_blank : [B] (bool)
+                k_is_blank = (k == self._blank_index)
+
+                # update mask
+                blank_mask = blank_mask.bitwise_or(k_is_blank)
+
+                if blank_mask.all():
                     not_blank = False
                 else:
-                    results[batch_idx, time_idx, symbols_added] = k
+                    # If the sample has now or previously predicted blank for this timestep,
+                    # forcibly predict blank for remainder of timesteps too.
+                    k.masked_fill_(blank_mask, self._blank_index)
+
+                    # Update label for next step
+                    label = k.unsqueeze(-1).long()  # [B, 1]
+
+                    results[:, time_idx, symbols_added] = k
                     hidden = hidden_prime
 
                 symbols_added += 1
+
+        # Time mask the output so that extraneous timesteps are filled with blanks
+        results.masked_fill_(time_mask, self._blank_index)
+
         return results
 
     def _pred_step(
-        self, label: Union[torch.Tensor, int], hidden: Optional[torch.Tensor]
+        self,
+        label: Union[torch.Tensor, int],
+        hidden: Optional[torch.Tensor],
+        batch_size: Optional[int] = None,
     ) -> (torch.Tensor, torch.Tensor):
         """
         Args:
             label (int/torch.Tensor): Label or "Start-of-Signal" token.
             hidden (Optional torch.Tensor): RNN State vector
+            batch_size (Optional torch.Tensor): Batch size of output
 
         Returns:
             g: (B, U + 1, H)
@@ -337,15 +426,22 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                     h (tensor), shape (L, B, H)
                     c (tensor), shape (L, B, H)
         """
+        if isinstance(label, torch.Tensor):
+            # label: [batch, 1]
+            if label.dtype != torch.long:
+                label = label.long()
 
-        if label == self._SOS:
-            return self.decoder.predict(None, hidden, add_sos=False)
+        else:
+            if label == self._SOS:
+                return self.decoder.predict(None, hidden, add_sos=False, batch_size=batch_size)
 
-        if label > self._blank_index:
-            label -= 1
+            if label > self._blank_index:
+                label -= 1
 
-        label = label_collate([[label]]).to(self._device)
-        return self.decoder.predict(label, hidden, add_sos=False)
+            label = label_collate([[label]]).to(self._device)
+
+        # output: [B, 1, K]
+        return self.decoder.predict(label, hidden, add_sos=False, batch_size=batch_size)
 
     def _joint_step(self, enc, pred, log_normalize=False):
         """

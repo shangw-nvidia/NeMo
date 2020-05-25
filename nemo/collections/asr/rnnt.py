@@ -234,11 +234,17 @@ class RNNTDecoder(TrainableNM):
         y = rnn.label_collate(targets)
 
         g, _ = self.predict(y, state=None)  # (B, U + 1, D)
-        out = g.transpose(1, 2)  # (B, D, U + 1)
+        g.transpose_(1, 2)  # (B, D, U + 1)
 
-        return out, target_length
+        return g, target_length
 
-    def predict(self, y: Optional[torch.Tensor], state: Optional[torch.Tensor] = None, add_sos: bool = True):
+    def predict(
+        self,
+        y: Optional[torch.Tensor],
+        state: Optional[torch.Tensor] = None,
+        add_sos: bool = True,
+        batch_size: int = None,
+    ):
         """
         B - batch size
         U - label length
@@ -258,7 +264,11 @@ class RNNTDecoder(TrainableNM):
             # (B, U) -> (B, U, H)
             y = self.prediction["embed"](y)
         else:
-            B = 1 if state is None else state[0].size(1)
+            if batch_size is None:
+                B = 1 if state is None else state[0].size(1)
+            else:
+                B = batch_size
+
             y = torch.zeros((B, 1, self.pred_hidden)).to(device=self._device)
 
         # preprend blank "start of sequence" symbol
@@ -339,14 +349,10 @@ class RNNTJoint(TrainableNM):
             "outputs": NeuralType(('B', 'T', 'D', 'D'), LogitsType()),
         }
 
-    def __init__(
-        self,
-        rnnt: Dict[str, Any],
-        num_classes: int,
-        preserve_memory: bool = False
-    ):
+    def __init__(self, rnnt: Dict[str, Any], num_classes: int, softmax: bool = True, preserve_memory: bool = False):
         super().__init__()
 
+        self.softmax = softmax
         self.preserve_memory = preserve_memory
 
         # Required arguments
@@ -408,6 +414,9 @@ class RNNTJoint(TrainableNM):
         del inp
         if self.preserve_memory:
             torch.cuda.empty_cache()
+
+        if self.softmax:
+            res = res.log_softmax(dim=-1)
 
         return res
 
