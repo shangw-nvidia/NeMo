@@ -335,95 +335,92 @@ dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss()
 
 
 def create_pipeline(dataset_split):
-    import torch
+    datalayer = nemo_nlp.nm.data_layers.SGDDataLayer(
+        dataset_split=dataset_split,
+        dialogues_processor=dialogues_processor,
+        batch_size=args.train_batch_size,
+        shuffle=not args.no_shuffle if dataset_split == 'train' else False,
+        num_workers=args.num_workers,
+        pin_memory=args.enable_pin_memory,
+    )
 
-    with torch.autograd.detect_anomaly():
-        datalayer = nemo_nlp.nm.data_layers.SGDDataLayer(
-            dataset_split=dataset_split,
-            dialogues_processor=dialogues_processor,
-            batch_size=args.train_batch_size,
-            shuffle=not args.no_shuffle if dataset_split == 'train' else False,
-            num_workers=args.num_workers,
-            pin_memory=args.enable_pin_memory,
+    data = datalayer()
+
+    # Encode the utterances using BERT.
+    token_embeddings = pretrained_bert_model(
+        input_ids=data.utterance_ids,
+        attention_mask=data.utterance_mask,
+        token_type_ids=data.utterance_segment,
+        position_ids=data.position_ids,
+    )
+    encoded_utterance, token_embeddings = encoder(hidden_states=token_embeddings)
+    (
+        logit_intent_status,
+        logit_req_slot_status,
+        req_slot_mask,
+        logit_cat_slot_status,
+        logit_cat_slot_value,
+        logit_noncat_slot_status,
+        logit_noncat_slot_start,
+        logit_noncat_slot_end,
+        # logit_slot_status_tokens,
+    ) = model(
+        encoded_utterance=encoded_utterance,
+        token_embeddings=token_embeddings,
+        utterance_mask=data.utterance_mask,
+        num_categorical_slot_values=data.num_categorical_slot_values,
+        num_intents=data.num_intents,
+        req_num_slots=data.num_slots,
+        service_ids=data.service_id,
+        # slot_status_tokens=data.slot_status_tokens
+    )
+
+    if dataset_split == 'train':
+        loss = dst_loss(
+            logit_intent_status=logit_intent_status,
+            logit_req_slot_status=logit_req_slot_status,
+            logit_cat_slot_status=logit_cat_slot_status,
+            logit_cat_slot_value=logit_cat_slot_value,
+            logit_noncat_slot_status=logit_noncat_slot_status,
+            logit_noncat_slot_start=logit_noncat_slot_start,
+            logit_noncat_slot_end=logit_noncat_slot_end,
+            # logit_slot_status_tokens=logit_slot_status_tokens,
+            intent_status=data.intent_status,
+            requested_slot_status=data.requested_slot_status,
+            req_slot_mask=req_slot_mask,
+            categorical_slot_status=data.categorical_slot_status,
+            num_categorical_slots=data.num_categorical_slots,
+            categorical_slot_values=data.categorical_slot_values,
+            noncategorical_slot_status=data.noncategorical_slot_status,
+            num_noncategorical_slots=data.num_noncategorical_slots,
+            noncategorical_slot_value_start=data.noncategorical_slot_value_start,
+            noncategorical_slot_value_end=data.noncategorical_slot_value_end,
+            # slot_status_tokens=data.slot_status_tokens,
         )
-
-        data = datalayer()
-
-        # Encode the utterances using BERT.
-        token_embeddings = pretrained_bert_model(
-            input_ids=data.utterance_ids,
-            attention_mask=data.utterance_mask,
-            token_type_ids=data.utterance_segment,
-            position_ids=data.position_ids,
-        )
-        encoded_utterance, token_embeddings = encoder(hidden_states=token_embeddings)
-        (
+        tensors = [loss]
+    else:
+        tensors = [
+            data.example_id_num,
+            data.service_id,
+            data.is_real_example,
+            data.start_char_idx,
+            data.end_char_idx,
             logit_intent_status,
             logit_req_slot_status,
-            req_slot_mask,
             logit_cat_slot_status,
             logit_cat_slot_value,
             logit_noncat_slot_status,
             logit_noncat_slot_start,
             logit_noncat_slot_end,
-            # logit_slot_status_tokens,
-        ) = model(
-            encoded_utterance=encoded_utterance,
-            token_embeddings=token_embeddings,
-            utterance_mask=data.utterance_mask,
-            num_categorical_slot_values=data.num_categorical_slot_values,
-            num_intents=data.num_intents,
-            req_num_slots=data.num_slots,
-            service_ids=data.service_id,
-            # slot_status_tokens=data.slot_status_tokens
-        )
-
-        if dataset_split == 'train':
-            loss = dst_loss(
-                logit_intent_status=logit_intent_status,
-                logit_req_slot_status=logit_req_slot_status,
-                logit_cat_slot_status=logit_cat_slot_status,
-                logit_cat_slot_value=logit_cat_slot_value,
-                logit_noncat_slot_status=logit_noncat_slot_status,
-                logit_noncat_slot_start=logit_noncat_slot_start,
-                logit_noncat_slot_end=logit_noncat_slot_end,
-                # logit_slot_status_tokens=logit_slot_status_tokens,
-                intent_status=data.intent_status,
-                requested_slot_status=data.requested_slot_status,
-                req_slot_mask=req_slot_mask,
-                categorical_slot_status=data.categorical_slot_status,
-                num_categorical_slots=data.num_categorical_slots,
-                categorical_slot_values=data.categorical_slot_values,
-                noncategorical_slot_status=data.noncategorical_slot_status,
-                num_noncategorical_slots=data.num_noncategorical_slots,
-                noncategorical_slot_value_start=data.noncategorical_slot_value_start,
-                noncategorical_slot_value_end=data.noncategorical_slot_value_end,
-                # slot_status_tokens=data.slot_status_tokens,
-            )
-            tensors = [loss]
-        else:
-            tensors = [
-                data.example_id_num,
-                data.service_id,
-                data.is_real_example,
-                data.start_char_idx,
-                data.end_char_idx,
-                logit_intent_status,
-                logit_req_slot_status,
-                logit_cat_slot_status,
-                logit_cat_slot_value,
-                logit_noncat_slot_status,
-                logit_noncat_slot_start,
-                logit_noncat_slot_end,
-                data.intent_status,
-                data.requested_slot_status,
-                data.categorical_slot_status,
-                data.num_categorical_slots,
-                data.categorical_slot_values,
-                data.noncategorical_slot_status,
-                data.num_noncategorical_slots,
-                data.usr_utterance_mask,
-            ]
+            data.intent_status,
+            data.requested_slot_status,
+            data.categorical_slot_status,
+            data.num_categorical_slots,
+            data.categorical_slot_values,
+            data.noncategorical_slot_status,
+            data.num_noncategorical_slots,
+            data.usr_utterance_mask,
+        ]
 
         steps_per_epoch = math.ceil(len(datalayer) / (args.train_batch_size * args.num_gpus))
         return steps_per_epoch, tensors
