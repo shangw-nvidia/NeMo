@@ -260,5 +260,5 @@ class SGDDialogueStateLoss(LossNM):
         }
 
         # changed here
-        total_loss = sum(losses.values() / len(losses)
+        total_loss = sum(losses.values() / len(losses))
         return total_loss

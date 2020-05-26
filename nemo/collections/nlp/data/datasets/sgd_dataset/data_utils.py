@@ -155,14 +155,7 @@ class Dstc8DataProcessor(object):
             os.path.join(self.dstc8_data_dir, dataset, "dialogues_{:03d}.json".format(i))
             for i in self._file_ranges[dataset]
         ]
-        dialogs = load_dialogues(dialog_paths)
-
-        # changed here
-        if self._add_text_nums:
-            dialogs = self.add_text_nums(dialogs)
-
-        if self._use_sys_acts:
-            dialogs = self.use_sys_acts(dialogs)
+        dialogs = self.load_dialogues(dialog_paths)
 
         slot_carryover_candlist = collections.defaultdict(int)
         examples = []
@@ -227,15 +220,20 @@ class Dstc8DataProcessor(object):
                     continue
                 utt_org = turn["utterance"]
                 utt_new = ""
-                for action in turn["actions"]:
-                    utt_new += f'{action["act"]} ( '
-                    for value in action["values"]:
-                        utt_new += f'{action["slot"]} = {value};'
-                        for slot in turn["slots"]:
-                            if slot["slot"] == action["slot"] and utt_org[slot["start"]:slot["exclusive_end"]] == value:
-                                slot["start"] = utt_new.rindex(value)
-                                slot["exclusive_end"] = slot["start"] + len(value)
-                    utt_new += " ) "
+                for frame in turn["frames"]:
+                    for action in frame["actions"]:
+                        utt_new += f'{action["act"]} ( '
+                        if len(action["values"]) == 0:
+                            utt_new += f'{action["slot"]}'
+                        else:
+                            for value in action["values"]:
+                                utt_new += f'{action["slot"]} = {value} ; '
+                                for slot in frame["slots"]:
+                                    if slot["slot"] == action["slot"] and utt_org[slot["start"]:slot["exclusive_end"]] == value:
+                                        slot["start"] = utt_new.rindex(value)
+                                        slot["exclusive_end"] = slot["start"] + len(value)
+                        utt_new += " ) "
+                turn["utterance"] = utt_new
 
         return dialogs
 
@@ -495,12 +493,30 @@ class Dstc8DataProcessor(object):
             os.path.join(self.dstc8_data_dir, dataset, "dialogues_{:03d}.json".format(i))
             for i in self._file_ranges[dataset]
         ]
-        dst_set = load_dialogues(dialog_paths)
+        dst_set = self.load_dialogues(dialog_paths, post_process = False)
         for dialog in dst_set:
             for turn in dialog["turns"]:
                 if turn["speaker"] == "USER":
                     example_count += len(turn["frames"])
         return example_count
+
+    def load_dialogues(self, dialog_json_filepaths, post_process=True):
+        """Obtain the list of all dialogues from specified json files."""
+        dialogs = []
+        for dialog_json_filepath in sorted(dialog_json_filepaths):
+            with open(dialog_json_filepath, 'r') as f:
+                dialogs.extend(json.load(f))
+                f.close()
+
+        # changed here
+        if post_process:
+            if self._add_text_nums:
+                dialogs = self.add_text_nums(dialogs)
+            if self._use_sys_acts:
+                dialogs = self.use_sys_acts(dialogs)
+
+        return dialogs
+
 
 
 class InputExample(object):
@@ -969,7 +985,6 @@ class InputExample(object):
             noncat_slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id()
             self.utterance_ids.append(self._tokenizer.tokens_to_ids(noncat_slot_status_token))
 
-
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
     # Modified from run_classifier._truncate_seq_pair in the public bert model repo.
     # https://github.com/google-research/bert/blob/master/run_classifier.py.
@@ -997,16 +1012,6 @@ def _naive_tokenize(s):
     # of all the tokens in the sequence will be the original string.
     seq_tok = [tok for tok in re.split(r"([^a-zA-Z0-9])", s) if tok]
     return seq_tok
-
-
-def load_dialogues(dialog_json_filepaths):
-    """Obtain the list of all dialogues from specified json files."""
-    dialogs = []
-    for dialog_json_filepath in sorted(dialog_json_filepaths):
-        with open(dialog_json_filepath, 'r') as f:
-            dialogs.extend(json.load(f))
-            f.close()
-    return dialogs
 
 
 def list_to_str(l):
