@@ -422,8 +422,8 @@ def create_pipeline(dataset_split):
             data.usr_utterance_mask,
         ]
 
-        steps_per_epoch = math.ceil(len(datalayer) / (args.train_batch_size * args.num_gpus))
-        return steps_per_epoch, tensors
+    steps_per_epoch = math.ceil(len(datalayer) / (args.train_batch_size * args.num_gpus))
+    return steps_per_epoch, tensors
 
 
 train_steps_per_epoch, train_tensors = create_pipeline(dataset_split="train")
