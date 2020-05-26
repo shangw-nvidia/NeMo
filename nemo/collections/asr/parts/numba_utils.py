@@ -131,12 +131,6 @@ def rnnt_beam_decode(x, blank_idx, beam_size):
         results = parallel(delayed(beam_search)(x[batch_idx], blank_idx, beam_size)
                            for batch_idx in range(x.shape[0]))
 
-        # hypotheses = []
-        # for i in range(len(results)):
-        #     res = results[i][0]
-        #     # res = [int(r) for r in res]
-        #     hypotheses.append(res)
-
         results = [res[0] for res in results]
 
     return results

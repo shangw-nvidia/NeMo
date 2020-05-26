@@ -178,15 +178,17 @@ class RNNTLoss(LossNM):
         logits = logits[:, :max_logit_len, :, :].contiguous()
         loss = self.rnnt_loss(acts=logits, labels=y, act_lens=logit_lens, label_lens=y_lens)
 
-        if loss.dtype != logits_dtype:
-            loss = loss.to(logits_dtype)
-
         if self._zero_infinity:
             mask = torch.isnan(loss)
             mask |= torch.isinf(loss)
             loss[mask] = 0
 
-        loss = torch.mean(loss)
+        if loss.size(0) > 32:
+            losses = torch.split(loss, 32, dim=0)
+            loss = torch.sum(torch.cat([torch.mean(loss_) for loss_ in losses]))
+
+        else:
+            loss = torch.mean(loss)
 
         # del new variables that may have been created due to float/int/cuda()
         del logits, y, logit_lens, y_lens, targets

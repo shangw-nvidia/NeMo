@@ -48,7 +48,7 @@ def __rnnt_decoder_predictions_list(decoded_predictions, labels):
     decoded_predictions = decoded_predictions.cpu().numpy()
 
     decoded_prediction = numba_utils.rnnt_beam_decode(
-                decoded_predictions, blank_id, beam_size=4
+                decoded_predictions, blank_id, beam_size=1
             )
 
     for ind in range(decoded_predictions.shape[0]):

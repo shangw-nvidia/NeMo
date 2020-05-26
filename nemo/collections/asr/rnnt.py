@@ -207,13 +207,19 @@ class RNNTDecoder(TrainableNM):
         }
 
     def __init__(
-        self, rnnt: Dict[str, Any], num_classes: int, normalization_mode: Optional[str] = None,
+        self,
+        rnnt: Dict[str, Any],
+        num_classes: int,
+        normalization_mode: Optional[str] = None,
+        random_state_sampling: bool = False,
     ):
         super().__init__()
 
+        self.random_state_sampling = random_state_sampling
+
         # Required arguments
         self.pred_hidden = rnnt['pred_hidden']
-        pred_rnn_layers = rnnt["pred_rnn_layers"]
+        self.pred_rnn_layers = rnnt["pred_rnn_layers"]
 
         # Optional arguments
         forget_gate_bias = rnnt.get('forget_gate_bias', 1.0)
@@ -222,7 +228,7 @@ class RNNTDecoder(TrainableNM):
         self.prediction = self._predict(
             num_classes + 1,  # add 1 for blank symbol
             pred_n_hidden=self.pred_hidden,
-            pred_rnn_layers=pred_rnn_layers,
+            pred_rnn_layers=self.pred_rnn_layers,
             forget_gate_bias=forget_gate_bias,
             norm=normalization_mode,
             dropout=dropout,
@@ -279,13 +285,14 @@ class RNNTDecoder(TrainableNM):
         else:
             start = None  # makes del call later easier
 
-        # if state is None:
-        #    batch = y.size(0)
-        #    state = [
-        #        (torch.zeros(batch, self.pred_n_hidden, dtype=y.dtype, device=y.device),
-        #         torch.zeros(batch, self.pred_n_hidden, dtype=y.dtype, device=y.device))
-        #        for _ in range(self.pred_rnn_layers)
-        #    ]
+        if state is None:
+            if self.random_state_sampling and self.training:
+                batch = y.size(0)
+                state = [
+                    (torch.randn(batch, self.pred_hidden, dtype=y.dtype, device=y.device),
+                     torch.randn(batch, self.pred_hidden, dtype=y.dtype, device=y.device))
+                    for _ in range(self.pred_rnn_layers)
+                ]
 
         y = y.transpose(0, 1)  # .contiguous()   # (U + 1, B, H)
         g, hid = self.prediction["dec_rnn"](y, state)
