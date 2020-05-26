@@ -69,6 +69,7 @@ class SchemaPreprocessor:
         add_carry_value,
         add_none_token,
         add_text_nums,
+        use_sys_acts,
         fix_slot_intent_name,
         datasets=['train', 'test', 'dev'],
         mode='baseline',
@@ -80,6 +81,7 @@ class SchemaPreprocessor:
         # Do we need to copy the config?!
         self.schema_config = schema_config.copy()
         self._add_text_nums = add_text_nums
+        self._use_sys_acts = use_sys_acts
 
         # self.MAX_NUM_CAT_SLOT = config["MAX_NUM_CAT_SLOT"]
         # # Maximum allowed number of non-categorical trackable slots for a service.

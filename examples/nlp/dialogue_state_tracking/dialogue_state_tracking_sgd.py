@@ -216,6 +216,10 @@ parser.add_argument(
     help="Fixes the name of slots and intents for generating the schema embeddings.",
 )
 
+parser.add_argument(
+    "--use_sys_acts", action="store_true", help="Replace system utterances with explict system actions.",
+)
+
 parser.add_argument("--bert_dropout", default=0.1, type=float, help="Dropout rate for BERT model.")
 
 parser.add_argument("--min_lr", default=0.0, type=float)
@@ -292,6 +296,7 @@ schema_preprocessor = SchemaPreprocessor(
     add_carry_value=args.add_carry_value,
     add_none_token=args.add_none_token,
     add_text_nums=args.add_text_nums,
+    use_sys_acts=args.use_sys_acts,
     fix_slot_intent_name=args.fix_slot_intent_name,
     mode=args.schema_emb_init,
     is_trainable=args.train_schema_emb,

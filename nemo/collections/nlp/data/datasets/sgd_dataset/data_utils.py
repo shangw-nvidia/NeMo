@@ -83,6 +83,7 @@ class Dstc8DataProcessor(object):
         self.schema_emb_processor = schema_emb_processor
         self._add_none_token = schema_emb_processor.schemas._add_none_token
         self._add_text_nums = schema_emb_processor._add_text_nums
+        self._use_sys_acts = schema_emb_processor._use_sys_acts
 
         train_file_range = FILE_RANGES[task_name]["train"]
         dev_file_range = FILE_RANGES[task_name]["dev"]
@@ -160,6 +161,9 @@ class Dstc8DataProcessor(object):
         if self._add_text_nums:
             dialogs = self.add_text_nums(dialogs)
 
+        if self._use_sys_acts:
+            dialogs = self.use_sys_acts(dialogs)
+
         slot_carryover_candlist = collections.defaultdict(int)
         examples = []
         for dialog_idx, dialog in enumerate(dialogs):
@@ -214,6 +218,25 @@ class Dstc8DataProcessor(object):
                             slot_value = utt_orig[slot["start"] : slot["exclusive_end"]]
                             slot["start"] = turn["utterance"].index(slot_value, slot["start"])
                             slot["exclusive_end"] = slot["start"] + len(slot_value)
+        return dialogs
+
+    def use_sys_acts(self, dialogs):
+        for dialog_idx, dialog in enumerate(dialogs):
+            for turn_idx, turn in enumerate(dialog["turns"]):
+                if turn["speaker"] == "USER":
+                    continue
+                utt_org = turn["utterance"]
+                utt_new = ""
+                for action in turn["actions"]:
+                    utt_new += f'{action["act"]} ( '
+                    for value in action["values"]:
+                        utt_new += f'{action["slot"]} = {value};'
+                        for slot in turn["slots"]:
+                            if slot["slot"] == action["slot"] and utt_org[slot["start"]:slot["exclusive_end"]] == value:
+                                slot["start"] = utt_new.rindex(value)
+                                slot["exclusive_end"] = slot["start"] + len(value)
+                    utt_new += " ) "
+
         return dialogs
 
     def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist):
