@@ -234,7 +234,7 @@ class RNNTDecoder(TrainableNM):
         y = rnn.label_collate(targets)
 
         g, _ = self.predict(y, state=None)  # (B, U + 1, D)
-        g.transpose_(1, 2)  # (B, D, U + 1)
+        g = g.transpose(1, 2)  # (B, D, U + 1)
 
         return g, target_length
 
