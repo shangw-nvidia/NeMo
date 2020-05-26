@@ -183,12 +183,7 @@ class RNNTLoss(LossNM):
             mask |= torch.isinf(loss)
             loss[mask] = 0
 
-        if loss.size(0) > 32:
-            losses = torch.split(loss, 32, dim=0)
-            loss = torch.sum(torch.cat([torch.mean(loss_) for loss_ in losses]))
-
-        else:
-            loss = torch.mean(loss)
+        loss = torch.mean(loss)
 
         # del new variables that may have been created due to float/int/cuda()
         del logits, y, logit_lens, y_lens, targets
