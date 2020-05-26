@@ -178,9 +178,7 @@ class SchemaEmbeddingDataset(Dataset):
         service_des = service_schema.description
 
         features = []
-        intent_descriptions = {
-            i["name"]: i["description"] for i in service_schema.schema_json["intents"]
-        }
+        intent_descriptions = {i["name"]: i["description"] for i in service_schema.schema_json["intents"]}
         for intent_id, intent in enumerate(service_schema.intents):
             nl_seq = " ".join([service_des, _NL_SEPARATOR, self.fix_name(intent), intent_descriptions[intent]])
             features.append(self._create_feature(nl_seq, "intent_emb", service_schema.service_id, intent_id))

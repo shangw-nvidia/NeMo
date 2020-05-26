@@ -263,8 +263,10 @@ nf = nemo.core.NeuralModuleFactory(
 )
 
 pretrained_bert_model = nemo_nlp.nm.trainables.get_huggingface_model(
-    bert_config=args.bert_config, pretrained_model_name=args.pretrained_model_name,
-    hidden_dropout_prob=args.bert_dropout, attention_probs_dropout_prob=args.bert_dropout
+    bert_config=args.bert_config,
+    pretrained_model_name=args.pretrained_model_name,
+    hidden_dropout_prob=args.bert_dropout,
+    attention_probs_dropout_prob=args.bert_dropout,
 )
 
 schema_config["EMBEDDING_DIMENSION"] = pretrained_bert_model.hidden_size

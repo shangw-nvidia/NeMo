@@ -229,7 +229,10 @@ class Dstc8DataProcessor(object):
                             for value in action["values"]:
                                 utt_new += f'{action["slot"]} = {value} ; '
                                 for slot in frame["slots"]:
-                                    if slot["slot"] == action["slot"] and utt_org[slot["start"]:slot["exclusive_end"]] == value:
+                                    if (
+                                        slot["slot"] == action["slot"]
+                                        and utt_org[slot["start"] : slot["exclusive_end"]] == value
+                                    ):
                                         slot["start"] = utt_new.rindex(value)
                                         slot["exclusive_end"] = slot["start"] + len(value)
                         utt_new += " ) "
@@ -493,7 +496,7 @@ class Dstc8DataProcessor(object):
             os.path.join(self.dstc8_data_dir, dataset, "dialogues_{:03d}.json".format(i))
             for i in self._file_ranges[dataset]
         ]
-        dst_set = self.load_dialogues(dialog_paths, post_process = False)
+        dst_set = self.load_dialogues(dialog_paths, post_process=False)
         for dialog in dst_set:
             for turn in dialog["turns"]:
                 if turn["speaker"] == "USER":
@@ -516,7 +519,6 @@ class Dstc8DataProcessor(object):
                 dialogs = self.use_sys_acts(dialogs)
 
         return dialogs
-
 
 
 class InputExample(object):
@@ -984,6 +986,7 @@ class InputExample(object):
 
             noncat_slot_status_token = self.service_schema.get_non_categorical_slot_status_token_from_id()
             self.utterance_ids.append(self._tokenizer.tokens_to_ids(noncat_slot_status_token))
+
 
 def truncate_seq_pair(tokens_a, tokens_b, max_length):
     # Modified from run_classifier._truncate_seq_pair in the public bert model repo.
