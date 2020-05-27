@@ -213,7 +213,7 @@ class Dstc8DataProcessor(object):
                             slot["exclusive_end"] = slot["start"] + len(slot_value)
         return dialogs
 
-    def use_sys_acts(self, dialogs):
+    def replace_sysutt_with_acts(self, dialogs):
         for dialog_idx, dialog in enumerate(dialogs):
             for turn_idx, turn in enumerate(dialog["turns"]):
                 if turn["speaker"] == "USER":
@@ -222,7 +222,7 @@ class Dstc8DataProcessor(object):
                 utt_new = ""
                 for frame in turn["frames"]:
                     for action in frame["actions"]:
-                        utt_new += f'{action["act"]} ( '
+                        utt_new += f'{action["act"].lower()} ( '
                         if len(action["values"]) == 0:
                             utt_new += f'{action["slot"]}'
                         else:
@@ -516,7 +516,7 @@ class Dstc8DataProcessor(object):
             if self._add_text_nums:
                 dialogs = self.add_text_nums(dialogs)
             if self._use_sys_acts:
-                dialogs = self.use_sys_acts(dialogs)
+                dialogs = self.replace_sysutt_with_acts(dialogs)
 
         return dialogs
 
