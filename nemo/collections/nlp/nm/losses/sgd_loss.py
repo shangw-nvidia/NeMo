@@ -162,10 +162,11 @@ class SGDDialogueStateLoss(LossNM):
 
         if sum(cat_slot_status_mask) == 0:
             logging.warning(f'No active categorical slots in the batch')
-            cat_slot_status_loss = 0 * torch.sum(logit_cat_slot_status.view(-1))
-            # cat_slot_status_loss = self._cross_entropy(
-            #     logit_cat_slot_status.view(-1, 3), torch.argmax(logit_cat_slot_status.view(-1, 3), dim=-1)
-            # )
+            # cat_slot_status_loss = torch.sum(logit_cat_slot_status.view(-1))
+            # cat_slot_status_loss = cat_slot_status_loss - cat_slot_status_loss
+            cat_slot_status_loss = self._cross_entropy(
+                logit_cat_slot_status.view(-1, 3), torch.argmax(logit_cat_slot_status.view(-1, 3), dim=-1)
+            )
             # cat_slot_status_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             cat_slot_status_loss = self._cross_entropy(
@@ -185,11 +186,12 @@ class SGDDialogueStateLoss(LossNM):
         # to handle cases with no active categorical slot value
         if sum(cat_slot_value_mask) == 0:
             logging.warning(f'No active value for categorical slots in the batch')
-            cat_slot_value_loss = 0 * torch.sum(logit_cat_slot_value.view(-1))
-            # cat_slot_value_loss = self._cross_entropy(
-            #     logit_cat_slot_value.view(-1, max_num_slot_values),
-            #     torch.argmax(logit_cat_slot_value.view(-1, max_num_slot_values), dim=-1),
-            # )
+            # cat_slot_value_loss = torch.sum(logit_cat_slot_value.view(-1))
+            # cat_slot_value_loss = cat_slot_value_loss - cat_slot_value_loss
+            cat_slot_value_loss = self._cross_entropy(
+                logit_cat_slot_value.view(-1, max_num_slot_values),
+                torch.argmax(logit_cat_slot_value.view(-1, max_num_slot_values), dim=-1),
+            )
             # cat_slot_value_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             slot_values_active_logits = logit_cat_slot_value.view(-1, max_num_slot_values)[cat_slot_value_mask]
@@ -203,10 +205,11 @@ class SGDDialogueStateLoss(LossNM):
 
         if sum(non_cat_slot_status_mask) == 0:
             logging.warning(f'No active non-categorical slots in the batch')
-            noncat_slot_status_loss = 0 * torch.sum(logit_noncat_slot_status.view(-1))
-            # noncat_slot_status_loss = self._cross_entropy(
-            #     logit_noncat_slot_status.view(-1, 3), torch.argmax(logit_noncat_slot_status.view(-1, 3), dim=-1)
-            # )
+            # noncat_slot_status_loss = torch.sum(logit_noncat_slot_status.view(-1))
+            # noncat_slot_status_loss = noncat_slot_status_loss - noncat_slot_status_loss
+            noncat_slot_status_loss = self._cross_entropy(
+                logit_noncat_slot_status.view(-1, 3), torch.argmax(logit_noncat_slot_status.view(-1, 3), dim=-1)
+            )
             # noncat_slot_status_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             noncat_slot_status_loss = self._cross_entropy(
@@ -228,16 +231,18 @@ class SGDDialogueStateLoss(LossNM):
         # to handle cases with no active categorical slot value
         if sum(non_cat_slot_value_mask) == 0:
             logging.warning(f'No active value for non-categorical slots in the batch')
-            span_start_loss = 0 * torch.sum(logit_noncat_slot_start.view(-1))
-            span_end_loss = 0 * torch.sum(logit_noncat_slot_end.view(-1))
-            # span_start_loss = self._cross_entropy(
-            #     logit_noncat_slot_start.view(-1, max_num_tokens),
-            #     torch.argmax(logit_noncat_slot_start.view(-1, max_num_tokens), dim=-1),
-            # )
-            # span_end_loss = self._cross_entropy(
-            #     logit_noncat_slot_end.view(-1, max_num_tokens),
-            #     torch.argmax(logit_noncat_slot_end.view(-1, max_num_tokens), dim=-1),
-            # )
+            # span_start_loss = torch.sum(logit_noncat_slot_start.view(-1))
+            # span_start_loss = span_start_loss - span_start_loss
+            # span_end_loss = torch.sum(logit_noncat_slot_end.view(-1))
+            # span_end_loss = span_end_loss - span_end_loss
+            span_start_loss = self._cross_entropy(
+                logit_noncat_slot_start.view(-1, max_num_tokens),
+                torch.argmax(logit_noncat_slot_start.view(-1, max_num_tokens), dim=-1),
+            )
+            span_end_loss = self._cross_entropy(
+                logit_noncat_slot_end.view(-1, max_num_tokens),
+                torch.argmax(logit_noncat_slot_end.view(-1, max_num_tokens), dim=-1),
+            )
             # span_start_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
             # span_end_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
