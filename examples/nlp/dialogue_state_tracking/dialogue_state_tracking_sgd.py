@@ -224,6 +224,10 @@ parser.add_argument("--bert_dropout", default=0.1, type=float, help="Dropout rat
 
 parser.add_argument("--min_lr", default=0.0, type=float)
 
+parser.add_argument("--opt_beta1", default=0.95, type=float)
+parser.add_argument("--opt_beta2", default=0.5, type=float)
+
+
 args = parser.parse_args()
 logging.info(args)
 
@@ -511,9 +515,10 @@ nf.train(
     optimization_params={
         "num_epochs": args.num_epochs,
         "lr": args.learning_rate,
-        "eps": 1e-6,
+        "eps": 1e-8,
         "weight_decay": args.weight_decay,
         "grad_norm_clip": args.grad_norm_clip,
+        "betas": (args.opt_beta1, args.opt_beta2)
     },
 )
 
