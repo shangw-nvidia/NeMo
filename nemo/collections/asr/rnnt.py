@@ -288,11 +288,8 @@ class RNNTDecoder(TrainableNM):
         if state is None:
             if self.random_state_sampling and self.training:
                 batch = y.size(0)
-                state = [
-                    (torch.randn(batch, self.pred_hidden, dtype=y.dtype, device=y.device),
-                     torch.randn(batch, self.pred_hidden, dtype=y.dtype, device=y.device))
-                    for _ in range(self.pred_rnn_layers)
-                ]
+                state = (torch.randn(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device),
+                         torch.randn(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device))
 
         y = y.transpose(0, 1)  # .contiguous()   # (U + 1, B, H)
         g, hid = self.prediction["dec_rnn"](y, state)

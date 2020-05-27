@@ -203,7 +203,11 @@ def decode_static(log_probs, blank, beam_size=1):
                     if t < T - 1:
                         new_hyp = hyp
                         new_score = score + log_probs[t, u, v]
-                elif u < U - 1:
+                    else:
+                        new_hyp = hyp
+                        new_score = score + log_probs[-1, u, v]
+
+                elif t < T - 1 and u < U - 1:
                     new_hyp = hyp + (v,)
                     new_score = score + log_probs[t, u, v]
                 else:
