@@ -71,7 +71,7 @@ def carry_over_slots(
 def get_carryover_value(
     slot,
     cur_usr_frame,
-    prev_frame_service,
+    frame_service_prev,
     all_slot_values,
     sys_slots_last,
     sys_slots_agg,
@@ -116,7 +116,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     sys_slots_last = collections.defaultdict(OrderedDict)
 
     sys_rets = OrderedDict()
-    usr_slots_true_prev = OrderedDict()
+    true_state_prev = OrderedDict()
     true_state = OrderedDict()
     frame_service_prev = ""
     for turn_idx, turn in enumerate(dialog["turns"]):
@@ -150,7 +150,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 service_schema = schemas.get_service_schema(frame["service"])
 
                 # Remove the slot spans and state if present.
-                usr_slots_true_prev = [] if len(true_state) == 0 else true_state["slot_values"]
+                true_state_prev = [] if len(true_state) == 0 else true_state["slot_values"]
                 true_slots = frame.pop("slots", None)
                 true_state = frame.pop("state", None)
 
@@ -406,7 +406,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             logging.debug("\n")
                             logging.debug(f"STATE - LABEL: {sorted(true_state['slot_values'].items())}")
                             logging.debug(f"STATE - PRED : {sorted(slot_values.items())}")
-                            logging.debug(f"STATE - PREV: {usr_slots_true_prev}")
+                            logging.debug(f"STATE - PREV: {true_state_prev}")
 
                             logging.debug("\n")
                             logging.debug(f"SLOTS - LABEL: {true_slots}")
