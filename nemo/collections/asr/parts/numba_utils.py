@@ -129,7 +129,7 @@ def remove_padded_timesteps(mask_cumsum):
 
     for t in range(T - 1, 0, -1):
         if mask_cumsum[t, 0, -1] == 0.0:
-            T -= 1
+            T = T - 1
         else:
             break
     return T
