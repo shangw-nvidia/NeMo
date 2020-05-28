@@ -217,7 +217,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--use_accept_offer", action="store_true", help="Add a new prediction to the model to predict if user has accepted an offer or not.",
+    "--use_sys_acts", action="store_true", help="Replace system utterances with explict system actions.",
 )
 
 parser.add_argument("--bert_dropout", default=0.1, type=float, help="Dropout rate for BERT model.")

@@ -25,6 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
+MIN_SLOT_RELATION = 25
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
@@ -70,28 +71,28 @@ def carry_over_slots(
 def get_carryover_value(
     slot,
     cur_usr_frame,
+    prev_frame_service,
     all_slot_values,
-    sys_prev_slots,
+    sys_slots_last,
+    sys_slots_agg,
     slots_relation_list,
     sys_rets,
-    last_sys_slots,
-    prev_frame_service,
 ):
     ext_value = None
-    if slot in sys_prev_slots[cur_usr_frame["service"]]:
-        ext_value = sys_prev_slots[cur_usr_frame["service"]][slot]
+    if slot in sys_slots_agg[cur_usr_frame["service"]]:
+        ext_value = sys_slots_agg[cur_usr_frame["service"]][slot]
         sys_rets[slot] = ext_value
     elif (cur_usr_frame["service"], slot) in slots_relation_list:
         cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
         for dmn, slt, freq in cands_list:
-            if freq < 25:
+            if freq < MIN_SLOT_RELATION:
                 continue
             if dmn in all_slot_values and slt in all_slot_values[dmn]:
                 ext_value = all_slot_values[dmn][slt]
-            if dmn in sys_prev_slots and slt in sys_prev_slots[dmn]:
-                ext_value = sys_prev_slots[dmn][slt]
-            if dmn in last_sys_slots and slt in last_sys_slots[dmn]:
-                ext_value = last_sys_slots[dmn][slt]
+            if dmn in sys_slots_agg and slt in sys_slots_agg[dmn]:
+                ext_value = sys_slots_agg[dmn][slt]
+            if dmn in sys_slots_last and slt in sys_slots_last[dmn]:
+                ext_value = sys_slots_last[dmn][slt]
     return ext_value
 
 
@@ -111,21 +112,21 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
     dialog_id = dialog["dialogue_id"]
     # The slot values tracked for each service.
     all_slot_values = collections.defaultdict(OrderedDict)
-    sys_prev_slots = collections.defaultdict(OrderedDict)
-    last_sys_slots = collections.defaultdict(OrderedDict)
+    sys_slots_agg = collections.defaultdict(OrderedDict)
+    sys_slots_last = collections.defaultdict(OrderedDict)
 
     sys_rets = OrderedDict()
-    usr_prev_slots_true = OrderedDict()
+    usr_slots_true_prev = OrderedDict()
     true_state = OrderedDict()
-    prev_frame_service = ""
+    frame_service_prev = ""
     for turn_idx, turn in enumerate(dialog["turns"]):
-        last_sys_slots = collections.defaultdict(OrderedDict)
         if turn["speaker"] == "SYSTEM":
+            sys_slots_last = collections.defaultdict(OrderedDict)
             for frame in turn["frames"]:
                 for action in frame["actions"]:
                     if action["slot"] and len(action["values"]) > 0:
-                        sys_prev_slots[frame["service"]][action["slot"]] = action["values"][0]
-                        last_sys_slots[frame["service"]][action["slot"]] = action["values"][0]
+                        sys_slots_agg[frame["service"]][action["slot"]] = action["values"][0]
+                        sys_slots_last[frame["service"]][action["slot"]] = action["values"][0]
         elif turn["speaker"] == "USER":
             user_utterance = turn["utterance"]
             system_utterance = dialog["turns"][turn_idx - 1]["utterance"] if turn_idx else ""
@@ -149,7 +150,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 service_schema = schemas.get_service_schema(frame["service"])
 
                 # Remove the slot spans and state if present.
-                usr_prev_slots_true = [] if len(true_state) == 0 else true_state["slot_values"]
+                usr_slots_true_prev = [] if len(true_state) == 0 else true_state["slot_values"]
                 true_slots = frame.pop("slots", None)
                 true_state = frame.pop("state", None)
 
@@ -208,12 +209,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             carryover_value = get_carryover_value(
                                 slot,
                                 frame,
+                                frame_service_prev,
                                 all_slot_values,
-                                sys_prev_slots,
+                                sys_slots_last,
+                                sys_slots_agg,
                                 schemas.slots_relation_list,
                                 sys_rets,
-                                last_sys_slots,
-                                prev_frame_service,
                             )
                             if carryover_value is not None:
                                 slot_values[slot] = carryover_value
@@ -228,10 +229,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         #         slot,
                         #         frame,
                         #         all_slot_values,
-                        #         sys_prev_slots,
+                        #         sys_slots_agg,
                         #         schemas.slots_relation_list,
                         #         sys_rets,
-                        #         last_sys_slots,
+                        #         sys_slots_last,
                         #         prev_frame_service,
                         #     )
                         #     if carryover_value is not None:
@@ -247,11 +248,11 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     #     value_idx = predictions["cat_slot_value"][slot_idx]
                     #     slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                     # else:
-                    #     if slot in sys_prev_slots[frame["service"]]:
+                    #     if slot in sys_slots_agg[frame["service"]]:
                     #         # debugging info
-                    #         sys_rets[slot] = sys_prev_slots[frame["service"]][slot]
+                    #         sys_rets[slot] = sys_slots_agg[frame["service"]][slot]
                     #         ##
-                    #         slot_values[slot] = sys_prev_slots[frame["service"]][slot]
+                    #         slot_values[slot] = sys_slots_agg[frame["service"]][slot]
                     #         #print("pooooy", slot_values[slot])
                     #     else:
                     #         value_idx = predictions["cat_slot_value"][slot_idx]
@@ -305,11 +306,11 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             slot,
                             frame,
                             all_slot_values,
-                            sys_prev_slots,
+                            sys_slots_agg,
                             schemas.slots_relation_list,
                             sys_rets,
-                            last_sys_slots,
-                            prev_frame_service,
+                            sys_slots_last,
+                            frame_service_prev,
                         )
 
                     slot_status = predictions["noncat_slot_status"][slot_idx]
@@ -350,10 +351,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     frame,
                     all_slot_values,
                     schemas.slots_relation_list,
-                    prev_frame_service,
+                    frame_service_prev,
                     slot_values,
-                    sys_prev_slots,
-                    last_sys_slots,
+                    sys_slots_agg,
+                    sys_slots_last,
                 )
                 #############################################################################
 
@@ -405,11 +406,11 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             logging.debug("\n")
                             logging.debug(f"STATE - LABEL: {sorted(true_state['slot_values'].items())}")
                             logging.debug(f"STATE - PRED : {sorted(slot_values.items())}")
-                            logging.debug(f"STATE - PREV: {usr_prev_slots_true}")
+                            logging.debug(f"STATE - PREV: {usr_slots_true_prev}")
 
                             logging.debug("\n")
                             logging.debug(f"SLOTS - LABEL: {true_slots}")
-                            logging.debug(f"SYS PREV SLOT: {sys_prev_slots}")
+                            logging.debug(f"SYS PREV SLOT: {sys_slots_agg}")
                             logging.debug(f"SYS RETS: {sys_rets}")
 
                             logging.debug("\n")
@@ -458,7 +459,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                 # because of use of same objects.
                 state["slot_values"] = {s: [v] for s, v in slot_values.items()}
                 frame["state"] = state
-                prev_frame_service = frame["service"]
+                frame_service_prev = frame["service"]
 
     return dialog
 
