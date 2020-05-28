@@ -11,13 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import math
 import os
 
+import numba
 import numpy as np
-from joblib import Parallel, delayed
 from numba import jit
-
-from .beam_search_rnnt import decode_static as _rnnt_beam_search
 
 
 def phase_vocoder(D: np.ndarray, rate: float, phi_advance: np.ndarray, scale_buffer: np.ndarray):
@@ -116,21 +115,21 @@ def decode_rnnt_hypothesis(decoded_predictions, blank_id):
     return decoded_prediction
 
 
-# @jit(nopython=False, parallel=True, forceobj=True)
-def rnnt_beam_decode(x, blank_idx, beam_size):
-    beam_search = (_rnnt_beam_search)
+@jit(nopython=True)
+def log_sum_exp(a, b):
+    """
+    Stable log sum exp.
+    """
+    return max(a, b) + math.log1p(math.exp(-abs(a - b)))
 
-    # results = [None] * len(x)
-    # for batch_idx in range(len(results)):
-    #     result, log_proba = beam_search(x[batch_idx], blank_idx, beam_size)
-    #     results[batch_idx] = result
 
-    n_jobs = min(os.cpu_count(), x.shape[0])
+@jit(nopython=True)
+def remove_padded_timesteps(mask_cumsum):
+    T, U, V = mask_cumsum.shape
 
-    with Parallel(n_jobs=n_jobs, verbose=0) as parallel:
-        results = parallel(delayed(beam_search)(x[batch_idx], blank_idx, beam_size)
-                           for batch_idx in range(x.shape[0]))
-
-        results = [res[0] for res in results]
-
-    return results
+    for t in range(T - 1, 0, -1):
+        if mask_cumsum[t, 0, -1] == 0.0:
+            T -= 1
+        else:
+            break
+    return T
