@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import nemo
-from .parts.numba_utils import rnnt_beam_decode
+from .parts.beam_search_rnnt import rnnt_beam_decode_static
 from .parts.rnn import label_collate
 from .rnnt import RNNTDecoder, RNNTJoint
 from nemo.backends.pytorch.nm import NonTrainableNM, TrainableNM
