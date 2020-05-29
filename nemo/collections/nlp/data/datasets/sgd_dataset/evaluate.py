@@ -55,7 +55,10 @@ def get_service_set(schema_path):
 
 def get_in_domain_services(schema_path_1, schema_path_2):
     """Get the set of common services between two schemas."""
-    return get_service_set(schema_path_1) & get_service_set(schema_path_2)
+    l = get_service_set(schema_path_1) & get_service_set(schema_path_2)
+    #l.discard("Travel_1")
+    #l.discard("Weather_1")
+    return l
 
 
 def get_dataset_as_dict(file_path_patterns):
