@@ -518,7 +518,7 @@ nf.train(
         "eps": 1e-8,
         "weight_decay": args.weight_decay,
         "grad_norm_clip": args.grad_norm_clip,
-        "betas": (args.opt_beta1, args.opt_beta2)
+        "betas": (args.opt_beta1, args.opt_beta2),
     },
 )
 
