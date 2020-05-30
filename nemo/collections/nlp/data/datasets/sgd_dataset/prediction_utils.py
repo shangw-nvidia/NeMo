@@ -46,7 +46,7 @@ def carry_over_slots(
         if service_dest != cur_usr_frame["service"]:
             continue
         for service_src, slot_src, freq in cands_list:
-            if freq < 25:
+            if freq < MIN_SLOT_RELATION:
                 continue
             if (
                 service_src == prev_frame_service
