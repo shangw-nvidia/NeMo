@@ -5,8 +5,8 @@ import torch
 
 import nemo
 from nemo.collections.asr.metrics import classification_accuracy, word_error_rate
-from nemo.utils import logging
 from nemo.collections.asr.parts.beam_search_rnnt import rnnt_beam_decode_static
+from nemo.utils import logging
 
 try:
     from nemo.collections.asr.parts import numba_utils

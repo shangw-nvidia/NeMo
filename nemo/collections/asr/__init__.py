@@ -34,8 +34,8 @@ from nemo.collections.asr.jasper import (
     JasperEncoder,
 )
 from nemo.collections.asr.las.misc import JasperRNNConnector
-from nemo.collections.asr.rnnt import RNNTDecoder, RNNTEncoder, RNNTJoint
 from nemo.collections.asr.losses import CTCLossNM, RNNTLoss
+from nemo.collections.asr.rnnt import RNNTDecoder, RNNTEncoder, RNNTJoint
 
 __all__ = [
     'AudioToTextDataLayer',
