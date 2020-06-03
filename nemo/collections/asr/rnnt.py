@@ -380,13 +380,13 @@ class RNNTJoint(TrainableNM):
     def forward(self, encoder_outputs: torch.Tensor, decoder_outputs: torch.Tensor) -> torch.Tensor:
         # encoder = (B, D, T)
         # decoder = (B, D, U + 1)
-        encoder_outputs.transpose_(1, 2)  # (B, T, D)
-        decoder_outputs.transpose_(1, 2)  # (B, U + 1, D)
+        encoder_outputs = encoder_outputs.transpose(1, 2)  # (B, T, D)
+        decoder_outputs = decoder_outputs.transpose(1, 2)  # (B, U + 1, D)
 
         out = self.joint(encoder_outputs, decoder_outputs)  # [B, T, U, K + 1]
 
-        encoder_outputs.transpose_(1, 2)  # (B, D, T)
-        decoder_outputs.transpose_(1, 2)  # (B, D, U + 1)
+        # encoder_outputs.transpose_(1, 2)  # (B, D, T)
+        # decoder_outputs.transpose_(1, 2)  # (B, D, U + 1)
         return out
 
     def joint(self, f: torch.Tensor, g: torch.Tensor):
