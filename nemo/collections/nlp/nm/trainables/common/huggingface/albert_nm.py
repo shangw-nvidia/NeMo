@@ -20,7 +20,7 @@ from typing import List, Optional
 
 from transformers import (
     ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-    BERT_PRETRAINED_MODEL_ARCHIVE_LIST,
+    ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST,
     AlbertConfig,
     AlbertModel,
 )
@@ -149,7 +149,7 @@ class Albert(TrainableNM):
     @staticmethod
     def list_pretrained_models() -> Optional[List[PretrainedModelInfo]]:
         pretrained_models = []
-        for key in BERT_PRETRAINED_MODEL_ARCHIVE_LIST:
+        for key in ALBERT_PRETRAINED_MODEL_ARCHIVE_LIST:
             model_info = PretrainedModelInfo(
                 pretrained_model_name=key,
                 description="weights by HuggingFace",
