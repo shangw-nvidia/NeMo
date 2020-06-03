@@ -2,7 +2,7 @@ import argparse
 import os
 
 import torch
-from transformers import BERT_PRETRAINED_MODEL_ARCHIVE_MAP
+from transformers import BERT_PRETRAINED_MODEL_ARCHIVE_LIST
 from transformers.file_utils import cached_path
 
 state_dict_mappings = {
@@ -46,7 +46,7 @@ parser.add_argument("--save_to", default="", type=str, help="folder to save outp
 
 args = parser.parse_args()
 
-path = cached_path(BERT_PRETRAINED_MODEL_ARCHIVE_MAP[args.model_name])
+path = cached_path(BERT_PRETRAINED_MODEL_ARCHIVE_LIST[args.model_name])
 weights_bert = torch.load(path)
 bert_keys = list(weights_bert.keys())
 
