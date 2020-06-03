@@ -160,12 +160,12 @@ class BERT(TrainableNM):
     @staticmethod
     def list_pretrained_models() -> Optional[List[PretrainedModelInfo]]:
         pretrained_models = []
-        for key, value in BERT_PRETRAINED_MODEL_ARCHIVE_LIST.items():
+        for key in BERT_PRETRAINED_MODEL_ARCHIVE_LIST:
             model_info = PretrainedModelInfo(
                 pretrained_model_name=key,
                 description="weights by HuggingFace",
                 parameters=BERT_PRETRAINED_CONFIG_ARCHIVE_MAP[key],
-                location=value,
+                location="",
             )
             pretrained_models.append(model_info)
         return pretrained_models
