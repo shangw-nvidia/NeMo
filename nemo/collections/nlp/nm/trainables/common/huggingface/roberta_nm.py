@@ -150,7 +150,7 @@ class Roberta(TrainableNM):
     @staticmethod
     def list_pretrained_models() -> Optional[List[PretrainedModelInfo]]:
         pretrained_models = []
-        for key in ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST.items():
+        for key in ROBERTA_PRETRAINED_MODEL_ARCHIVE_LIST:
             model_info = PretrainedModelInfo(
                 pretrained_model_name=key,
                 description="weights by HuggingFace",
