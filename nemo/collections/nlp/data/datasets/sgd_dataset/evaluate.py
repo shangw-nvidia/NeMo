@@ -123,6 +123,7 @@ def get_metrics(dataset_ref, dataset_hyp, service_schemas, in_domain_services):
                 "for dialogue with id {}".format(dial_id)
             )
 
+        unseen = False
         for turn_id, (turn_ref, turn_hyp) in enumerate(zip(dial_ref["turns"], dial_hyp["turns"])):
             if turn_ref["speaker"] != turn_hyp["speaker"]:
                 raise ValueError("Speakers don't match in dialogue with id {}".format(dial_id))
@@ -175,9 +176,10 @@ def get_metrics(dataset_ref, dataset_hyp, service_schemas, in_domain_services):
                 # Get the domain name of the service.
                 domain_name = frame_hyp["service"].split("_")[0]
                 domain_keys = [ALL_SERVICES, frame_hyp["service"], domain_name]
-                if frame_hyp["service"] in in_domain_services:
+                if frame_hyp["service"] in in_domain_services and not unseen:
                     domain_keys.append(SEEN_SERVICES)
                 else:
+                    unseen = True
                     domain_keys.append(UNSEEN_SERVICES)
                 for domain_key in domain_keys:
                     for metric_key, metric_value in frame_metric.items():

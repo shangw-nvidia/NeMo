@@ -25,7 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
-MIN_SLOT_RELATION = 5
+MIN_SLOT_RELATION = 25
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
@@ -39,7 +39,7 @@ def carry_over_slots(
     sys_prev_slots,
     last_sys_slots,
 ):
-    # return
+    return
     if prev_frame_service == cur_usr_frame["service"]:
         return
     for (service_dest, slot_dest), cands_list in slots_relation_list.items():
