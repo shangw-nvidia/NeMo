@@ -138,7 +138,8 @@ class Dstc8DataProcessor(object):
         with open(dial_file, "rb") as f:
             dial_examples, slots_relation_list = np.load(f, allow_pickle=True)
             f.close()
-        self.schema_emb_processor.schemas.slots_relation_list = slots_relation_list
+        if dataset == "train":
+            self.schema_emb_processor.schemas.slots_relation_list = slots_relation_list
         return dial_examples
 
     def _generate_dialog_examples(self, dataset, schemas):

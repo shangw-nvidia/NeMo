@@ -145,7 +145,7 @@ def eval_epochs_done_callback(
         os.path.join(data_dir, eval_dataset, "schema.json"), os.path.join(data_dir, "train", "schema.json")
     )
 
-    if "single" in prediction_dir:
+    if "single_domain" in prediction_dir:
         in_domain_services.discard("Travel_1")
         in_domain_services.discard("Weather_1")
     ##############
