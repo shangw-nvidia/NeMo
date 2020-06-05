@@ -25,7 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
-MIN_SLOT_RELATION = 4
+MIN_SLOT_RELATION = 25
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 

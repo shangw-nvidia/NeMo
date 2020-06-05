@@ -386,8 +386,8 @@ class Dstc8DataProcessor(object):
                     for prev_slot_name, prev_values in prev_slot_value_list.items():
                         for prev_value in prev_values:
                             slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
-                    if prev_service in state:
-                        prev_slot_value_list = state[prev_service]
+                    if prev_service in states:
+                        prev_slot_value_list = states[prev_service]
                         for prev_slot_name, prev_values in prev_slot_value_list.items():
                             for prev_value in prev_values:
                                 slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
