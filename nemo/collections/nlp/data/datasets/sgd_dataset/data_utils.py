@@ -32,6 +32,7 @@ import numpy as np
 import torch
 
 from nemo import logging
+from collections import OrderedDict
 
 __all__ = [
     'STATUS_DONTCARE',
@@ -249,6 +250,7 @@ class Dstc8DataProcessor(object):
         agg_sys_states = collections.defaultdict(dict)
         prev_agg_sys_states = collections.defaultdict(dict)
         # all_slot_values = collections.defaultdict(collections.defaultdict(dict))
+        frame_service_prev = ""
         for turn_idx, turn in enumerate(dialog["turns"]):
             # Generate an example for every frame in every user turn.
             if turn["speaker"] == "SYSTEM":
@@ -271,6 +273,17 @@ class Dstc8DataProcessor(object):
                     system_frames = {}
 
                 turn_id = "{}-{}-{:02d}".format(dataset, dialog_id, turn_idx)
+                if len(user_frames) == 2:
+                    frames_list_name = list(user_frames.keys())
+                    frames_list_val = list(user_frames.values())
+                    user_frames_ordered = OrderedDict()
+
+                    if frame_service_prev != "" and frames_list_name[0] != frame_service_prev:
+                        user_frames_ordered[frames_list_name[1]] = frames_list_val[1]
+                        user_frames_ordered[frames_list_name[0]] = frames_list_val[0]
+                        user_frames = user_frames_ordered
+                frame_service_prev = user_frames[list(user_frames.keys())[-1]]["service"]
+
                 turn_examples, prev_states, slot_carryover_values = self._create_examples_from_turn(
                     turn_id,
                     system_utterance,
@@ -281,14 +294,13 @@ class Dstc8DataProcessor(object):
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),  # changed here prev_agg_sys_states or agg_sys_states
                 )
-
                 for value, slots_list in slot_carryover_values.items():
                     if value in ["True", "False"]:
                         continue
                     if len(slots_list) > 1:
                         for service1, slot1 in slots_list:
                             for service2, slot2 in slots_list:
-                                if service1 == service2 or (service1 == service2 and slot1 == slot2):
+                                if service1 == service2:
                                     continue
                                 if service1 > service2:
                                     service1, service2 = service2, service1
@@ -371,11 +383,21 @@ class Dstc8DataProcessor(object):
                 for prev_service, prev_slot_value_list in prev_states.items():
                     if prev_service == service:
                         continue
-                    if prev_service in state:
-                        prev_slot_value_list = state[prev_service]
                     for prev_slot_name, prev_values in prev_slot_value_list.items():
                         for prev_value in prev_values:
                             slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+                    if prev_service in state:
+                        prev_slot_value_list = state[prev_service]
+                        for prev_slot_name, prev_values in prev_slot_value_list.items():
+                            for prev_value in prev_values:
+                                slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+                    # if prev_service in system_frames:
+                    #     sys_act_list = system_frames[prev_service]["actions"]
+                    #     if len(sys_act_list) == 0:
+                    #         continue
+                    #     for sys_act in sys_act_list:
+                    #         for value in sys_act["values"]:
+                    #             slot_carryover_values[value].append((prev_service, sys_act["slot"]))
 
             # Populate features in the example.
             # cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
@@ -753,7 +775,7 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utterance_mask.append(0)  # -np.inf) # changed here
+            usr_utterance_mask.append(-np.inf) # changed here
 
         utterance_subword.append("[SEP]")
         utterance_segment.append(0)

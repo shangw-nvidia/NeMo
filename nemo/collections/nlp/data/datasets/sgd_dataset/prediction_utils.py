@@ -25,7 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
-MIN_SLOT_RELATION = 25
+MIN_SLOT_RELATION = 4
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
@@ -36,36 +36,24 @@ def carry_over_slots(
     slots_relation_list,
     prev_frame_service,
     slot_values,
-    sys_prev_slots,
-    last_sys_slots,
+    sys_slots_agg,
+    sys_slots_last,
 ):
-    return
     if prev_frame_service == cur_usr_frame["service"]:
         return
     for (service_dest, slot_dest), cands_list in slots_relation_list.items():
         if service_dest != cur_usr_frame["service"]:
             continue
         for service_src, slot_src, freq in cands_list:
-            if freq < MIN_SLOT_RELATION:
+            if freq < MIN_SLOT_RELATION or service_src != prev_frame_service:
                 continue
-            if (
-                service_src == prev_frame_service
-                and service_src in all_slot_values
-                and slot_src in all_slot_values[service_src]
-            ):
+
+            if service_src in all_slot_values and slot_src in all_slot_values[service_src]:
                 slot_values[slot_dest] = all_slot_values[service_src][slot_src]
-            if (
-                service_src == prev_frame_service
-                and service_src in sys_prev_slots
-                and slot_src in sys_prev_slots[service_src]
-            ):
-                slot_values[slot_dest] = sys_prev_slots[service_src][slot_src]
-            if (
-                service_src == prev_frame_service
-                and service_src in last_sys_slots
-                and slot_src in last_sys_slots[service_src]
-            ):
-                slot_values[slot_dest] = last_sys_slots[service_src][slot_src]
+            # if service_src in sys_slots_agg and slot_src in sys_slots_agg[service_src]:
+            #     slot_values[slot_dest] = sys_slots_agg[service_src][slot_src]
+            # if service_src in sys_slots_last and slot_src in sys_slots_last[service_src]:
+            #     slot_values[slot_dest] = sys_slots_last[service_src][slot_src]
 
 
 def get_carryover_value(
@@ -83,6 +71,7 @@ def get_carryover_value(
         ext_value = sys_slots_agg[cur_usr_frame["service"]][slot]
         sys_rets[slot] = ext_value
     elif (cur_usr_frame["service"], slot) in slots_relation_list:
+        return ext_value
         cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
         for dmn, slt, freq in cands_list:
             if freq < MIN_SLOT_RELATION:
@@ -90,9 +79,9 @@ def get_carryover_value(
             if dmn in all_slot_values and slt in all_slot_values[dmn]:
                 ext_value = all_slot_values[dmn][slt]
             if dmn in sys_slots_agg and slt in sys_slots_agg[dmn]:
-                ext_value = sys_slots_agg[dmn][slt]
+               ext_value = sys_slots_agg[dmn][slt]
             if dmn in sys_slots_last and slt in sys_slots_last[dmn]:
-                ext_value = sys_slots_last[dmn][slt]
+               ext_value = sys_slots_last[dmn][slt]
     return ext_value
 
 
@@ -135,6 +124,12 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
             user_utterance = turn["utterance"]
             system_utterance = dialog["turns"][turn_idx - 1]["utterance"] if turn_idx else ""
             turn_id = "{:02d}".format(turn_idx)
+            if len(turn["frames"]) == 2:
+                if frame_service_prev != "" and turn["frames"][0]["service"] != frame_service_prev:
+                    frame_tmp = turn["frames"][0]
+                    turn["frames"][0] = turn["frames"][1]
+                    turn["frames"][1] = frame_tmp
+
 
             for frame in turn["frames"]:
                 cat_slot_status_acc = 0
