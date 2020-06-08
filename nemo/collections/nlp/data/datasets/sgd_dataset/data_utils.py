@@ -161,13 +161,16 @@ class Dstc8DataProcessor(object):
 
         slot_carryover_candlist = collections.defaultdict(int)
         examples = []
+        services_switch_counts = collections.defaultdict(int)
         for dialog_idx, dialog in enumerate(dialogs):
             if dialog_idx % 1000 == 0:
                 logging.info(f'Processed {dialog_idx} dialogues.')
-            examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset, slot_carryover_candlist))
+            examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset, slot_carryover_candlist, services_switch_counts))
 
         slots_relation_list = collections.defaultdict(list)
         for slots_relation, relation_size in slot_carryover_candlist.items():
+            switch_counts = services_switch_counts[(slots_relation[0], slots_relation[2])] + services_switch_counts[(slots_relation[2], slots_relation[0])]
+            relation_size = relation_size / switch_counts
             if relation_size > 0:
                 slots_relation_list[(slots_relation[0], slots_relation[1])].append(
                     (slots_relation[2], slots_relation[3], relation_size)
@@ -242,7 +245,8 @@ class Dstc8DataProcessor(object):
 
         return dialogs
 
-    def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist):
+    def _create_examples_from_dialog(self, dialog, schemas, dataset, slot_carryover_candlist, services_switch_counts):
+
         """Create examples for every turn in the dialog."""
         dialog_id = dialog["dialogue_id"]
         prev_states = {}
@@ -284,7 +288,7 @@ class Dstc8DataProcessor(object):
                         user_frames = user_frames_ordered
                 frame_service_prev = user_frames[list(user_frames.keys())[-1]]["service"]
 
-                turn_examples, prev_states, slot_carryover_values = self._create_examples_from_turn(
+                turn_examples, prev_states = self._create_examples_from_turn(
                     turn_id,
                     system_utterance,
                     user_utterance,
@@ -293,19 +297,21 @@ class Dstc8DataProcessor(object):
                     prev_states,
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),  # changed here prev_agg_sys_states or agg_sys_states
+                    services_switch_counts,
+                    slot_carryover_candlist
                 )
-                for value, slots_list in slot_carryover_values.items():
-                    if value in ["True", "False"]:
-                        continue
-                    if len(slots_list) > 1:
-                        for service1, slot1 in slots_list:
-                            for service2, slot2 in slots_list:
-                                if service1 == service2:
-                                    continue
-                                if service1 > service2:
-                                    service1, service2 = service2, service1
-                                    slot1, slot2 = slot2, slot1
-                                slot_carryover_candlist[(service1, slot1, service2, slot2)] += 1
+                # for value, slots_list in slot_carryover_values.items():
+                #     if value in ["True", "False"]:
+                #         continue
+                #     if len(slots_list) > 1:
+                #         for service1, slot1 in slots_list:
+                #             for service2, slot2 in slots_list:
+                #                 if service1 == service2:
+                #                     continue
+                #                 if service1 > service2:
+                #                     slot_carryover_candlist[(service2, slot2, service1, slot1)] += 0.5
+                #                 else:
+                #                     slot_carryover_candlist[(service1, slot1, service2, slot2)] += 0.5
 
                 examples.extend(turn_examples)
         return examples
@@ -328,6 +334,8 @@ class Dstc8DataProcessor(object):
         prev_states,
         schemas,
         agg_sys_states,
+        services_switch_counts,
+        slot_carryover_candlist
     ):
         """Creates an example for each frame in the user turn."""
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
@@ -374,30 +382,73 @@ class Dstc8DataProcessor(object):
             state_update = self._get_state_update(state, prev_states.get(service, {}))
             states[service] = state
 
-            # if len(user_frames) > 1:
             if service not in prev_states and int(turn_id_) > 0:
-                for slot_name, values in state_update.items():
-                    for value in values:
-                        slot_carryover_values[value].append((service, slot_name))
+                prev_service = ""
+                for prev_s, prev_slot_value_list in prev_states.items():
+                    if prev_s != service:
+                        prev_service = prev_s
+                if prev_service == "":
+                    print("ERRRRRRRRRRRRRRRRRRR!!!")
+                services_switch_counts[(prev_service, service)] += 1
 
-                for prev_service, prev_slot_value_list in prev_states.items():
-                    if prev_service == service:
-                        continue
-                    for prev_slot_name, prev_values in prev_slot_value_list.items():
-                        for prev_value in prev_values:
-                            slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
-                    if prev_service in states:
-                        prev_slot_value_list = states[prev_service]
-                        for prev_slot_name, prev_values in prev_slot_value_list.items():
-                            for prev_value in prev_values:
-                                slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
-                    # if prev_service in system_frames:
-                    #     sys_act_list = system_frames[prev_service]["actions"]
-                    #     if len(sys_act_list) == 0:
-                    #         continue
-                    #     for sys_act in sys_act_list:
-                    #         for value in sys_act["values"]:
-                    #             slot_carryover_values[value].append((prev_service, sys_act["slot"]))
+                if prev_service in states:
+                    prev_slot_value_list = states[prev_service]
+                else:
+                    prev_slot_value_list = prev_states[prev_service]
+
+                cur_slot_value_list = state_update
+                for cur_slot, cur_values in cur_slot_value_list.items():
+                    for prev_slot, prev_values in prev_slot_value_list.items():
+                        # if "True" in cur_values or "False" in cur_values:
+                        #     continue
+                        if set(cur_values) & set(prev_values):
+                            if prev_service <= service:
+                                slot_carryover_candlist[(prev_service, prev_slot, service, cur_slot)] += 1.0
+                            else:
+                                slot_carryover_candlist[(service, cur_slot, prev_service, prev_slot)] += 1.0
+
+
+                # for slot_name, values in state_update.items():
+                #     #for value in values:
+                #     value = values[0]
+                #     slot_carryover_values[value].append((service, slot_name))
+                #
+                # prev_service = ""
+                # for prev_s, prev_slot_value_list in prev_states.items():
+                #     if prev_s != service:
+                #         prev_service = prev_s
+                #
+                #
+                #
+                #
+                # for prev_service, prev_slot_value_list in prev_states.items():
+                #     if prev_service == service:
+                #         continue
+                #     if prev_service in states:
+                #         prev_slot_value_list = states[prev_service]
+                #
+                #     # if prev_service in states:
+                #     #     prev_slot_value_list = states[prev_service]
+                #     #     for prev_slot_name, prev_values in prev_slot_value_list.items():
+                #     #         for prev_value in prev_values:
+                #     #             slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+                #     # if prev_service in states:
+                #     #     prev_slot_value_list = states[prev_service]
+                #     #     for prev_slot_name, prev_values in prev_slot_value_list.items():
+                #     #         for prev_value in prev_values:
+                #     #             slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+                #
+                #     for prev_slot_name, prev_values in prev_slot_value_list.items():
+                #         #for prev_value in prev_values:
+                #         prev_value = prev_values[0]
+                #         slot_carryover_values[prev_value].append((prev_service, prev_slot_name))
+                #     # if prev_service in system_frames:
+                #     #     sys_act_list = system_frames[prev_service]["actions"]
+                #     #     if len(sys_act_list) == 0:
+                #     #         continue
+                #     #     for sys_act in sys_act_list:
+                #     #         for value in sys_act["values"]:
+                #     #             slot_carryover_values[value].append((prev_service, sys_act["slot"]))
 
             # Populate features in the example.
             # cur_agg_sys_state = agg_sys_states[service] if service in agg_sys_states else {}
@@ -436,7 +487,7 @@ class Dstc8DataProcessor(object):
             example.add_slot_status_tokens(schemas._slots_status_model)
 
             examples.append(example)
-        return examples, states, slot_carryover_values
+        return examples, states #, slot_carryover_values
 
     def _find_subword_indices(self, slot_values, utterance, char_slot_spans, alignments, subwords, bias):
         """Find indices for subwords corresponding to slot values."""
