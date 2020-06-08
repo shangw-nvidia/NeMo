@@ -39,6 +39,7 @@ __all__ = [
     'STATUS_OFF',
     'STR_DONTCARE',
     'STATUS_ACTIVE',
+    'STATUS_CARRY'
     'FILE_RANGES',
     'PER_FRAME_OUTPUT_FILENAME',
     'Dstc8DataProcessor',
@@ -51,6 +52,7 @@ STR_DONTCARE = "dontcare"
 STATUS_OFF = 0
 STATUS_ACTIVE = 1
 STATUS_DONTCARE = 2
+STATUS_CARRY = 3
 
 FILE_RANGES = {
     "dstc8_single_domain": {"train": range(1, 44), "dev": range(1, 8), "test": range(1, 12)},
@@ -169,12 +171,12 @@ class Dstc8DataProcessor(object):
 
         slots_relation_list = collections.defaultdict(list)
         for slots_relation, relation_size in slot_carryover_candlist.items():
-            switch_counts = services_switch_counts[(slots_relation[0], slots_relation[2])] + services_switch_counts[(slots_relation[2], slots_relation[0])]
-            relation_size = relation_size / switch_counts
             if relation_size > 0:
-                slots_relation_list[(slots_relation[0], slots_relation[1])].append(
-                    (slots_relation[2], slots_relation[3], relation_size)
-                )
+                switch_counts = services_switch_counts[(slots_relation[0], slots_relation[2])]  # + services_switch_counts[(slots_relation[2], slots_relation[0])]
+                relation_size = relation_size / switch_counts
+                # slots_relation_list[(slots_relation[0], slots_relation[1])].append(
+                #     (slots_relation[2], slots_relation[3], relation_size)
+                # )
                 slots_relation_list[(slots_relation[2], slots_relation[3])].append(
                     (slots_relation[0], slots_relation[1], relation_size)
                 )
@@ -402,10 +404,10 @@ class Dstc8DataProcessor(object):
                         # if "True" in cur_values or "False" in cur_values:
                         #     continue
                         if set(cur_values) & set(prev_values):
-                            if prev_service <= service:
-                                slot_carryover_candlist[(prev_service, prev_slot, service, cur_slot)] += 1.0
-                            else:
-                                slot_carryover_candlist[(service, cur_slot, prev_service, prev_slot)] += 1.0
+                            # if prev_service <= service:
+                            slot_carryover_candlist[(prev_service, prev_slot, service, cur_slot)] += 1.0
+                            # else:
+                            #     slot_carryover_candlist[(service, cur_slot, prev_service, prev_slot)] += 1.0
 
 
                 # for slot_name, values in state_update.items():
@@ -629,6 +631,7 @@ class InputExample(object):
         self.example_id_num = example_id_num
         self.none_token_id = int(service_schema._add_none_token)
         self._add_carry_value = service_schema._add_carry_value
+        self._add_carry_status = service_schema._add_carry_status
 
         self.is_real_example = is_real_example
         self._max_seq_length = schema_config["MAX_SEQ_LENGTH"]
@@ -915,24 +918,31 @@ class InputExample(object):
                 # )
 
             else:
-                self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
                 slot_id = self.service_schema.get_categorical_slot_value_id(slot, values[0])
-                if slot_id >= 0:
-                    # changed here
-                    if self._add_carry_value and values[0] in agg_sys_state.get(slot, []):
-                        self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
-                            slot, "#CARRYVALUE#"
-                        )
-                        print(
-                            f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in prev states: {agg_sys_state}"
-                        )
-                    else:
-                        self.categorical_slot_values[slot_idx] = slot_id
-                else:
+                if slot_id < 0:
                     logging.warning(
                         f"Categorical value not found: EXAMPLE_ID:{self.example_id}, EXAMPLE_ID_NUM:{self.example_id_num}"
                     )
                     logging.warning(f"SYSTEM:{self.system_utterance} || USER:{self.user_utterance}")
+                else:
+                    if values[0] not in agg_sys_state.get(slot, []):
+                        self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
+                        self.categorical_slot_values[slot_idx] = slot_id
+                    else:
+                        if self._add_carry_status:
+                            self.categorical_slot_status[slot_idx] = STATUS_CARRY
+                        else:
+                            self.categorical_slot_status[slot_idx] = STATUS_ACTIVE
+                        # changed here
+                        if self._add_carry_value:
+                            self.categorical_slot_values[slot_idx] = self.service_schema.get_categorical_slot_value_id(
+                                slot, "#CARRYVALUE#"
+                            )
+                            print(
+                                f"Found slot:{slot}, value:{values[0]}, slot_id:{self.categorical_slot_values[slot_idx]} in prev states: {agg_sys_state}"
+                            )
+                        else:
+                            self.categorical_slot_values[slot_idx] = slot_id
 
     def add_noncategorical_slots(self, state_update, system_span_boundaries, user_span_boundaries):
         """Add features for non-categorical slots."""

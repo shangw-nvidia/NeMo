@@ -227,6 +227,10 @@ parser.add_argument("--min_lr", default=0.0, type=float)
 parser.add_argument("--opt_beta1", default=0.9, type=float)
 parser.add_argument("--opt_beta2", default=0.999, type=float)
 
+parser.add_argument(
+    "--add_carry_status", action="store_true", help="Add a carry-over status to all categorical slots.",
+)
+
 
 args = parser.parse_args()
 logging.info(args)
@@ -300,6 +304,7 @@ schema_preprocessor = SchemaPreprocessor(
     nf=nf,
     slots_status_model=args.slots_status_model,
     add_carry_value=args.add_carry_value,
+    add_carry_status=args.add_carry_status,
     add_none_token=args.add_none_token,
     add_text_nums=args.add_text_nums,
     use_sys_acts=args.use_sys_acts,

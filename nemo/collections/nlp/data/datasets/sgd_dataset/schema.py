@@ -159,6 +159,7 @@ class Schema(object):
         schema_json_paths,
         slots_status_model,
         add_carry_value,
+        add_carry_status,
         add_none_token,
         add_text_nums,
         fix_slot_intent_name,
@@ -194,6 +195,7 @@ class Schema(object):
         self._add_none_token = add_none_token
         self._add_text_nums = add_text_nums
         self._add_carry_value = add_carry_value
+        self._add_carry_status = add_carry_status
         self._fix_slot_intent_name = fix_slot_intent_name
 
         service_schemas = {}

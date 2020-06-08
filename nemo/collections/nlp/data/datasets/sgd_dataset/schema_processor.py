@@ -67,6 +67,7 @@ class SchemaPreprocessor:
         nf,
         slots_status_model,
         add_carry_value,
+        add_carry_status,
         add_none_token,
         add_text_nums,
         use_sys_acts,
@@ -82,6 +83,7 @@ class SchemaPreprocessor:
         self.schema_config = schema_config.copy()
         self._add_text_nums = add_text_nums
         self._use_sys_acts = use_sys_acts
+        self._add_carry_status = add_carry_status
 
         # self.MAX_NUM_CAT_SLOT = config["MAX_NUM_CAT_SLOT"]
         # # Maximum allowed number of non-categorical trackable slots for a service.
@@ -118,6 +120,7 @@ class SchemaPreprocessor:
             all_schema_json_paths,
             slots_status_model,
             add_carry_value,
+            add_carry_status,
             add_none_token,
             add_text_nums,
             fix_slot_intent_name,

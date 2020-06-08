@@ -25,7 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
-MIN_SLOT_RELATION = 0.1
+MIN_SLOT_RELATION = 0.3
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
@@ -201,27 +201,27 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     elif slot_status == data_utils.STATUS_ACTIVE:
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        carryover_value = get_carryover_value(
+                            slot,
+                            frame,
+                            frame_service_prev,
+                            all_slot_values,
+                            sys_slots_last,
+                            sys_slots_agg,
+                            schemas.slots_relation_list,
+                            sys_rets,
+                        )
+
                         if (
                             service_schema.get_categorical_slot_values(slot)[predictions["cat_slot_value"][slot_idx]]
-                            != "#CARRYVALUE#"
+                            == "#CARRYVALUE#" or carryover_value is None
                         ):
                             # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
                             value_idx = predictions["cat_slot_value"][slot_idx]
                             ext_value = service_schema.get_categorical_slot_values(slot)[value_idx]
                         else:
-                            carryover_value = get_carryover_value(
-                                slot,
-                                frame,
-                                frame_service_prev,
-                                all_slot_values,
-                                sys_slots_last,
-                                sys_slots_agg,
-                                schemas.slots_relation_list,
-                                sys_rets,
-                            )
-                            if carryover_value is not None:
-                                ext_value = carryover_value
-                                print(f'slot:{slot} with value:{carryover_value} extratced with CARRYVALUE')
+                            ext_value = carryover_value
+                            print(f'slot:{slot} with value:{carryover_value} extracted with CARRYVALUE')
                     elif slot_status == data_utils.STATUS_OFF:
                         ext_value = None
 
@@ -398,10 +398,10 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         if noncat_slot_value_acc != "NAN" and noncat_slot_value_acc != 1.0:
                             found_err = True
 
-                        if found_err:
+                        if found_err and frame["service"] != frame_service_prev and frame_service_prev != "":
                             logging.debug("-----------------------------------New Frame------------------------------")
                             logging.debug(
-                                f'DIALOGUE ID : {dialog_id}, TURN ID: {turn_id}, SERVICE: {frame["service"]}'
+                                f'DIALOGUE ID : {dialog_id}, TURN ID: {turn_id}, SERVICE: {frame["service"]}, PREV_SERVICE: {frame_service_prev}'
                             )
 
                             logging.debug(f'SYS : {system_utterance}')
@@ -419,6 +419,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             logging.debug("\n")
                             logging.debug(f"SLOTS - LABEL: {true_slots}")
                             logging.debug(f"SYS SLOT AGG: {sys_slots_agg}")
+                            logging.debug(f"SYS SLOT LAST: {sys_slots_last}")
                             logging.debug(f"SYS RETS: {sys_rets}")
 
                             logging.debug("\n")
