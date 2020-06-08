@@ -70,7 +70,7 @@ def get_carryover_value(
     ext_value = None
     if slot in sys_slots_agg[cur_usr_frame["service"]]:
         ext_value = sys_slots_agg[cur_usr_frame["service"]][slot]
-        sys_rets[slot] = ext_value
+        #sys_rets[slot] = ext_value
 
     elif (cur_usr_frame["service"], slot) in slots_relation_list:
         return ext_value
@@ -201,27 +201,27 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     elif slot_status == data_utils.STATUS_ACTIVE:
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        carryover_value = get_carryover_value(
+                            slot,
+                            frame,
+                            frame_service_prev,
+                            all_slot_values,
+                            sys_slots_last,
+                            sys_slots_agg,
+                            schemas.slots_relation_list,
+                            sys_rets,
+                        )
+
                         if (
                             service_schema.get_categorical_slot_values(slot)[predictions["cat_slot_value"][slot_idx]]
-                            != "#CARRYVALUE#"
+                            != "#CARRYVALUE#" or carryover_value is None
                         ):
                             # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
                             value_idx = predictions["cat_slot_value"][slot_idx]
                             ext_value = service_schema.get_categorical_slot_values(slot)[value_idx]
                         else:
-                            carryover_value = get_carryover_value(
-                                slot,
-                                frame,
-                                frame_service_prev,
-                                all_slot_values,
-                                sys_slots_last,
-                                sys_slots_agg,
-                                schemas.slots_relation_list,
-                                sys_rets,
-                            )
-                            if carryover_value is not None:
-                                ext_value = carryover_value
-                                print(f'slot:{slot} with value:{carryover_value} extratced with CARRYVALUE')
+                            ext_value = carryover_value
+                            print(f'slot:{slot} with value:{carryover_value} extracted with CARRYVALUE')
                     elif slot_status == data_utils.STATUS_OFF:
                         ext_value = None
 
