@@ -85,6 +85,10 @@ class SchemaPreprocessor:
         self._use_sys_acts = use_sys_acts
         self._add_carry_status = add_carry_status
 
+        if self._add_carry_status:
+            self._slot_status_size = 4
+        else:
+            self._slot_status_size = 3
         # self.MAX_NUM_CAT_SLOT = config["MAX_NUM_CAT_SLOT"]
         # # Maximum allowed number of non-categorical trackable slots for a service.
         # self.MAX_NUM_NONCAT_SLOT = config["MAX_NUM_NONCAT_SLOT"]

@@ -25,7 +25,7 @@ from nemo import logging
 from nemo.collections.nlp.data.datasets.sgd_dataset import data_utils
 
 REQ_SLOT_THRESHOLD = 0.5
-MIN_SLOT_RELATION = 0.4
+MIN_SLOT_RELATION = 0.2
 
 __all__ = ['get_predicted_dialog_baseline', 'write_predictions_to_file']
 
@@ -222,6 +222,29 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                         else:
                             ext_value = carryover_value
                             print(f'slot:{slot} with value:{carryover_value} extracted with CARRYVALUE')
+                    elif slot_status == data_utils.STATUS_CARRY:
+                        # value_idx = predictions["cat_slot_value"][slot_idx]
+                        # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
+                        carryover_value = get_carryover_value(
+                            slot,
+                            frame,
+                            frame_service_prev,
+                            all_slot_values,
+                            sys_slots_last,
+                            sys_slots_agg,
+                            schemas.slots_relation_list,
+                            sys_rets,
+                        )
+
+                        if carryover_value is None:
+                            # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
+                            # value_idx = predictions["cat_slot_value"][slot_idx]
+                            # ext_value = service_schema.get_categorical_slot_values(slot)[value_idx]
+                            ext_value = None
+                        else:
+                            ext_value = carryover_value
+                            print(f'slot:{slot} with value:{carryover_value} extracted with STATUS_CARRY')
+
                     elif slot_status == data_utils.STATUS_OFF:
                         ext_value = None
 

@@ -39,7 +39,7 @@ __all__ = [
     'STATUS_OFF',
     'STR_DONTCARE',
     'STATUS_ACTIVE',
-    'STATUS_CARRY'
+    'STATUS_CARRY',
     'FILE_RANGES',
     'PER_FRAME_OUTPUT_FILENAME',
     'Dstc8DataProcessor',

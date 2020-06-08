@@ -171,7 +171,7 @@ class SGDDialogueStateLoss(LossNM):
             # cat_slot_status_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             cat_slot_status_loss = self._cross_entropy(
-                logit_cat_slot_status.reshape(-1, 3)[cat_slot_status_mask],
+                logit_cat_slot_status.reshape(-1, logit_cat_slot_status.size()[-1])[cat_slot_status_mask],
                 categorical_slot_status.view(-1)[cat_slot_status_mask],
             )
 
@@ -216,7 +216,7 @@ class SGDDialogueStateLoss(LossNM):
             # noncat_slot_status_loss = torch.tensor(0.0, device=self._device, requires_grad=True)
         else:
             noncat_slot_status_loss = self._cross_entropy(
-                logit_noncat_slot_status.reshape(-1, 3)[non_cat_slot_status_mask],
+                logit_noncat_slot_status.reshape(-1, logit_noncat_slot_status.size()[-1])[non_cat_slot_status_mask],
                 noncategorical_slot_status.view(-1)[non_cat_slot_status_mask],
             )
 
