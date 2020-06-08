@@ -73,7 +73,7 @@ def get_carryover_value(
         #sys_rets[slot] = ext_value
 
     elif (cur_usr_frame["service"], slot) in slots_relation_list:
-        return ext_value
+        #return ext_value
         cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
         for dmn, slt, freq in cands_list:
             if freq < MIN_SLOT_RELATION:
