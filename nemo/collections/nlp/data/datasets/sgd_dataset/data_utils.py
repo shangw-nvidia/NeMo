@@ -60,8 +60,8 @@ FILE_RANGES = {
     "dstc8_all": {"train": range(1, 128), "dev": range(1, 21), "test": range(1, 35)},
     "DEBUG": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 3)},
     "multiwoz": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 2)},
-    "sgdplus_single": {"train": range(128, 129), "dev": range(21, 22), "test": range(35, 36)},
-    "sgdplus_all": {"train": range(128, 130), "dev": range(21, 23), "test": range(35, 37)},
+    "sgdplus_single": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 2)},
+    "sgdplus_all": {"train": range(1, 3), "dev": range(1, 3), "test": range(1, 3)},
 }
 
 # Name of the file containing all predictions and their corresponding frame metrics.
@@ -962,14 +962,15 @@ class InputExample(object):
             elif values[0] == STR_DONTCARE:
                 self.noncategorical_slot_status[slot_idx] = STATUS_DONTCARE
             else:
-                self.noncategorical_slot_status[slot_idx] = STATUS_ACTIVE
                 # Add indices of the start and end tokens for the first encountered
                 # value. Spans in user utterance are prioritized over the system
                 # utterance. If a span is not found, the slot value is ignored.
                 if slot in user_span_boundaries:
                     start, end = user_span_boundaries[slot]
+                    self.noncategorical_slot_status[slot_idx] = STATUS_ACTIVE
                 elif slot in system_span_boundaries:
                     start, end = system_span_boundaries[slot]
+                    self.noncategorical_slot_status[slot_idx] = STATUS_ACTIVE
                 else:
                     # A span may not be found because the value was cropped out or because
                     # the value was mentioned earlier in the dialogue. Since this model
@@ -978,6 +979,7 @@ class InputExample(object):
                     logging.debug(
                         f'Slot values {str(values)} not found in user or system utterance in example with id - {self.example_id}.'
                     )
+                    self.noncategorical_slot_status[slot_idx] = STATUS_CARRY
                     start, end = self.none_token_id, self.none_token_id  # changed here
                 self.noncategorical_slot_value_start[slot_idx] = start
                 self.noncategorical_slot_value_end[slot_idx] = end

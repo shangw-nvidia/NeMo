@@ -198,6 +198,9 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     if slot_status == data_utils.STATUS_DONTCARE:
                         ext_value = data_utils.STR_DONTCARE
                     elif slot_status == data_utils.STATUS_ACTIVE:
+                        # if predictions["cat_slot_status_p"][slot_idx] < 0.99:
+                        #     ext_value = None
+                        #     break
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
                         carryover_value = get_carryover_value(
