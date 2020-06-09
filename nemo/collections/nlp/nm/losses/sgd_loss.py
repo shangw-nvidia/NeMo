@@ -90,12 +90,13 @@ class SGDDialogueStateLoss(LossNM):
         """
         return {"loss": NeuralType(None)}
 
-    def __init__(self):
+    def __init__(self, add_carry_value):
         LossNM.__init__(self,)
 
         # changed here
         self._cross_entropy = nn.CrossEntropyLoss(ignore_index=-1, reduction='sum')
         self._criterion_req_slots = nn.BCEWithLogitsLoss(reduction='sum')
+        self._add_carry_value = add_carry_value
 
     def _get_mask(self, max_number, values):
 
@@ -181,7 +182,11 @@ class SGDDialogueStateLoss(LossNM):
 
         # Zero out losses for categorical slot value when the slot status is not active.
         # changed here
-        cat_slot_value_mask = (categorical_slot_status >= STATUS_ACTIVE).view(-1)
+        if self._add_carry_value:
+            cat_slot_value_mask = (categorical_slot_status >= STATUS_ACTIVE).view(-1)
+        else:
+            cat_slot_value_mask = (categorical_slot_status == STATUS_ACTIVE).view(-1)
+
         # cat_slot_value_mask = cat_slot_status_mask
 
         # to handle cases with no active categorical slot value
