@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =============================================================================
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -530,7 +531,8 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         vocabulary: List[str],
         blank_index: int,
         max_symbols_per_step: int,
-        beam_size: int = 4,
+        beam_size: int = 1,
+        merge_beams: bool = False,
     ):
         super().__init__()
         self.decoder = decoder_model
@@ -540,6 +542,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         self._vocab_size = len(vocabulary) + 1  # for blank character
         self._blank_index = blank_index
         self._beam_size = beam_size
+        self._merge_beams = merge_beams
 
         self._SOS = blank_index  # Start of single index
 
@@ -628,7 +631,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         F = []
 
         for i in range(T + self.max_symbols - 1):
-            A = {}
+            A = []
 
             for (hyp_i, (score_i, state_i)) in beams:
                 u = len(hyp_i)
@@ -650,18 +653,11 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
 
                 new_score = self.log_sum_exp(score_i, logp[self._blank_index])
 
-                if hyp_i not in A:
-                    A[hyp_i] = (new_score, state_i)
-                else:
-                    old_score = A[hyp_i][0]  # old score
-                    new_score = self.log_sum_exp(old_score, new_score)
-                    A[hyp_i] = (new_score, state_i)
+                A.append((hyp_i, (new_score, state_i)))
 
                 if t == T - 1:
-                    # print("\n\n ADDING F \n\n")
                     F.append((hyp_i, new_score))
 
-                # if t < T and u < self.max_symbols - 1:
                 for vi in range(self._vocab_size):
                     if vi == self._blank_index:
                         continue
@@ -669,27 +665,33 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                     hyp_v = hyp_i + (vi,)
                     score_v = self.log_sum_exp(score_i, logp[vi])
 
-                    if hyp_v not in A:
-                        A[hyp_v] = (score_v, state_j)
+                    A.append((hyp_v, (score_v, state_j)))
+
+            # prune beams
+            sorted_beam = sorted(A, key=lambda x: x[1][0], reverse=True)
+            sorted_beam = sorted_beam[:self._beam_size]
+
+            beams = sorted_beam
+
+            # merge beams
+            if self._merge_beams:
+                unique_beams = OrderedDict()
+                for hyp, (score, state) in sorted_beam:
+                    if hyp not in unique_beams:
+                        unique_beams[hyp] = (score, state)
                     else:
-                        old_score = A[hyp_v][0]  # old score
-                        new_score = self.log_sum_exp(old_score, score_v)
-                        A[hyp_v] = (new_score, state_j)
+                        old_score, old_state = unique_beams[hyp]  # (old score, old state)
+                        new_score = self.log_sum_exp(old_score, score)
+                        unique_beams[hyp] = (new_score, old_state)
 
-                # print("i", i, "u", u, "t", t, "T", T)
+                beams = list(unique_beams.items())
 
-            # print()
+        if len(F) > 0:
+            F_sorted = sorted(F, key=lambda x: x[1], reverse=True)
+            hyp, score = F_sorted[0]
 
-            # prune beam
-            sorted_beam = sorted(A.items(), key=lambda x: x[1][0], reverse=True)
-            beams = sorted_beam[:self._beam_size]
-
-        # if len(F) > 0:
-        F_sorted = sorted(F, key=lambda x: x[1], reverse=True)
-        hyp, score = F_sorted[0]
-
-        # else:
-        #     hyp, (score, _) = beams[0]
+        else:
+            hyp, (score, _) = beams[0]
 
         return hyp
 
