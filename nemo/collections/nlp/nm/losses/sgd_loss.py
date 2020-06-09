@@ -19,7 +19,7 @@ from torch import nn
 
 from nemo import logging
 from nemo.backends.pytorch import LossNM
-from nemo.collections.nlp.data.datasets.sgd_dataset.data_utils import STATUS_ACTIVE
+from nemo.collections.nlp.data.datasets.sgd_dataset.data_utils import STATUS_ACTIVE, STATUS_CARRY
 from nemo.core import ChannelType, LabelsType, LengthsType, LogitsType, LossType, NeuralType
 from nemo.utils.decorators import add_port_docs
 
@@ -181,7 +181,7 @@ class SGDDialogueStateLoss(LossNM):
 
         # Zero out losses for categorical slot value when the slot status is not active.
         # changed here
-        cat_slot_value_mask = (categorical_slot_status == STATUS_ACTIVE).view(-1)
+        cat_slot_value_mask = (categorical_slot_status >= STATUS_ACTIVE).view(-1)
         # cat_slot_value_mask = cat_slot_status_mask
 
         # to handle cases with no active categorical slot value
@@ -228,7 +228,7 @@ class SGDDialogueStateLoss(LossNM):
         # from random import random
 
         # if random() < 0.5:
-        non_cat_slot_value_mask = (noncategorical_slot_status == STATUS_ACTIVE).view(-1)
+        non_cat_slot_value_mask = (noncategorical_slot_status >= STATUS_ACTIVE).view(-1)
         # else:
         #     non_cat_slot_value_mask = (noncategorical_slot_status > -1 ).view(-1)
         # to handle cases with no active categorical slot value
