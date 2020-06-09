@@ -630,6 +630,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         beams = [((self._blank_index,), (torch.tensor(1.0), None))]
         F = []
 
+        prediction_cache = {}
         for i in range(T + self.max_symbols - 1):
             A = []
 
@@ -643,7 +644,11 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                 f_i = x[t: t + 1, :].unsqueeze(0)  # [1, 1, D]
 
                 last_label = hyp_i[-1]
-                g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
+
+                if hyp_i in prediction_cache:
+                    g_i, state_j = prediction_cache[hyp_i]
+                else:
+                    g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
 
                 # logp : [B, 1, K] -> [B, T=1, U=1, K]
                 logp = self._joint_step(f_i, g_i, log_normalize=False)[0, 0, 0, :]
