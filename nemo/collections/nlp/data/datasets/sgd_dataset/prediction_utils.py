@@ -344,7 +344,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     slot_status = predictions["noncat_slot_status"][slot_idx]
                     if slot_status == data_utils.STATUS_DONTCARE:
                         slot_values[slot] = data_utils.STR_DONTCARE
-                    elif slot_status == data_utils.STATUS_ACTIVE:
+                    elif slot_status == data_utils.STATUS_ACTIVE or slot_status == data_utils.STATUS_CARRY:
                         if ext_value is not None:
                             slot_values[slot] = ext_value
                             # elif ch_start_idx < 0 and ch_end_idx < 0:
