@@ -60,7 +60,7 @@ FILE_RANGES = {
     "dstc8_all": {"train": range(1, 128), "dev": range(1, 21), "test": range(1, 35)},
     "DEBUG": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 3)},
     "multiwoz": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 2)},
-    "sgdplus_single_domain": {"train": range(128, 129), "dev": range(21, 22), "test": range(35, 36)},
+    "sgdplus_single": {"train": range(128, 129), "dev": range(21, 22), "test": range(35, 36)},
     "sgdplus_all": {"train": range(128, 130), "dev": range(21, 23), "test": range(35, 37)},
 }
 
