@@ -26,13 +26,13 @@ import copy
 import json
 import os
 import re
+from collections import OrderedDict
 
 import inflect
 import numpy as np
 import torch
 
 from nemo import logging
-from collections import OrderedDict
 
 __all__ = [
     'STATUS_DONTCARE',
@@ -60,6 +60,8 @@ FILE_RANGES = {
     "dstc8_all": {"train": range(1, 128), "dev": range(1, 21), "test": range(1, 35)},
     "DEBUG": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 3)},
     "multiwoz": {"train": range(1, 2), "dev": range(1, 2), "test": range(1, 2)},
+    "sgdplus_single_domain": {"train": range(128, 129), "dev": range(21, 22), "test": range(35, 36)},
+    "sgdplus_all": {"train": range(128, 130), "dev": range(21, 23), "test": range(35, 37)},
 }
 
 # Name of the file containing all predictions and their corresponding frame metrics.
@@ -167,12 +169,18 @@ class Dstc8DataProcessor(object):
         for dialog_idx, dialog in enumerate(dialogs):
             if dialog_idx % 1000 == 0:
                 logging.info(f'Processed {dialog_idx} dialogues.')
-            examples.extend(self._create_examples_from_dialog(dialog, schemas, dataset, slot_carryover_candlist, services_switch_counts))
+            examples.extend(
+                self._create_examples_from_dialog(
+                    dialog, schemas, dataset, slot_carryover_candlist, services_switch_counts
+                )
+            )
 
         slots_relation_list = collections.defaultdict(list)
         for slots_relation, relation_size in slot_carryover_candlist.items():
             if relation_size > 0:
-                switch_counts = services_switch_counts[(slots_relation[0], slots_relation[2])]  # + services_switch_counts[(slots_relation[2], slots_relation[0])]
+                switch_counts = services_switch_counts[
+                    (slots_relation[0], slots_relation[2])
+                ]  # + services_switch_counts[(slots_relation[2], slots_relation[0])]
                 relation_size = relation_size / switch_counts
                 # slots_relation_list[(slots_relation[0], slots_relation[1])].append(
                 #     (slots_relation[2], slots_relation[3], relation_size)
@@ -300,7 +308,7 @@ class Dstc8DataProcessor(object):
                     schemas,
                     copy.deepcopy(prev_agg_sys_states),  # changed here prev_agg_sys_states or agg_sys_states
                     services_switch_counts,
-                    slot_carryover_candlist
+                    slot_carryover_candlist,
                 )
                 # for value, slots_list in slot_carryover_values.items():
                 #     if value in ["True", "False"]:
@@ -337,7 +345,7 @@ class Dstc8DataProcessor(object):
         schemas,
         agg_sys_states,
         services_switch_counts,
-        slot_carryover_candlist
+        slot_carryover_candlist,
     ):
         """Creates an example for each frame in the user turn."""
         system_tokens, system_alignments, system_inv_alignments = self._tokenize(system_utterance)
@@ -408,7 +416,6 @@ class Dstc8DataProcessor(object):
                             slot_carryover_candlist[(prev_service, prev_slot, service, cur_slot)] += 1.0
                             # else:
                             #     slot_carryover_candlist[(service, cur_slot, prev_service, prev_slot)] += 1.0
-
 
                 # for slot_name, values in state_update.items():
                 #     #for value in values:
@@ -489,7 +496,7 @@ class Dstc8DataProcessor(object):
             example.add_slot_status_tokens(schemas._slots_status_model)
 
             examples.append(example)
-        return examples, states #, slot_carryover_values
+        return examples, states  # , slot_carryover_values
 
     def _find_subword_indices(self, slot_values, utterance, char_slot_spans, alignments, subwords, bias):
         """Find indices for subwords corresponding to slot values."""
@@ -829,7 +836,7 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utterance_mask.append(-np.inf) # changed here
+            usr_utterance_mask.append(-np.inf)  # changed here
 
         utterance_subword.append("[SEP]")
         utterance_segment.append(0)

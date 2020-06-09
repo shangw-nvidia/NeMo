@@ -39,7 +39,7 @@ def carry_over_slots(
     sys_slots_agg,
     sys_slots_last,
 ):
-    #return
+    # return
     if prev_frame_service == "" or prev_frame_service == cur_usr_frame["service"]:
         return
     for (service_dest, slot_dest), cands_list in slots_relation_list.items():
@@ -70,10 +70,10 @@ def get_carryover_value(
     ext_value = None
     if slot in sys_slots_agg[cur_usr_frame["service"]]:
         ext_value = sys_slots_agg[cur_usr_frame["service"]][slot]
-        #sys_rets[slot] = ext_value
+        # sys_rets[slot] = ext_value
 
     elif (cur_usr_frame["service"], slot) in slots_relation_list:
-        #return ext_value
+        # return ext_value
         cands_list = slots_relation_list[(cur_usr_frame["service"], slot)]
         for dmn, slt, freq in cands_list:
             if freq < MIN_SLOT_RELATION:
@@ -81,9 +81,9 @@ def get_carryover_value(
             if dmn in all_slot_values and slt in all_slot_values[dmn]:
                 ext_value = all_slot_values[dmn][slt]
             if dmn in sys_slots_agg and slt in sys_slots_agg[dmn]:
-               ext_value = sys_slots_agg[dmn][slt]
+                ext_value = sys_slots_agg[dmn][slt]
             if dmn in sys_slots_last and slt in sys_slots_last[dmn]:
-               ext_value = sys_slots_last[dmn][slt]
+                ext_value = sys_slots_last[dmn][slt]
     return ext_value
 
 
@@ -131,7 +131,6 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                     frame_tmp = turn["frames"][0]
                     turn["frames"][0] = turn["frames"][1]
                     turn["frames"][1] = frame_tmp
-
 
             for frame in turn["frames"]:
                 cat_slot_status_acc = 0
@@ -214,7 +213,8 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
 
                         if (
                             service_schema.get_categorical_slot_values(slot)[predictions["cat_slot_value"][slot_idx]]
-                            != "#CARRYVALUE#" or carryover_value is None
+                            != "#CARRYVALUE#"
+                            or carryover_value is None
                         ):
                             # if predictions["cat_slot_status_p"][slot_idx] > 0.6:
                             value_idx = predictions["cat_slot_value"][slot_idx]

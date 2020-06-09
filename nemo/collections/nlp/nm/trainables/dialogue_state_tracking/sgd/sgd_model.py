@@ -145,11 +145,15 @@ class SGDModel(TrainableNM):
         if self._slots_status_model == "special_tokens_multi":
             self.slot_status_token_layer1 = nn.Linear(2 * embedding_dim, embedding_dim).to(self._device)
             self.slot_status_token_activation = F.gelu
-            self.slot_status_token_layer2 = nn.Linear(embedding_dim, schema_emb_processor._slot_status_size).to(self._device)
+            self.slot_status_token_layer2 = nn.Linear(embedding_dim, schema_emb_processor._slot_status_size).to(
+                self._device
+            )
         elif self._slots_status_model in ["cls_token", "special_tokens_single", "special_tokens_double"]:
             # Slot status values: none, dontcare, active.
             self.cat_slot_status_layer = Logits(schema_emb_processor._slot_status_size, embedding_dim).to(self._device)
-            self.noncat_slot_status_layer = Logits(schema_emb_processor._slot_status_size, embedding_dim).to(self._device)
+            self.noncat_slot_status_layer = Logits(schema_emb_processor._slot_status_size, embedding_dim).to(
+                self._device
+            )
             # self.noncat_slot_status_layer = self.cat_slot_status_layer
 
         num_services = len(schema_emb_processor.schemas.services)
