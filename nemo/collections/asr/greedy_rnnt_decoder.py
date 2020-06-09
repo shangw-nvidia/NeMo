@@ -588,7 +588,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         max_len = -1
         hypotheses = []
         for batch_idx in range(encoder_output.size(0)):
-            inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
+            inseq = encoder_output[batch_idx, :, :]  # [T, D]
             logitlen = encoded_lengths[batch_idx]
             results = self._greedy_decode(inseq, logitlen, results)
 
@@ -618,53 +618,80 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         hidden = None
 
         T, D = x.shape
+        T = out_len
 
         batch_size = 1  # x.size(0)
-        max_out_len = out_len.max()
+        # max_out_len = out_len.max()
 
         # [hypothesis, score, hidden_state]
-        beams = [((self._blank_index,), 1.0, None)]
+        beams = [((self._blank_index,), (torch.tensor(1.0), None))]
         F = []
 
-        for i in range(max_out_len + self.max_symbols - 1):
-            A = []
+        for i in range(T + self.max_symbols - 1):
+            A = {}
 
-            f_i = x[i : i + 1, :].unsqueeze(0)  # [1, 1, D]
-
-            for (hyp_i, score_i, state_i) in beams:
+            for (hyp_i, (score_i, state_i)) in beams:
                 u = len(hyp_i)
                 t = i - u + 1
 
                 if t > T - 1:
+                    # print("skipped t")
                     continue
 
-                last_label = self._SOS if len(label) == 0 else label
+                f_i = x[t: t + 1, :].unsqueeze(0)  # [1, 1, D]
+
+                last_label = hyp_i[-1]
                 g_i, hidden_prime = self._pred_step(last_label, state_i, batch_size=batch_size)
 
                 # logp : [B, 1, K] -> [B, T=1, U=1, K]
-                logp = self._joint_step(f_i, g_i, log_normalize=True)[0, 0, 0, :]
+                logp = self._joint_step(f_i, g_i, log_normalize=False)[0, 0, 0, :]
+
+                if logp.dtype != torch.float32:
+                    logp = logp.float()
 
                 new_score = self.log_sum_exp(score_i, logp[self._blank_index])
-                A.append((hyp_i, new_score, state_i))
+
+                if hyp_i not in A:
+                    A[hyp_i] = (new_score, state_i)
+                else:
+                    old_score = A[hyp_i][0]  # old score
+                    new_score = self.log_sum_exp(old_score, new_score)
+                    A[hyp_i] = (new_score, state_i)
 
                 if t == T - 1:
+                    # print("\n\n ADDING F \n\n")
                     F.append((hyp_i, new_score))
 
-                for vi, v in enumerate(self._vocab):
-                    if v == self._blank_index:
+                # if t < T and u < self.max_symbols - 1:
+                for vi in range(self._vocab_size):
+                    if vi == self._blank_index:
                         continue
 
-                    hyp_v = hyp_i + (v,)
+                    hyp_v = hyp_i + (vi,)
                     score_v = self.log_sum_exp(score_i, logp[vi])
-                    A.append((hyp_v, score_v, state_i))
+
+                    if hyp_v not in A:
+                        A[hyp_v] = (score_v, state_i)
+                    else:
+                        old_score = A[hyp_v][0]  # old score
+                        new_score = self.log_sum_exp(old_score, score_v)
+                        A[hyp_v] = (new_score, state_i)
+
+                # print("i", i, "u", u, "t", t, "T", T)
+
+            # print()
 
             # prune beam
-            sorted_beam = sorted(A, key=lambda x: x[1], reverse=True)
+            sorted_beam = sorted(A.items(), key=lambda x: x[1][0], reverse=True)
             beams = sorted_beam[:self._beam_size]
 
+        # if len(F) > 0:
         F_sorted = sorted(F, key=lambda x: x[1], reverse=True)
-
         hyp, score = F_sorted[0]
+
+        # else:
+        #     hyp, (score, _) = beams[0]
+
         return hyp
 
     def _pred_step(

@@ -129,3 +129,45 @@ def decode_static(log_probs, blank, beam_size=1):
 
     hyp, score = beam[0]
     return hyp, score + log_probs[-1, -1, blank]
+
+
+def rnnt_beam_decode_dynamic(packed_results, blank_idx):
+    if HAVE_JOBLIB:
+        return _rnnt_beam_decode_dynamic_joblib(packed_results, blank_idx)
+    else:
+        return _rnnt_beam_decode_dynamic_sequential(packed_results, blank_idx)
+
+
+def _rnnt_beam_decode_dynamic_joblib(packed_results, blank_idx):
+    n_jobs = min(os.cpu_count(), packed_results.shape[0])
+
+    with joblib.Parallel(n_jobs=n_jobs, verbose=0) as parallel:
+        results = parallel(
+            joblib.delayed(decode_dynamic)(packed_results[batch_idx], blank_idx)
+            for batch_idx in range(packed_results.shape[0])
+        )
+
+    return results
+
+
+def _rnnt_beam_decode_dynamic_sequential(packed_results, blank_idx):
+    results = [
+        decode_dynamic(packed_results[batch_idx], blank_idx)  # require only sequence, not log prob
+        for batch_idx in range(packed_results.shape[0])
+    ]
+    return results
+
+
+def decode_dynamic(packed_result, blank):
+    result = []
+
+    for idx in range(len(packed_result)):
+        val = packed_result[idx]
+
+        # at first occurance of blank, exit loop
+        if val == blank:
+            continue
+        else:
+            result.append(val)
+
+    return result
