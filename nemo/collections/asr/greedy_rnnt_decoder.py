@@ -598,7 +598,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         packed_result = torch.full([encoder_output.size(0), max_len],
                                    fill_value=self._blank_index,
                                    dtype=torch.long,
-                                   device='cpu')
+                                   device=self._device)
 
         for h_idx, hyp in enumerate(hypotheses):
             len_h = len(hyp)
@@ -635,13 +635,12 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                 t = i - u + 1
 
                 if t > T - 1:
-                    # print("skipped t")
                     continue
 
                 f_i = x[t: t + 1, :].unsqueeze(0)  # [1, 1, D]
 
                 last_label = hyp_i[-1]
-                g_i, hidden_prime = self._pred_step(last_label, state_i, batch_size=batch_size)
+                g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
 
                 # logp : [B, 1, K] -> [B, T=1, U=1, K]
                 logp = self._joint_step(f_i, g_i, log_normalize=False)[0, 0, 0, :]
@@ -671,11 +670,11 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                     score_v = self.log_sum_exp(score_i, logp[vi])
 
                     if hyp_v not in A:
-                        A[hyp_v] = (score_v, state_i)
+                        A[hyp_v] = (score_v, state_j)
                     else:
                         old_score = A[hyp_v][0]  # old score
                         new_score = self.log_sum_exp(old_score, score_v)
-                        A[hyp_v] = (new_score, state_i)
+                        A[hyp_v] = (new_score, state_j)
 
                 # print("i", i, "u", u, "t", t, "T", T)
 
