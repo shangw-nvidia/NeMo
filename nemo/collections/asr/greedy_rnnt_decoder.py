@@ -250,6 +250,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         max_symbols_per_step: int,
         beam_size: int = 1,
         merge_beams: bool = False,
+        cache_predictions: bool = False,
     ):
         super().__init__()
         self.decoder = decoder_model
@@ -259,7 +260,9 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         self._vocab_size = len(vocabulary) + 1  # for blank character
         self._blank_index = blank_index
         self._beam_size = beam_size
+
         self._merge_beams = merge_beams
+        self._cache_predictions = cache_predictions
 
         self._SOS = blank_index  # Start of single index
 
@@ -333,87 +336,93 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         return packed_result
 
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor, results: torch.Tensor):
-        # x : [T, D]
-        # out_len : [B]
-        hidden = None
+        with torch.no_grad():
+            # x : [T, D]
+            # out_len : [B]
+            hidden = None
 
-        T, D = x.shape
-        T = out_len
+            T, D = x.shape
+            T = out_len
 
-        batch_size = 1  # x.size(0)
-        # max_out_len = out_len.max()
+            batch_size = 1  # x.size(0)
+            # max_out_len = out_len.max()
 
-        # [hypothesis, score, hidden_state]
-        beams = [((self._blank_index,), (torch.tensor(1.0), None))]
-        F = []
+            # [hypothesis, score, hidden_state]
+            beams = [((self._blank_index,), (torch.tensor(1.0), None))]
+            F = []
 
-        for i in range(T + self.max_symbols - 1):
-            A = []
-            prediction_cache = {}
+            for i in range(T + self.max_symbols - 1):
+                A = []
+                prediction_cache = {}
 
-            for (hyp_i, (score_i, state_i)) in beams:
-                u = len(hyp_i)
-                t = i - u + 1
+                for (hyp_i, (score_i, state_i)) in beams:
+                    u = len(hyp_i)
+                    t = i - u + 1
 
-                if t > T - 1:
-                    continue
-
-                f_i = x[t: t + 1, :].unsqueeze(0)  # [1, 1, D]
-
-                last_label = hyp_i[-1]
-
-                if hyp_i in prediction_cache:
-                    g_i, state_j = prediction_cache[hyp_i]
-                else:
-                    g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
-
-                # logp : [B, 1, K] -> [B, T=1, U=1, K]
-                logp = self._joint_step(f_i, g_i, log_normalize=False)[0, 0, 0, :]
-
-                if logp.dtype != torch.float32:
-                    logp = logp.float()
-
-                new_score = self.log_sum_exp(score_i, logp[self._blank_index])
-
-                A.append((hyp_i, (new_score, state_i)))
-
-                if t == T - 1:
-                    F.append((hyp_i, new_score))
-
-                for vi in range(self._vocab_size):
-                    if vi == self._blank_index:
+                    if t > T - 1:
                         continue
 
-                    hyp_v = hyp_i + (vi,)
-                    score_v = self.log_sum_exp(score_i, logp[vi])
+                    f_i = x[t: t + 1, :].unsqueeze(0)  # [1, 1, D]
 
-                    A.append((hyp_v, (score_v, state_j)))
+                    last_label = hyp_i[-1]
 
-            # prune beams
-            sorted_beam = sorted(A, key=lambda x: x[1][0], reverse=True)
-            sorted_beam = sorted_beam[:self._beam_size]
+                    if self._cache_predictions:
+                        if hyp_i in prediction_cache:
+                            g_i, state_j = prediction_cache[hyp_i]
+                        else:
+                            g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
+                            prediction_cache[hyp_i] = (g_i, state_j)
 
-            beams = sorted_beam
-
-            # merge beams
-            if self._merge_beams:
-                unique_beams = OrderedDict()
-                for hyp, (score, state) in sorted_beam:
-                    if hyp not in unique_beams:
-                        unique_beams[hyp] = (score, state)
                     else:
-                        old_score, old_state = unique_beams[hyp]  # (old score, old state)
-                        new_score = self.log_sum_exp(old_score, score)
-                        unique_beams[hyp] = (new_score, old_state)
+                        g_i, state_j = self._pred_step(last_label, state_i, batch_size=batch_size)
 
-                beams = list(unique_beams.items())
+                    # logp : [B, 1, K] -> [B, T=1, U=1, K]
+                    logp = self._joint_step(f_i, g_i, log_normalize=False)[0, 0, 0, :]
 
-        if len(F) > 0:
-            F_sorted = sorted(F, key=lambda x: x[1], reverse=True)
-            hyp, score = F_sorted[0]
+                    if logp.dtype != torch.float32:
+                        logp = logp.float()
 
-        else:
-            hyp, (score, _) = beams[0]
+                    new_score = self.log_sum_exp(score_i, logp[self._blank_index])
+
+                    A.append((hyp_i, (new_score, state_i)))
+
+                    if t == T - 1:
+                        F.append((hyp_i, new_score))
+
+                    for vi in range(self._vocab_size):
+                        if vi == self._blank_index:
+                            continue
+
+                        hyp_v = hyp_i + (vi,)
+                        score_v = self.log_sum_exp(score_i, logp[vi])
+
+                        A.append((hyp_v, (score_v, state_j)))
+
+                # prune beams
+                sorted_beam = sorted(A, key=lambda x: x[1][0], reverse=True)
+                sorted_beam = sorted_beam[:self._beam_size]
+
+                beams = sorted_beam
+
+                # merge beams
+                if self._merge_beams:
+                    unique_beams = OrderedDict()
+                    for hyp, (score, state) in sorted_beam:
+                        if hyp not in unique_beams:
+                            unique_beams[hyp] = (score, state)
+                        else:
+                            old_score, old_state = unique_beams[hyp]  # (old score, old state)
+                            new_score = self.log_sum_exp(old_score, score)
+                            unique_beams[hyp] = (new_score, old_state)
+
+                    beams = list(unique_beams.items())
+
+            if len(F) > 0:
+                F_sorted = sorted(F, key=lambda x: x[1], reverse=True)
+                hyp, score = F_sorted[0]
+
+            else:
+                hyp, (score, _) = beams[0]
 
         return hyp
 
