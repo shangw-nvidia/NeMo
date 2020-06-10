@@ -836,7 +836,7 @@ class InputExample(object):
             st, en = system_inv_alignments[subword_idx]
             start_char_idx.append(-(st + 1))
             end_char_idx.append(-(en + 1))
-            usr_utterance_mask.append(-np.inf)  # changed here
+            usr_utterance_mask.append(0.0)  # changed here
 
         utterance_subword.append("[SEP]")
         utterance_segment.append(0)
