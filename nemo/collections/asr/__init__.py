@@ -26,7 +26,7 @@ from nemo.collections.asr.data_layer import (
     TranscriptDataLayer,
 )
 from nemo.collections.asr.greedy_ctc_decoder import GreedyCTCDecoder
-from nemo.collections.asr.greedy_rnnt_decoder import GreedyRNNTDecoder, GreedyRNNTDecoderInfer
+from nemo.collections.asr.greedy_rnnt_decoder import BeamRNNTDecoderInfer, GreedyRNNTDecoder, GreedyRNNTDecoderInfer
 from nemo.collections.asr.jasper import (
     JasperDecoderForClassification,
     JasperDecoderForCTC,
@@ -53,8 +53,9 @@ __all__ = [
     'TranscriptDataLayer',
     'GreedyCTCDecoder',
     'BeamSearchDecoderWithLM',
-    'GreedyRNNTDecoderInfer',
     'GreedyRNNTDecoder',
+    'GreedyRNNTDecoderInfer',
+    'BeamRNNTDecoderInfer',
     'JasperEncoder',
     'JasperDecoderForCTC',
     'JasperDecoderForClassification',
