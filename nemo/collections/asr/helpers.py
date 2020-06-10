@@ -302,7 +302,6 @@ def process_transducer_evaluation_batch(
             global_vars['predictions'] += __gather_predictions(
                 v, labels=labels, decoder_type=decoder_type, beam_size=beam_size
             )
-            print("Predictions : ", global_vars['predictions'][-1])
         elif kv.startswith('transcript_length'):
             transcript_len_list = v
         elif kv.startswith('transcript'):
@@ -311,7 +310,6 @@ def process_transducer_evaluation_batch(
             global_vars['logits'] += v
 
     global_vars['transcripts'] += __gather_transcripts(transcript_list, transcript_len_list, labels=labels)
-    print("Reference : ", global_vars['transcripts'][-1])
 
 
 def process_evaluation_epoch(global_vars: dict, eval_metric='WER', tag=None):

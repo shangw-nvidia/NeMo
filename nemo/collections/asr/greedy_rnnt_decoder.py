@@ -61,41 +61,6 @@ def _greedy_decode(
     return results
 
 
-# @torch.jit.script
-# def _greedy_decode_v2(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
-#     # x = [B, T, U, K] -> [B, T, max_symbols, K]
-#     x = x[:, :, :max_symbols, :]
-#
-#     if x.dtype != torch.float32:
-#         x = x.float()
-#
-#     # symbols : [B, T, max_symbols]
-#     k, symbols = x.max(-1)
-#
-#     # At each timestep, if blank occurs, remaining of all symbols should also be blank for that timestep
-#     # To broadcast this, we first take create a bool mask for all locations of blanks
-#     # Then we take cumulative sum to obtain a 1 or more at the first or later instances of blanks
-#     # Then we cast it to binary with a > 0 check. This avoids filling values before the first blank
-#     # with blank tokens.
-#     blank_mask = (symbols == blank_index).cumsum(-1)
-#     blank_mask = (blank_mask > 0)
-#
-#     # Mask out entries after out_seq timesteps
-#     # This ensures that for each sample in batch, we only predict
-#     # tokens as long as the length of the original sequence without padding
-#     time_mask = torch.full([x.size(0), x.size(1), 1], fill_value=0, dtype=torch.bool, device=x.device)
-#
-#     for seq_id in range(out_seq.size(0)):
-#         seq_len = out_seq[seq_id]
-#         time_mask[seq_id, seq_len:, :] = 1
-#
-#     # bitwise or the masks to combine them
-#     blank_mask = blank_mask.bitwise_or(time_mask)
-#
-#     symbols.masked_fill_(blank_mask, blank_index)
-#     return symbols
-
-
 def _greedy_decode_v2(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
     # x = [B, T, U, K] -> [B, T, max_symbols, K]
     x = x[:, :, :max_symbols, :]
