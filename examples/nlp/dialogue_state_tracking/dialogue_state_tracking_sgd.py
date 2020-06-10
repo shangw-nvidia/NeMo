@@ -347,7 +347,7 @@ dialogues_processor = data_utils.Dstc8DataProcessor(
 # define model pipeline
 encoder = sgd_modules.Encoder(hidden_size=hidden_size, dropout=args.dropout)
 model = sgd_model.SGDModel(embedding_dim=hidden_size, schema_emb_processor=schema_preprocessor)
-dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss(add_carry_value=args.add_carry_value)
+dst_loss = nemo_nlp.nm.losses.SGDDialogueStateLoss(add_carry_status=args.add_carry_status)
 
 
 def create_pipeline(dataset_split):
