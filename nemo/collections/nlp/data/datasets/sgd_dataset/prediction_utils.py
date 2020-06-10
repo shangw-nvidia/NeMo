@@ -224,7 +224,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             ext_value = service_schema.get_categorical_slot_values(slot)[value_idx]
                         else:
                             ext_value = carryover_value
-                            print(f'slot:{slot} with value:{carryover_value} extracted with CARRYVALUE')
+                            #print(f'slot:{slot} with value:{carryover_value} extracted with CARRYVALUE')
                     elif slot_status == data_utils.STATUS_CARRY:
                         # value_idx = predictions["cat_slot_value"][slot_idx]
                         # slot_values[slot] = service_schema.get_categorical_slot_values(slot)[value_idx]
@@ -246,7 +246,7 @@ def get_predicted_dialog_ret_sys_act(dialog, all_predictions, schemas, eval_debu
                             ext_value = None
                         else:
                             ext_value = carryover_value
-                            print(f'slot:{slot} with value:{carryover_value} extracted with STATUS_CARRY')
+                            #print(f'slot:{slot} with value:{carryover_value} extracted with STATUS_CARRY')
 
                     elif slot_status == data_utils.STATUS_OFF:
                         ext_value = None
