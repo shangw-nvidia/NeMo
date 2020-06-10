@@ -31,37 +31,10 @@ from nemo.utils.decorators import add_port_docs
 logging = nemo.logging
 
 
-__all__ = ['GreedyRNNTDecoderInfer', 'GreedyRNNTDecoder']
+__all__ = ['GreedyRNNTDecoderInfer', 'GreedyBatchedRNNTDecoderInfer', 'GreedyRNNTDecoder']
 
 
-@torch.jit.script
-def _greedy_decode(
-    x: torch.Tensor, out_len: int, results: torch.Tensor, batch_idx: int, max_symbols: int, blank_index: int
-):
-    x = x.float()
-
-    for time_idx in range(out_len):
-        not_blank = True
-        symbols_added = 0
-
-        while not_blank and (max_symbols < 0 or symbols_added < max_symbols):
-            logp = x[time_idx, symbols_added, :]  # [K]
-
-            # get index k, of max prob
-            v, k = logp.max(0)
-            k = k.item()
-
-            if k == blank_index:
-                not_blank = False
-            else:
-                # chars.append(k)
-                results[batch_idx, time_idx, symbols_added] = k
-            symbols_added += 1
-
-    return results
-
-
-def _greedy_decode_v2(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
+def _greedy_decode_impl(x: torch.Tensor, out_seq: torch.Tensor, max_symbols: int, blank_index: int):
     # x = [B, T, U, K] -> [B, T, max_symbols, K]
     x = x[:, :, :max_symbols, :]
 
@@ -149,7 +122,7 @@ class GreedyRNNTDecoder(NonTrainableNM):
         else:
             max_symbols = self.max_symbols
 
-        results = _greedy_decode_v2(log_probs, logitlen, max_symbols, self._blank_index)
+        results = _greedy_decode_impl(log_probs, logitlen, max_symbols, self._blank_index)
 
         # results = results.to(self._device)
         return results
@@ -175,17 +148,17 @@ class GreedyRNNTDecoder(NonTrainableNM):
         return probs
 
 
-class GreedyRNNTDecoderInfer(NonTrainableNM):
+class _GreedyRNNTDecoderInfer(NonTrainableNM):
     """A greedy transducer decoder.
-    Args:
-        blank_symbol: See `Decoder`.
-        model: Model to use for prediction.
-        max_symbols_per_step: The maximum number of symbols that can be added
-            to a sequence in a single time step; if set to None then there is
-            no limit.
-        cutoff_prob: Skip to next step in search if current highest character
-            probability is less than this.
-    """
+        Args:
+            blank_symbol: See `Decoder`.
+            model: Model to use for prediction.
+            max_symbols_per_step: The maximum number of symbols that can be added
+                to a sequence in a single time step; if set to None then there is
+                no limit.
+            cutoff_prob: Skip to next step in search if current highest character
+                probability is less than this.
+        """
 
     @property
     @add_port_docs()
@@ -207,12 +180,12 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         return {"predictions": NeuralType(('B', 'T'), PredictionsType())}
 
     def __init__(
-        self,
-        decoder_model: RNNTDecoder,
-        joint_model: RNNTJoint,
-        vocabulary: List[str],
-        blank_index: int,
-        max_symbols_per_step: int,
+            self,
+            decoder_model: RNNTDecoder,
+            joint_model: RNNTJoint,
+            vocabulary: List[str],
+            blank_index: int,
+            max_symbols_per_step: int,
     ):
         super().__init__()
         self.decoder = decoder_model
@@ -228,6 +201,197 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
             max_symbols_per_step = -1
 
         self.max_symbols = max_symbols_per_step
+
+    def _pred_step(
+        self, label: Union[torch.Tensor, int], hidden: Optional[torch.Tensor], batch_size: Optional[int] = None,
+    ) -> (torch.Tensor, torch.Tensor):
+        """
+        Args:
+            label (int/torch.Tensor): Label or "Start-of-Signal" token.
+            hidden (Optional torch.Tensor): RNN State vector
+            batch_size (Optional torch.Tensor): Batch size of output
+
+        Returns:
+            g: (B, U + 1, H)
+            hid: (h, c) where h is the final sequence hidden state and c is
+                the final cell state:
+                    h (tensor), shape (L, B, H)
+                    c (tensor), shape (L, B, H)
+        """
+        if isinstance(label, torch.Tensor):
+            # label: [batch, 1]
+            if label.dtype != torch.long:
+                label = label.long()
+
+        else:
+            # Label is an integer
+            if label == self._SOS:
+                return self.decoder.predict(None, hidden, add_sos=False, batch_size=batch_size)
+
+            if label > self._blank_index:
+                label -= 1
+
+            label = label_collate([[label]]).to(self._device)
+
+        # output: [B, 1, K]
+        return self.decoder.predict(label, hidden, add_sos=False, batch_size=batch_size)
+
+    def _joint_step(self, enc, pred, log_normalize=False):
+        """
+
+        Args:
+            enc:
+            pred:
+            log_normalize:
+
+        Returns:
+             logits of shape (B, T=1, U=1, K + 1)
+        """
+        logits = self.joint.joint(enc, pred)
+
+        if not log_normalize:
+            return logits
+
+        probs = F.log_softmax(logits, dim=len(logits.shape) - 1)
+        return probs
+
+
+class GreedyRNNTDecoderInfer(_GreedyRNNTDecoderInfer):
+    """A greedy transducer decoder.
+    Args:
+        blank_symbol: See `Decoder`.
+        model: Model to use for prediction.
+        max_symbols_per_step: The maximum number of symbols that can be added
+            to a sequence in a single time step; if set to None then there is
+            no limit.
+        cutoff_prob: Skip to next step in search if current highest character
+            probability is less than this.
+    """
+
+    def __init__(
+        self,
+        decoder_model: RNNTDecoder,
+        joint_model: RNNTJoint,
+        vocabulary: List[str],
+        blank_index: int,
+        max_symbols_per_step: int,
+    ):
+        super().__init__(
+            decoder_model=decoder_model,
+            joint_model=joint_model,
+            vocabulary=vocabulary,
+            blank_index=blank_index,
+            max_symbols_per_step=max_symbols_per_step
+        )
+
+    @torch.no_grad()
+    def forward(self, encoder_output: torch.Tensor, encoded_lengths: torch.Tensor):
+        """Returns a list of sentences given an input batch.
+        Args:
+            x: A tensor of size (batch, features, timesteps).
+            out_lens: list of int representing the length of each sequence
+                output sequence.
+        Returns:
+            list containing batch number of sentences (strings).
+        """
+        with torch.no_grad():
+            # Apply optional preprocessing
+            encoder_output = encoder_output.transpose(1, 2)  # (B, T, D)
+
+            # Preserve decoder and joint training state
+            decoder_training_state = self.decoder.training
+            joint_training_state = self.joint.training
+
+            self.decoder.eval()
+            self.joint.eval()
+
+            hypotheses = []
+            for batch_idx in range(encoder_output.size(0)):
+                inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
+                logitlen = encoded_lengths[batch_idx]
+                sentence = self._greedy_decode(inseq, logitlen)
+                hypotheses.append(sentence)
+
+            hypotheses_lens = [len(hyp) for hyp in hypotheses]
+            max_len = max(hypotheses_lens)
+
+            packed_result = torch.full(
+                size=[encoder_output.size(0), max_len],
+                fill_value=self._blank_index,
+                dtype=torch.long,
+                device=self._device,
+            )
+
+            for h_idx, hyp in enumerate(hypotheses):
+                len_h = hypotheses_lens[h_idx]
+                hyp_t = torch.tensor(hyp, dtype=torch.long, device=packed_result.device)
+
+                packed_result[h_idx, :len_h] = hyp_t
+
+        self.decoder.train(decoder_training_state)
+        self.joint.train(joint_training_state)
+
+        return packed_result
+
+    @torch.no_grad()
+    def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
+        hidden = None
+        label = []
+        for time_idx in range(out_len):
+            f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
+
+            not_blank = True
+            symbols_added = 0
+
+            while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
+                last_label = self._SOS if label == [] else label[-1]
+                g, hidden_prime = self._pred_step(last_label, hidden)
+                logp = self._joint_step(f, g, log_normalize=False)[0, 0, 0, :]
+
+                if logp.dtype != torch.float32:
+                    logp = logp.float()
+
+                # get index k, of max prob
+                v, k = logp.max(0)
+                k = k.item()
+
+                if k == self._blank_index:
+                    not_blank = False
+                else:
+                    label.append(k)
+                    hidden = hidden_prime
+                symbols_added += 1
+
+        return label
+
+
+class GreedyBatchedRNNTDecoderInfer(_GreedyRNNTDecoderInfer):
+    """A greedy transducer decoder.
+    Args:
+        blank_symbol: See `Decoder`.
+        model: Model to use for prediction.
+        max_symbols_per_step: The maximum number of symbols that can be added
+            to a sequence in a single time step; if set to None then there is
+            no limit.
+        cutoff_prob: Skip to next step in search if current highest character
+            probability is less than this.
+    """
+
+    def __init__(
+        self,
+        decoder_model: RNNTDecoder,
+        joint_model: RNNTJoint,
+        vocabulary: List[str],
+        blank_index: int,
+        max_symbols_per_step: int,
+    ):
+        super().__init__(
+            decoder_model=decoder_model,
+            joint_model=joint_model,
+            vocabulary=vocabulary,
+            blank_index=blank_index,
+            max_symbols_per_step=max_symbols_per_step
+        )
 
     @torch.no_grad()
     def forward(self, encoder_output: torch.Tensor, encoded_lengths: torch.Tensor):
@@ -254,7 +418,8 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
             inseq = encoder_output  # [B, T, D]
             hypotheses = self._greedy_decode(inseq, logitlen)
 
-            max_len = max([len(hyp) for hyp in hypotheses])
+            hypotheses_lens = [len(hyp) for hyp in hypotheses]
+            max_len = max(hypotheses_lens)
 
             packed_result = torch.full(
                 size=[encoder_output.size(0), max_len],
@@ -264,7 +429,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
             )
 
             for h_idx, hyp in enumerate(hypotheses):
-                len_h = len(hyp)
+                len_h = hypotheses_lens[h_idx]
                 hyp_t = torch.tensor(hyp, dtype=torch.long, device=packed_result.device)
 
                 packed_result[h_idx, :len_h] = hyp_t
@@ -273,36 +438,6 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         self.joint.train(joint_training_state)
 
         return packed_result
-
-    # def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
-    #     hidden = None
-    #     label = []
-    #     for time_idx in range(out_len):
-    #         f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
-    #
-    #         not_blank = True
-    #         symbols_added = 0
-    #
-    #         while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
-    #             last_label = self._SOS if label == [] else label[-1]
-    #             g, hidden_prime = self._pred_step(last_label, hidden)
-    #             logp = self._joint_step(f, g, log_normalize=False)[0, 0, 0, :]
-    #
-    #             if logp.dtype != torch.float32:
-    #                 logp = logp.float()
-    #
-    #             # get index k, of max prob
-    #             v, k = logp.max(0)
-    #             k = k.item()
-    #
-    #             if k == self._blank_index:
-    #                 not_blank = False
-    #             else:
-    #                 label.append(k)
-    #                 hidden = hidden_prime
-    #             symbols_added += 1
-    #
-    #     return label
 
     @torch.no_grad()
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
@@ -313,7 +448,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         label = [[] for _ in range(batchsize)]
 
         # Label buffer
-        last_label = torch.full([batchsize, 1], fill_value=self._blank_index, device=self._device)
+        last_label = torch.full([batchsize, 1], fill_value=self._blank_index, dtype=torch.long, device=self._device)
 
         # Mask buffers
         blank_mask = torch.full([batchsize], fill_value=0, dtype=torch.bool, device=self._device)
@@ -379,59 +514,6 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
                 symbols_added += 1
 
         return label
-
-    def _pred_step(
-        self, label: Union[torch.Tensor, int], hidden: Optional[torch.Tensor], batch_size: Optional[int] = None,
-    ) -> (torch.Tensor, torch.Tensor):
-        """
-        Args:
-            label (int/torch.Tensor): Label or "Start-of-Signal" token.
-            hidden (Optional torch.Tensor): RNN State vector
-            batch_size (Optional torch.Tensor): Batch size of output
-
-        Returns:
-            g: (B, U + 1, H)
-            hid: (h, c) where h is the final sequence hidden state and c is
-                the final cell state:
-                    h (tensor), shape (L, B, H)
-                    c (tensor), shape (L, B, H)
-        """
-        if isinstance(label, torch.Tensor):
-            # label: [batch, 1]
-            if label.dtype != torch.long:
-                label = label.long()
-
-        else:
-            # Label is an integer
-            if label == self._SOS:
-                return self.decoder.predict(None, hidden, add_sos=False, batch_size=batch_size)
-
-            if label > self._blank_index:
-                label -= 1
-
-            label = label_collate([[label]]).to(self._device)
-
-        # output: [B, 1, K]
-        return self.decoder.predict(label, hidden, add_sos=False, batch_size=batch_size)
-
-    def _joint_step(self, enc, pred, log_normalize=False):
-        """
-
-        Args:
-            enc:
-            pred:
-            log_normalize:
-
-        Returns:
-             logits of shape (B, T=1, U=1, K + 1)
-        """
-        logits = self.joint.joint(enc, pred)
-
-        if not log_normalize:
-            return logits
-
-        probs = F.log_softmax(logits, dim=len(logits.shape) - 1)
-        return probs
 
 
 # class BeamRNNTDecoderInfer(NonTrainableNM):
