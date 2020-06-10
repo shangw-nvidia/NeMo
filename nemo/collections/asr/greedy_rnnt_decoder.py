@@ -486,7 +486,7 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
             max_len = -1
             hypotheses = []
             for batch_idx in range(encoder_output.size(0)):
-                inseq = encoder_output[batch_idx, :, :]  # [T, D]
+                inseq = encoder_output[batch_idx: batch_idx + 1, :, :]  # [1, T, D]
                 logitlen = encoded_lengths[batch_idx]
                 results = self._greedy_decode(inseq, logitlen)
 
@@ -511,7 +511,7 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
 
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
         with torch.no_grad():
-            # x : [T, D]
+            # x : [1, T, D]
             # out_len : [B]
             hidden = None
 
@@ -522,7 +522,8 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
             # max_out_len = out_len.max()
 
             # [hypothesis, score, hidden_state]
-            beams = [((self._blank_index,), (torch.tensor(1.0), None))]
+            init_score = torch.tensor(1.0, device=self._device)
+            beams = [((self._blank_index,), (init_score, None))]
             F = []
 
             for i in range(T + self.max_symbols - 1):
@@ -536,7 +537,7 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
                     if t > T - 1:
                         continue
 
-                    f_i = x[t : t + 1, :].unsqueeze(0)  # [1, 1, D]
+                    f_i = x[:, t : t + 1, :]  # [1, 1, D]
 
                     last_label = hyp_i[-1]
 
@@ -563,14 +564,15 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
                     if t == T - 1:
                         F.append((hyp_i, new_score))
 
+                    score_v = self.log_sum_exp(score_i.expand_as(logp), logp)
+                    hyp_vs = [hyp_i + (vi,) for vi in range(self._vocab_size)]
+
                     for vi in range(self._vocab_size):
                         if vi == self._blank_index:
                             continue
 
-                        hyp_v = hyp_i + (vi,)
-                        score_v = self.log_sum_exp(score_i, logp[vi])
-
-                        A.append((hyp_v, (score_v, state_j)))
+                        hyp_v = hyp_vs[vi]
+                        A.append((hyp_v, (score_v[vi], state_j)))
 
                 # prune beams
                 sorted_beam = sorted(A, key=lambda x: x[1][0], reverse=True)
