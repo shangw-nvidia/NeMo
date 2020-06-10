@@ -86,9 +86,9 @@ X["train"], X["dev"] = train_test_split(dialogs_single, test_size=0.15, random_s
 X["train"], X["test"] = train_test_split(X["train"], test_size=15.0 / 85.0, random_state=2020)
 
 last_id = {}
-last_id["train"] = 1 #FILE_RANGES["dstc8_all"]["train"][-1] + 1
-last_id["dev"] = 1 #FILE_RANGES["dstc8_all"]["dev"][-1] + 1
-last_id["test"] = 1 #FILE_RANGES["dstc8_all"]["test"][-1] + 1
+last_id["train"] = 1  # FILE_RANGES["dstc8_all"]["train"][-1] + 1
+last_id["dev"] = 1  # FILE_RANGES["dstc8_all"]["dev"][-1] + 1
+last_id["test"] = 1  # FILE_RANGES["dstc8_all"]["test"][-1] + 1
 
 for dataset in ["train", "dev", "test"]:
     for dial_id, dial in enumerate(X[dataset]):
@@ -106,12 +106,12 @@ X["train"], X["dev"] = train_test_split(dialogs_multi, test_size=0.15, random_st
 X["train"], X["test"] = train_test_split(X["train"], test_size=15.0 / 85.0, random_state=2020)
 
 last_id = {}
-last_id["train"] = 2 #FILE_RANGES["dstc8_all"]["train"][-1] + 2
-last_id["dev"] = 2 #FILE_RANGES["dstc8_all"]["dev"][-1] + 2
-last_id["test"] = 2 #FILE_RANGES["dstc8_all"]["test"][-1] + 2
+last_id["train"] = 2  # FILE_RANGES["dstc8_all"]["train"][-1] + 2
+last_id["dev"] = 2  # FILE_RANGES["dstc8_all"]["dev"][-1] + 2
+last_id["test"] = 2  # FILE_RANGES["dstc8_all"]["test"][-1] + 2
 
 for dataset in ["train", "dev", "test"]:
-    for dial_id, dial  in enumerate(X[dataset]):
+    for dial_id, dial in enumerate(X[dataset]):
         if len(str(dial_id)) > 5:
             print("Too many dialogues!")
             exit(1)
@@ -120,5 +120,3 @@ for dataset in ["train", "dev", "test"]:
     file_path = os.path.join(dstc8_out_dir, dataset, "dialogues_{:03d}.json".format(last_id[dataset]))
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(X[dataset], f, ensure_ascii=False, indent=2)
-
-

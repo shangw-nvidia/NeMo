@@ -178,13 +178,14 @@ class Dstc8DataProcessor(object):
         slots_relation_list = collections.defaultdict(list)
         for slots_relation, relation_size in slot_carryover_candlist.items():
             if relation_size > 0:
-                switch_counts = services_switch_counts[
-                    (slots_relation[0], slots_relation[2])
-                ]  # + services_switch_counts[(slots_relation[2], slots_relation[0])]
+                switch_counts = (
+                    services_switch_counts[(slots_relation[0], slots_relation[2])]
+                    + services_switch_counts[(slots_relation[2], slots_relation[0])]
+                )
                 relation_size = relation_size / switch_counts
-                # slots_relation_list[(slots_relation[0], slots_relation[1])].append(
-                #     (slots_relation[2], slots_relation[3], relation_size)
-                # )
+                slots_relation_list[(slots_relation[0], slots_relation[1])].append(
+                    (slots_relation[2], slots_relation[3], relation_size)
+                )
                 slots_relation_list[(slots_relation[2], slots_relation[3])].append(
                     (slots_relation[0], slots_relation[1], relation_size)
                 )
