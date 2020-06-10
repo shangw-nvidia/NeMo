@@ -277,7 +277,7 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
         with torch.no_grad():
             # Apply optional preprocessing
             encoder_output = encoder_output.transpose(1, 2)  # (B, T, D)
-            logitlen = encoded_lengths.to('cpu').numpy()
+            logitlen = encoded_lengths  # .to('cpu').numpy()
 
             # Preserve decoder and joint training state
             decoder_training_state = self.decoder.training
@@ -288,13 +288,19 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
 
             max_len = -1
             hypotheses = []
-            for batch_idx in range(encoder_output.size(0)):
-                inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
-                logitlen = encoded_lengths[batch_idx]
-                results = self._greedy_decode(inseq, logitlen)
+            # for batch_idx in range(encoder_output.size(0)):
+            #     inseq = encoder_output[batch_idx, :, :].unsqueeze(1)  # [T, 1, D]
+            #     logitlen = encoded_lengths[batch_idx]
+            #     results = self._greedy_decode(inseq, logitlen)
+            #
+            #     hypotheses.append(results)
+            #     max_len = max(max_len, len(results))
 
-                hypotheses.append(results)
-                max_len = max(max_len, len(results))
+            # batched
+            inseq = encoder_output  # [B, T, D]
+            hypotheses = self._greedy_decode(inseq, logitlen)
+
+            max_len = max([len(hyp) for hyp in hypotheses])
 
             packed_result = torch.full(
                 size=[encoder_output.size(0), max_len],
@@ -314,33 +320,101 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
 
         return packed_result
 
+    # def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
+    #     hidden = None
+    #     label = []
+    #     for time_idx in range(out_len):
+    #         f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
+    #
+    #         not_blank = True
+    #         symbols_added = 0
+    #
+    #         while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
+    #             last_label = self._SOS if label == [] else label[-1]
+    #             g, hidden_prime = self._pred_step(last_label, hidden)
+    #             logp = self._joint_step(f, g, log_normalize=False)[0, 0, 0, :]
+    #
+    #             if logp.dtype != torch.float32:
+    #                 logp = logp.float()
+    #
+    #             # get index k, of max prob
+    #             v, k = logp.max(0)
+    #             k = k.item()
+    #
+    #             if k == self._blank_index:
+    #                 not_blank = False
+    #             else:
+    #                 label.append(k)
+    #                 hidden = hidden_prime
+    #             symbols_added += 1
+    #
+    #     return label
+
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
         hidden = None
-        label = []
-        for time_idx in range(out_len):
-            f = x[time_idx, :, :].unsqueeze(0)  # [1, 1, D]
+        batchsize = x.shape[0]
+        last_label = torch.full([batchsize, 1], fill_value=self._blank_index, device=self._device)
+        label = [[] for _ in range(batchsize)]
+
+        blank_mask = torch.full([batchsize], fill_value=0, dtype=torch.bool, device=self._device)
+        reset = torch.tensor(0, dtype=torch.bool, device=self._device)
+
+        # _, reset_state = self._pred_step(self._SOS, hidden)  # 2x(1, 1, Hd)
+
+        max_out_len = out_len.max()
+        for time_idx in range(max_out_len):
+            f = x[:, time_idx: time_idx+1, :]  # [B, 1, D]
 
             not_blank = True
             symbols_added = 0
 
+            # Reset blank mask
+            blank_mask *= reset
+
+            # time gates
+            time_mask = (time_idx >= out_len)
+            blank_mask.bitwise_or_(time_mask)
+
             while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
-                last_label = self._SOS if label == [] else label[-1]
-                g, hidden_prime = self._pred_step(last_label, hidden)
-                logp = self._joint_step(f, g, log_normalize=False)[0, 0, 0, :]
+                # last_label = self._SOS if len(label) == 0 else label
+                g, hidden_prime = self._pred_step(last_label, hidden, batch_size=batchsize)
+                logp = self._joint_step(f, g, log_normalize=False)[:, 0, 0, :]
 
                 if logp.dtype != torch.float32:
                     logp = logp.float()
 
                 # get index k, of max prob
-                v, k = logp.max(0)
-                k = k.item()
+                v, k = logp.max(1)
 
-                if k == self._blank_index:
+                k_is_blank = (k == self._blank_index)
+                blank_mask.bitwise_or_(k_is_blank)
+
+                if blank_mask.all():
                     not_blank = False
                 else:
-                    label.append(k)
+                    # k.masked_fill_(blank_mask, self._blank_index)
+
+                    for blank_idx, is_blank in enumerate(blank_mask):
+                        if is_blank == 1 and hidden is not None:
+                            hidden_prime[0][:, blank_idx: blank_idx + 1, :] = hidden[0][:, blank_idx: blank_idx + 1, :]
+                            hidden_prime[1][:, blank_idx: blank_idx + 1, :] = hidden[1][:, blank_idx: blank_idx + 1, :]
+
+                            k[blank_idx] = last_label[blank_idx, 0]
+
+                    # hidden_prime[0].masked_fill_(blank_mask.view(1, -1, 1), 0.0)
+                    # hidden_prime[1].masked_fill_(blank_mask.view(1, -1, 1), 0.0)
+
+                    last_label = k.view(-1, 1)
                     hidden = hidden_prime
+
+                    k = k.masked_fill(blank_mask, self._blank_index)
+                    k = k.cpu().numpy()
+                    for kidx, ki in enumerate(k):
+                        if time_mask[kidx] == 0:
+                            label[kidx].append(ki)
+
                 symbols_added += 1
+                # print("time", time_idx, "label", label[-1])
 
         return label
 
@@ -396,9 +470,6 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
 
         probs = F.log_softmax(logits, dim=len(logits.shape) - 1)
         return probs
-
-    def log_sum_exp(self, a, b):
-        return torch.max(a, b) + torch.log1p(torch.exp(-torch.abs(a - b)))
 
 
 class BeamRNNTDecoderInfer(NonTrainableNM):
