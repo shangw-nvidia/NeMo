@@ -353,13 +353,16 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
     def _greedy_decode(self, x: torch.Tensor, out_len: torch.Tensor):
         hidden = None
         batchsize = x.shape[0]
-        last_label = torch.full([batchsize, 1], fill_value=self._blank_index, device=self._device)
+
+        # Output string buffer
         label = [[] for _ in range(batchsize)]
 
+        # Label buffer
+        last_label = torch.full([batchsize, 1], fill_value=self._blank_index, device=self._device)
+
+        # Mask buffers
         blank_mask = torch.full([batchsize], fill_value=0, dtype=torch.bool, device=self._device)
         reset = torch.tensor(0, dtype=torch.bool, device=self._device)
-
-        # _, reset_state = self._pred_step(self._SOS, hidden)  # 2x(1, 1, Hd)
 
         max_out_len = out_len.max()
         for time_idx in range(max_out_len):
@@ -371,50 +374,55 @@ class GreedyRNNTDecoderInfer(NonTrainableNM):
             # Reset blank mask
             blank_mask *= reset
 
-            # time gates
+            # Update blank mask with time mask
             time_mask = (time_idx >= out_len)
             blank_mask.bitwise_or_(time_mask)
 
             while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
-                # last_label = self._SOS if len(label) == 0 else label
+                # Batch prediction and joint network steps
                 g, hidden_prime = self._pred_step(last_label, hidden, batch_size=batchsize)
                 logp = self._joint_step(f, g, log_normalize=False)[:, 0, 0, :]
 
                 if logp.dtype != torch.float32:
                     logp = logp.float()
 
-                # get index k, of max prob
+                # get index k, of max prob for batch
                 v, k = logp.max(1)
 
+                # Update blank mask with current predicted blanks
                 k_is_blank = (k == self._blank_index)
                 blank_mask.bitwise_or_(k_is_blank)
 
+                # If all samples predict / have predicted prior blanks, exit loop early
                 if blank_mask.all():
                     not_blank = False
                 else:
-                    # k.masked_fill_(blank_mask, self._blank_index)
-
-                    for blank_idx, is_blank in enumerate(blank_mask):
+                    # Collect batch indices where blanks occured now/past
+                    batch_indices = []
+                    for batch_idx, is_blank in enumerate(blank_mask):
                         if is_blank == 1 and hidden is not None:
-                            hidden_prime[0][:, blank_idx: blank_idx + 1, :] = hidden[0][:, blank_idx: blank_idx + 1, :]
-                            hidden_prime[1][:, blank_idx: blank_idx + 1, :] = hidden[1][:, blank_idx: blank_idx + 1, :]
+                            batch_indices.append(batch_idx)
 
-                            k[blank_idx] = last_label[blank_idx, 0]
+                    # Recover prior state for all samples which predicted blank now/past
+                    if hidden is not None:
+                        for state_id in range(len(hidden)):
+                            hidden_prime[state_id][:, batch_indices, :] = hidden[state_id][:, batch_indices, :]
 
-                    # hidden_prime[0].masked_fill_(blank_mask.view(1, -1, 1), 0.0)
-                    # hidden_prime[1].masked_fill_(blank_mask.view(1, -1, 1), 0.0)
+                        # Recover prior predicted label
+                        k[batch_indices] = last_label[batch_indices, 0]
 
+                    # Update new label and hidden state for next iteration
                     last_label = k.view(-1, 1)
                     hidden = hidden_prime
 
+                    # Update predicted labels, accounting for time mask
                     k = k.masked_fill(blank_mask, self._blank_index)
-                    k = k.cpu().numpy()
+                    # k = k.cpu().numpy()
                     for kidx, ki in enumerate(k):
                         if time_mask[kidx] == 0:
                             label[kidx].append(ki)
 
                 symbols_added += 1
-                # print("time", time_idx, "label", label[-1])
 
         return label
 
