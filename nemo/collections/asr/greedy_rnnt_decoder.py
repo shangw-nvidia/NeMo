@@ -476,13 +476,6 @@ class BeamRNNTDecoderInfer(NonTrainableNM):
             encoder_output = encoder_output.transpose(1, 2)  # (B, T, D)
             logitlen = encoded_lengths.to('cpu').numpy()
 
-            # create a result buffer of shape [B, T, U, max_symbols]
-            if self.max_symbols > 0:
-                target_dim = self.max_symbols
-            else:
-                # assume maximum output length is maximum input length
-                target_dim = int(encoder_output.size(1))
-
             # Preserve decoder and joint training state
             decoder_training_state = self.decoder.training
             joint_training_state = self.joint.training
