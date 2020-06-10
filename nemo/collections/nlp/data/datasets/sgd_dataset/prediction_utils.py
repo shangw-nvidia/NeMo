@@ -51,10 +51,10 @@ def carry_over_slots(
 
             if service_src in all_slot_values and slot_src in all_slot_values[service_src]:
                 slot_values[slot_dest] = all_slot_values[service_src][slot_src]
-            # if service_src in sys_slots_agg and slot_src in sys_slots_agg[service_src]:
-            #     slot_values[slot_dest] = sys_slots_agg[service_src][slot_src]
-            # if service_src in sys_slots_last and slot_src in sys_slots_last[service_src]:
-            #     slot_values[slot_dest] = sys_slots_last[service_src][slot_src]
+            if service_src in sys_slots_agg and slot_src in sys_slots_agg[service_src]:
+                slot_values[slot_dest] = sys_slots_agg[service_src][slot_src]
+            if service_src in sys_slots_last and slot_src in sys_slots_last[service_src]:
+                slot_values[slot_dest] = sys_slots_last[service_src][slot_src]
 
 
 def get_carryover_value(
