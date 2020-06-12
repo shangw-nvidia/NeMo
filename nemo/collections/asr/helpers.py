@@ -118,7 +118,7 @@ def monitor_transducer_asr_train_progress(
     eval_metric: str = 'WER',
     tb_logger=None,
     beam_size: int = 1,
-    decode_type: str = 'static',
+    decoder_type: str = 'static',
 ):
     """
     Takes output of greedy ctc decoder and performs ctc decoding algorithm to
@@ -129,8 +129,6 @@ def monitor_transducer_asr_train_progress(
       labels: A list of labels
       eval_metric: An optional string from 'WER', 'CER'. Defaults to 'WER'.
       tb_logger: Tensorboard logging object
-      decoder_type: String value to select type of decoding required.
-        Can be `ctc` or `rnnt`.
       beam_size: Integer value to select beam size for static or dynamic beam
         search. Only used for RNNT decoding. Must be greater than or equal to 1.
       decode_type: String value to select whether to perform static decoding or
@@ -159,7 +157,7 @@ def monitor_transducer_asr_train_progress(
             references.append(reference)
 
         hypotheses = __rnnt_decoder_predictions_list(
-            tensors[1], labels=labels, decoder_type=decode_type, beam_size=beam_size
+            tensors[1], labels=labels, decoder_type=decoder_type, beam_size=beam_size
         )
 
     eval_metric = eval_metric.upper()

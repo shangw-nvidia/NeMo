@@ -79,10 +79,6 @@ def parse_args():
     parser.add_argument('--beam_size', default=1, type=int, help='Beam search size')
     parser.add_argument('--pretrained_encoder', default=None, type=str)
     parser.add_argument('--pretrained_decoder', default=None, type=str)
-    parser.add_argument('--freeze_encoder', action="store_true", required=False)
-    parser.add_argument('--freeze_decoder', action="store_true", required=False)
-
-    parser.set_defaults(freeze_encoder=False, freeze_decoder=False)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -179,30 +175,41 @@ def create_all_dags(args, neural_factory):
         encoder.restore_from(args.pretrained_encoder, args.local_rank)
         logging.info(f"Restored encoder weights from {args.pretrained_encoder}")
 
-    if args.freeze_encoder:
-        encoder.freeze()
-        logging.info("Encoder weights frozen !")
-
     decoder = nemo_asr.RNNTDecoder(num_classes=len(vocab), **contextnet_params["RNNTDecoder"])
 
     joint = nemo_asr.RNNTJoint(num_classes=len(vocab), **contextnet_params['RNNTJoint'])
 
     rnnt_loss = nemo_asr.RNNTLoss(num_classes=len(vocab), reduction=None, zero_infinity=True)
 
-    greedy_decoder = nemo_asr.GreedyRNNTDecoder(
+    # greedy_decoder = nemo_asr.GreedyRNNTDecoderInfer(
+    #     decoder_model=decoder,
+    #     joint_model=joint,
+    #     vocabulary=vocab,
+    #     blank_index=len(vocab),
+    #     max_symbols_per_step=args.max_symbols_per_step,
+    # )
+
+    greedy_decoder = nemo_asr.GreedyBatchedRNNTDecoderInfer(
+        decoder_model=decoder,
+        joint_model=joint,
+        vocabulary=vocab,
         blank_index=len(vocab),
         max_symbols_per_step=args.max_symbols_per_step,
-        log_normalize=False
     )
+
+    # greedy_decoder = nemo_asr.BeamRNNTDecoderInfer(
+    #     decoder_model=decoder,
+    #     joint_model=joint,
+    #     vocabulary=vocab,
+    #     blank_index=len(vocab),
+    #     max_symbols_per_step=args.max_symbols_per_step,
+    #     beam_size=args.beam_size,
+    # )
 
     # restore decoder
     if args.pretrained_decoder:
         decoder.restore_from(args.pretrained_decoder, args.local_rank)
         logging.info(f"Restored decoder weights from {args.pretrained_decoder}")
-
-    if args.freeze_decoder:
-        decoder.freeze()
-        logging.info("Decoder weights frozen !")
 
     # create augmentation modules (only used for training) if their configs
     # are present
@@ -234,17 +241,18 @@ def create_all_dags(args, neural_factory):
     decoder_t, target_length = decoder(targets=transcript_t, target_length=transcript_len_t)
     joint_t = joint(encoder_outputs=encoded_t, decoder_outputs=decoder_t)
 
-    predictions_t = greedy_decoder(joint_output=joint_t, encoded_lengths=encoded_len_t)
-
+    predictions_t = greedy_decoder(encoder_output=encoded_t, encoded_lengths=encoded_len_t)
+    
     loss_t = rnnt_loss(
         log_probs=joint_t, targets=transcript_t, input_length=encoded_len_t, target_length=transcript_len_t,
     )
 
     # create train callbacks
+
     train_callback = nemo.core.SimpleLossLoggerCallback(
         tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
         print_func=partial(
-            monitor_transducer_asr_train_progress, labels=vocab, decoder_type='static', eval_metric='WER'
+            monitor_transducer_asr_train_progress, labels=vocab, decoder_type='dynamic', eval_metric='WER'
         ),
         get_tb_values=lambda x: [["loss", x[0]]],
         tb_writer=neural_factory.tb_writer,
@@ -280,7 +288,7 @@ def create_all_dags(args, neural_factory):
         decoder_e, target_length_e = decoder(targets=transcript_e, target_length=transcript_len_e)
         joint_e = joint(encoder_outputs=encoded_e, decoder_outputs=decoder_e)
 
-        predictions_e = greedy_decoder(joint_output=joint_e, encoded_lengths=encoded_len_e)
+        predictions_e = greedy_decoder(encoder_output=encoded_e, encoded_lengths=encoded_len_e)
 
         loss_e = rnnt_loss(
             log_probs=joint_e, targets=transcript_e, input_length=encoded_len_e, target_length=transcript_len_e,
@@ -299,7 +307,7 @@ def create_all_dags(args, neural_factory):
         eval_callback = nemo.core.EvaluatorCallback(
             eval_tensors=[loss_e, predictions_e, transcript_e, transcript_len_e],
             user_iter_callback=partial(
-                process_transducer_evaluation_batch, labels=vocab, decoder_type='static', beam_size=args.beam_size
+                process_transducer_evaluation_batch, labels=vocab, decoder_type='dynamic', beam_size=args.beam_size
             ),
             user_epochs_done_callback=partial(process_evaluation_epoch, tag=tagname, eval_metric='WER'),
             eval_step=args.eval_freq,
