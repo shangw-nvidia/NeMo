@@ -54,8 +54,7 @@ def rnn(
         )
 
     if norm == "layer":
-        return torch.jit.script(
-            ln_lstm(
+        return torch.jit.script(ln_lstm(  # torch.jit.script(
                 input_size=input_size,
                 hidden_size=hidden_size,
                 num_layers=num_layers,
@@ -296,7 +295,7 @@ def ln_lstm(
 ) -> torch.nn.Module:
     """Returns a ScriptModule that mimics a PyTorch native LSTM."""
     # The following are not implemented.
-    if dropout != 0.0 or dropout is not None:
+    if dropout is not None and dropout != 0.0:
         raise ValueError('`dropout` not supported with LayerNormLSTM')
 
     return StackedLSTM(
@@ -384,22 +383,24 @@ class StackedLSTM(torch.nn.Module):
         self, input: torch.Tensor, states: Optional[List[Tuple[torch.Tensor, torch.Tensor]]]
     ) -> Tuple[torch.Tensor, List[Tuple[torch.Tensor, torch.Tensor]]]:
         if states is None:
-            states: List[Tuple[torch.Tensor, torch.Tensor]] = []
+            temp_states: List[Tuple[torch.Tensor, torch.Tensor]] = []
             batch = input.size(1)
             for layer in self.layers:
-                states.append(
+                temp_states.append(
                     (
                         torch.zeros(batch, layer.cell.hidden_size, dtype=input.dtype, device=input.device),
                         torch.zeros(batch, layer.cell.hidden_size, dtype=input.dtype, device=input.device),
                     )
                 )
 
-        output_states: List[Tuple[Tensor, Tensor]] = []
+            states = temp_states
+
+        output_states:List[Tuple[torch.Tensor, torch.Tensor]] = []
         output = input
         for i, rnn_layer in enumerate(self.layers):
             state = states[i]
             output, out_state = rnn_layer(output, state)
-            output_states += [out_state]
+            output_states.append(out_state)
             i += 1
         return output, output_states
 
