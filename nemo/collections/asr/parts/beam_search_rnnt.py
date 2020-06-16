@@ -159,15 +159,6 @@ def _rnnt_beam_decode_dynamic_sequential(packed_results, blank_idx):
 
 
 def decode_dynamic(packed_result, blank):
-    result = []
-
-    for idx in range(len(packed_result)):
-        val = packed_result[idx]
-
-        # at first occurance of blank, exit loop
-        if val == blank:
-            continue
-        else:
-            result.append(val)
-
+    result = [char for char in packed_result
+              if char != blank]
     return result
