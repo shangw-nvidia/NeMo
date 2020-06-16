@@ -23,8 +23,8 @@ AudioToMelSpectrogramPreprocessor:
     window: "hann"
     normalize: "per_feature"
     n_fft: 512
-    features: 80
-    frame_splicing: &frame_splicing 1
+    features: 64
+    frame_splicing: &frame_splicing 3
     dither: 0.00001
     pad_to: 0
     stft_conv: false
@@ -41,22 +41,22 @@ RNNTEncoder:
 
     rnnt:
         encoder_hidden: &enc_hidden 1024
-        encoder_pre_rnn_layers: 1  # 2
-        encoder_stack_time_factor: 8
-        encoder_post_rnn_layers: 1  # 3
+        encoder_pre_rnn_layers: 2
+        encoder_stack_time_factor: 2
+        encoder_post_rnn_layers: 3
         dropout: *rnn_dropout
 
 RNNTDecoder:
     normalization_mode: null
 
     rnnt:
-        pred_hidden: &dec_hidden 512
-        pred_rnn_layers: 1
+        pred_hidden: &dec_hidden 640
+        pred_rnn_layers: 2
         dropout: *rnn_dropout
 
 RNNTJoint:
     rnnt:
-        joint_hidden: 512
+        joint_hidden: 640
         encoder_hidden: *enc_hidden
         pred_hidden: *dec_hidden
         dropout: *rnn_dropout
