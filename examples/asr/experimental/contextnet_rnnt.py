@@ -31,7 +31,7 @@ from nemo.collections.asr.helpers import (
     process_transducer_evaluation_batch,
 )
 from nemo.utils import logging
-from nemo.utils.lr_policies import CosineAnnealing
+from nemo.utils.lr_policies import CosineAnnealing, SquareAnnealing
 
 
 def parse_args():
@@ -66,6 +66,7 @@ def parse_args():
     parser.add_argument("--project", default=None, type=str)
     parser.add_argument("--beta1", default=0.95, type=float)
     parser.add_argument("--beta2", default=0.5, type=float)
+    parser.add_argument("--schedule", default="cosine", choices=["cosine", "square"], type=str)
     parser.add_argument("--warmup_steps", default=1000, type=int)
     parser.add_argument("--warmup_ratio", default=None, type=float)
     parser.add_argument('--min_lr', default=1e-5, type=float)
@@ -74,7 +75,7 @@ def parse_args():
     parser.add_argument("--synced_bn_groupsize", default=0, type=int)
     parser.add_argument("--update_freq", default=50, type=int, help="Metrics update freq")
     parser.add_argument("--eval_freq", default=1000, type=int, help="Evaluation frequency")
-    parser.add_argument("--kernel_size_factor", default=1.0, type=float)
+    parser.add_argument('--kernel_size_factor', default=1.0, type=float)
     parser.add_argument('--max_symbols_per_step', default=1, type=int, help='Maximum number of symbols per step')
     parser.add_argument('--beam_size', default=1, type=int, help='Beam search size')
     parser.add_argument('--pretrained_encoder', default=None, type=str)
@@ -188,6 +189,13 @@ def create_all_dags(args, neural_factory):
     joint = nemo_asr.RNNTJoint(num_classes=len(vocab), **contextnet_params['RNNTJoint'])
 
     rnnt_loss = nemo_asr.RNNTLoss(num_classes=len(vocab), reduction=None, zero_infinity=True)
+
+    # greedy_decoder = nemo_asr.GreedyRNNTDecoderInfer(
+    #     decoder_model=decoder,
+    #     joint_model=joint,
+    #     blank_index=len(vocab),
+    #     max_symbols_per_step=args.max_symbols_per_step,
+    # )
 
     greedy_decoder = nemo_asr.GreedyRNNTDecoder(
         blank_index=len(vocab),
@@ -368,16 +376,30 @@ def main():
     # build dags
     train_loss, callbacks, steps_per_epoch = create_all_dags(args, neural_factory)
 
-    # train model
-    neural_factory.train(
-        tensors_to_optimize=[train_loss],
-        callbacks=callbacks,
-        lr_policy=CosineAnnealing(
+    if args.schedule == 'cosine':
+        policy = CosineAnnealing(
             args.num_epochs * steps_per_epoch,
             warmup_steps=args.warmup_steps,
             warmup_ratio=args.warmup_ratio,
             min_lr=args.min_lr,
-        ),
+        )
+
+    elif args.schedule == 'square':
+        policy = SquareAnnealing(
+            args.num_epochs * steps_per_epoch,
+            warmup_steps=args.warmup_steps,
+            warmup_ratio=args.warmup_ratio,
+            min_lr=args.min_lr,
+        )
+
+    else:
+        raise ValueError("`schedule` can be either `cosine` or `square`")
+
+    # train model
+    neural_factory.train(
+        tensors_to_optimize=[train_loss],
+        callbacks=callbacks,
+        lr_policy=policy,
         optimizer=args.optimizer,
         optimization_params={
             "num_epochs": args.num_epochs,
