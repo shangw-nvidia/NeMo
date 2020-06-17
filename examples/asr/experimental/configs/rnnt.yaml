@@ -45,6 +45,7 @@ RNNTEncoder:
         encoder_stack_time_factor: 2
         encoder_post_rnn_layers: 3
         dropout: *rnn_dropout
+        t_max: 850
 
 RNNTDecoder:
     normalization_mode: null
@@ -53,6 +54,7 @@ RNNTDecoder:
         pred_hidden: &dec_hidden 640
         pred_rnn_layers: 2
         dropout: *rnn_dropout
+        t_max: 400
 
 RNNTJoint:
     rnnt:

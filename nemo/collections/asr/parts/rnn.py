@@ -27,7 +27,8 @@ def rnn(
     norm: Optional[str] = None,
     forget_gate_bias: Optional[float] = 1.0,
     dropout: Optional[float] = 0.0,
-    norm_first_rnn: Optional[bool] = None
+    norm_first_rnn: Optional[bool] = None,
+    t_max: Optional[int] = None
 ) -> torch.nn.Module:
 
     if norm not in [None, "batch", "layer"]:
@@ -40,6 +41,7 @@ def rnn(
             num_layers=num_layers,
             dropout=dropout,
             forget_gate_bias=forget_gate_bias,
+            t_max=t_max,
         )
 
     if norm == "batch":
@@ -50,6 +52,7 @@ def rnn(
             batch_norm=True,
             dropout=dropout,
             forget_gate_bias=forget_gate_bias,
+            t_max=t_max,
             norm_first_rnn=norm_first_rnn
         )
 
@@ -60,6 +63,7 @@ def rnn(
                 num_layers=num_layers,
                 dropout=dropout,
                 forget_gate_bias=forget_gate_bias,
+                t_max=t_max
             )
         )
 
@@ -102,6 +106,7 @@ class LSTMDropout(torch.nn.Module):
         num_layers: int,
         dropout: Optional[float],
         forget_gate_bias: Optional[float],
+        t_max: Optional[int] = None,
     ):
         """Returns an LSTM with forget gate bias init to `forget_gate_bias`.
         Args:
@@ -119,7 +124,22 @@ class LSTMDropout(torch.nn.Module):
         self.lstm = torch.nn.LSTM(
             input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout,
         )
-        if forget_gate_bias is not None:
+
+        if t_max is not None:
+            # apply chrono init
+            for name, v in self.lstm.named_parameters():
+                if 'bias' in name:
+                    p = getattr(self.lstm, name)
+                    n = p.nelement()
+                    hidden_size = n // 4
+                    p.data.fill_(0)
+                    p.data[hidden_size: 2 * hidden_size] = \
+                        torch.log(torch.nn.init.uniform_(p.data[0: hidden_size], 1, t_max - 1))
+                    # forget gate biases = log(uniform(1, Tmax-1))
+                    p.data[0: hidden_size] = -p.data[hidden_size: 2 * hidden_size]
+                    # input gate biases = -(forget gate biases)
+
+        elif forget_gate_bias is not None:
             for name, v in self.lstm.named_parameters():
                 if "bias_ih" in name:
                     bias = getattr(self.lstm, name)
@@ -151,6 +171,7 @@ class RNNLayer(torch.nn.Module):
         rnn_type: torch.nn.Module = torch.nn.LSTM,
         batch_norm: bool = True,
         forget_gate_bias: Optional[float] = 1.0,
+        t_max: Optional[int] = None,
     ):
         super().__init__()
 
@@ -165,6 +186,7 @@ class RNNLayer(torch.nn.Module):
                 num_layers=1,
                 dropout=0.0,
                 forget_gate_bias=forget_gate_bias,
+                t_max=t_max
             )
         else:
             self.rnn = rnn_type(input_size=input_size, hidden_size=hidden_size, bias=not batch_norm)
@@ -200,6 +222,7 @@ class BNRNNSum(torch.nn.Module):
         dropout: Optional[float] = 0.0,
         forget_gate_bias: Optional[bool] = 1.0,
         norm_first_rnn: bool = False,
+        t_max: Optional[int] = None
     ):
         super().__init__()
         self.rnn_layers = rnn_layers
@@ -215,6 +238,7 @@ class BNRNNSum(torch.nn.Module):
                     rnn_type=rnn_type,
                     batch_norm=batch_norm and (norm_first_rnn or i > 0),
                     forget_gate_bias=forget_gate_bias,
+                    t_max=t_max
                 )
             )
 
@@ -291,12 +315,16 @@ class StackTime(torch.nn.Module):
 
 
 def ln_lstm(
-    input_size: int, hidden_size: int, num_layers: int, dropout: Optional[float], forget_gate_bias: Optional[float]
+    input_size: int, hidden_size: int, num_layers: int, dropout: Optional[float], forget_gate_bias: Optional[float],
+    t_max: Optional[int]
 ) -> torch.nn.Module:
     """Returns a ScriptModule that mimics a PyTorch native LSTM."""
     # The following are not implemented.
     if dropout is not None and dropout != 0.0:
         raise ValueError('`dropout` not supported with LayerNormLSTM')
+
+    if t_max is not None:
+        raise ValueError("LayerNormLSTM does not support chrono init")
 
     return StackedLSTM(
         num_layers,

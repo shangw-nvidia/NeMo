@@ -75,7 +75,7 @@ class RNNTEncoder(TrainableNM):
         }
 
     def __init__(
-        self, rnnt: Dict[str, Any], feat_in: int, normalization_mode: Optional[str] = None, frame_splicing: int = 1,
+        self, rnnt: Dict[str, Any], feat_in: int, normalization_mode: Optional[str] = None, frame_splicing: int = 1
     ):
         super().__init__()
         feat_in = feat_in * frame_splicing
@@ -87,6 +87,7 @@ class RNNTEncoder(TrainableNM):
 
         # Optional arguments
         forget_gate_bias = rnnt.get('forget_gate_bias', 1.0)
+        t_max = rnnt.get('t_max', None)
         encoder_stack_time_factor = rnnt.get('encoder_stack_time_factor', 1)
         dropout = rnnt.get('dropout', 0.0)
 
@@ -96,6 +97,7 @@ class RNNTEncoder(TrainableNM):
             encoder_pre_rnn_layers=self.encoder_pre_rnn_layers,
             encoder_post_rnn_layers=self.encoder_post_rnn_layers,
             forget_gate_bias=forget_gate_bias,
+            t_max=t_max,
             norm=normalization_mode,
             encoder_stack_time_factor=encoder_stack_time_factor,
             dropout=dropout,
@@ -132,6 +134,7 @@ class RNNTEncoder(TrainableNM):
         encoder_pre_rnn_layers,
         encoder_post_rnn_layers,
         forget_gate_bias,
+        t_max,
         norm,
         encoder_stack_time_factor,
         dropout,
@@ -144,6 +147,7 @@ class RNNTEncoder(TrainableNM):
                     num_layers=encoder_pre_rnn_layers,
                     norm=norm,
                     forget_gate_bias=forget_gate_bias,
+                    t_max=t_max,
                     dropout=dropout,
                 ),
                 "stack_time": rnn.StackTime(factor=encoder_stack_time_factor),
@@ -153,6 +157,7 @@ class RNNTEncoder(TrainableNM):
                     num_layers=encoder_post_rnn_layers,
                     norm=norm,
                     forget_gate_bias=forget_gate_bias,
+                    t_max=t_max,
                     norm_first_rnn=True,
                     dropout=dropout,
                 ),
@@ -223,6 +228,7 @@ class RNNTDecoder(TrainableNM):
 
         # Optional arguments
         forget_gate_bias = rnnt.get('forget_gate_bias', 1.0)
+        t_max = rnnt.get('t_max', None)
         dropout = rnnt.get('dropout', 0.0)
 
         self.prediction = self._predict(
@@ -230,6 +236,7 @@ class RNNTDecoder(TrainableNM):
             pred_n_hidden=self.pred_hidden,
             pred_rnn_layers=self.pred_rnn_layers,
             forget_gate_bias=forget_gate_bias,
+            t_max=t_max,
             norm=normalization_mode,
             dropout=dropout,
         )
@@ -299,7 +306,7 @@ class RNNTDecoder(TrainableNM):
 
         return g, hid
 
-    def _predict(self, vocab_size, pred_n_hidden, pred_rnn_layers, forget_gate_bias, norm, dropout):
+    def _predict(self, vocab_size, pred_n_hidden, pred_rnn_layers, forget_gate_bias, t_max, norm, dropout):
         layers = torch.nn.ModuleDict(
             {
                 "embed": torch.nn.Embedding(vocab_size - 1, pred_n_hidden),
@@ -309,6 +316,7 @@ class RNNTDecoder(TrainableNM):
                     num_layers=pred_rnn_layers,
                     norm=norm,
                     forget_gate_bias=forget_gate_bias,
+                    t_max=t_max,
                     dropout=dropout,
                 ),
             }
