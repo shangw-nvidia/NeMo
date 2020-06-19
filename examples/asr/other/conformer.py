@@ -14,6 +14,7 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing
 
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         parents=[nm_argparse.NemoArgParser()], description='QuartzNet', conflict_handler='resolve',
@@ -130,7 +131,7 @@ def create_all_dags(args, neural_factory):
     )
 
     # (QuartzNet uses the Jasper baseline encoder and decoder)
-    encoder = nemo_asr.JasperEncoder(
+    encoder = nemo_asr.ConformerEncoder(
         feat_in=quartz_params["AudioToMelSpectrogramPreprocessor"]["features"], **quartz_params["JasperEncoder"],
     )
 
@@ -187,21 +188,9 @@ def create_all_dags(args, neural_factory):
     if args.checkpoint_dir or args.load_dir:
         chpt_callback = nemo.core.CheckpointCallback(
             folder=args.checkpoint_dir, load_from_folder=args.load_dir, step_freq=args.checkpoint_save_freq,
-            wandb_name=args.exp_name,
-            wandb_project=args.project,
         )
 
         callbacks.append(chpt_callback)
-
-        wand_callback = nemo.core.WandbCallback(
-            train_tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
-            wandb_name=args.exp_name,
-            wandb_project=args.project,
-            update_freq=args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
-            args=args,
-        )
-
-        callbacks.append(wand_callback)
 
     # assemble eval DAGs
     for i, eval_dl in enumerate(data_layers_eval):
