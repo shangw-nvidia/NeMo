@@ -186,7 +186,9 @@ def create_all_dags(args, neural_factory):
 
     if args.checkpoint_dir or args.load_dir:
         chpt_callback = nemo.core.CheckpointCallback(
-            folder=args.checkpoint_dir, load_from_folder=args.load_dir, step_freq=args.checkpoint_save_freq,
+            folder=args.checkpoint_dir,
+            load_from_folder=args.load_dir,
+            step_freq=args.checkpoint_save_freq,
             wandb_name=args.exp_name,
             wandb_project=args.project,
         )

@@ -303,3 +303,40 @@ class JasperNet(ASRConvCTCModel):
         )
         result.append(model)
         return result
+
+
+class Conformer(ASRConvCTCModel):
+    """Conformer ASR Model. See: "???."
+    http://???"""
+
+    @staticmethod
+    def list_pretrained_models() -> Optional[List[PretrainedModelInfo]]:
+        """List all available pre-trained models (e.g. weights) for convolutional
+        encoder-decoder CTC-based speech recognition models.
+
+        Returns:
+            A list of PretrainedModelInfo tuples.
+            The pretrained_model_name field of the tuple can be used to
+            retrieve pre-trained model's weights (pass it as
+            pretrained_model_name argument to the module's constructor)
+        """
+
+        # TODO: update here for Conformer
+        logging.warning("TODO: CHANGE ME TO GRAB STUFF FROM NGC")
+        result = []
+        model = PretrainedModelInfo(
+            pretrained_model_name="QuartzNet15x5-En",
+            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-En-Base.nemo",
+            description="The model is trained on ~3300 hours of publicly available data and achieves a WER of 3.91% on LibriSpeech dev-clean, and a WER of 10.58% on dev-other.",
+            parameters="",
+        )
+        result.append(model)
+
+        model = PretrainedModelInfo(
+            pretrained_model_name="QuartzNet15x5-Zh",
+            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-Zh-Base.nemo",
+            description="The model is trained on ai-shell2 mandarin chinese dataset.",
+            parameters="",
+        )
+        result.append(model)
+        return result

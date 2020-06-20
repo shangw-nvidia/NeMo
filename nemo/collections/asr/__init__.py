@@ -35,6 +35,8 @@ from nemo.collections.asr.las.misc import JasperRNNConnector
 from nemo.collections.asr.losses import CTCLossNM
 from nemo.core import Backend
 
+from nemo.collections.asr.conformer import ConformerEncoder
+
 __all__ = [
     'Backend',
     'AudioToTextDataLayer',
@@ -61,6 +63,7 @@ __all__ = [
     'ContextNetDecoderForCTC',
     'CTCLossNM',
     'CrossEntropyLossNM',
+    'ConformerEncoder'
 ]
 
 backend = Backend.PyTorch

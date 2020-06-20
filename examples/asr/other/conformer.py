@@ -14,10 +14,9 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
-        parents=[nm_argparse.NemoArgParser()], description='QuartzNet', conflict_handler='resolve',
+        parents=[nm_argparse.NemoArgParser()], description='Conformer', conflict_handler='resolve',
     )
     parser.set_defaults(
         checkpoint_dir=None,
@@ -70,18 +69,18 @@ def create_all_dags(args, neural_factory):
     # parse the config files
     yaml = YAML(typ="safe")
     with open(args.model_config) as f:
-        quartz_params = yaml.load(f)
+        conformer_params = yaml.load(f)
 
-    vocab = quartz_params['labels']
-    sample_rate = quartz_params['sample_rate']
+    vocab = conformer_params['labels']
+    sample_rate = conformer_params['sample_rate']
 
     # Calculate num_workers for dataloader
     total_cpus = os.cpu_count()
     cpu_per_traindl = max(int(total_cpus / neural_factory.world_size), 1)
 
     # create data layer for training
-    train_dl_params = copy.deepcopy(quartz_params["AudioToTextDataLayer"])
-    train_dl_params.update(quartz_params["AudioToTextDataLayer"]["train"])
+    train_dl_params = copy.deepcopy(conformer_params["AudioToTextDataLayer"])
+    train_dl_params.update(conformer_params["AudioToTextDataLayer"]["train"])
     del train_dl_params["train"]
     del train_dl_params["eval"]
     # del train_dl_params["normalize_transcripts"]
@@ -103,8 +102,8 @@ def create_all_dags(args, neural_factory):
     # we need separate eval dags for separate eval datasets
     # but all other modules in these dags will be shared
 
-    eval_dl_params = copy.deepcopy(quartz_params["AudioToTextDataLayer"])
-    eval_dl_params.update(quartz_params["AudioToTextDataLayer"]["eval"])
+    eval_dl_params = copy.deepcopy(conformer_params["AudioToTextDataLayer"])
+    eval_dl_params.update(conformer_params["AudioToTextDataLayer"]["eval"])
     del eval_dl_params["train"]
     del eval_dl_params["eval"]
 
@@ -127,16 +126,16 @@ def create_all_dags(args, neural_factory):
     # create shared modules
 
     data_preprocessor = nemo_asr.AudioToMelSpectrogramPreprocessor(
-        sample_rate=sample_rate, **quartz_params["AudioToMelSpectrogramPreprocessor"],
+        sample_rate=sample_rate, **conformer_params["AudioToMelSpectrogramPreprocessor"],
     )
 
-    # (QuartzNet uses the Jasper baseline encoder and decoder)
     encoder = nemo_asr.ConformerEncoder(
-        feat_in=quartz_params["AudioToMelSpectrogramPreprocessor"]["features"], **quartz_params["JasperEncoder"],
+        feat_in=conformer_params["AudioToMelSpectrogramPreprocessor"]["features"],
+        **conformer_params["ConformerEncoder"],
     )
 
     decoder = nemo_asr.JasperDecoderForCTC(
-        feat_in=quartz_params["JasperEncoder"]["jasper"][-1]["filters"], num_classes=len(vocab),
+        feat_in=conformer_params["ConformerEncoder"]["conformer"][-1]["filters"], num_classes=len(vocab),
     )
 
     ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab))
@@ -146,11 +145,11 @@ def create_all_dags(args, neural_factory):
     # create augmentation modules (only used for training) if their configs
     # are present
 
-    multiply_batch_config = quartz_params.get('MultiplyBatch', None)
+    multiply_batch_config = conformer_params.get('MultiplyBatch', None)
     if multiply_batch_config:
         multiply_batch = nemo_asr.MultiplyBatch(**multiply_batch_config)
 
-    spectr_augment_config = quartz_params.get('SpectrogramAugmentation', None)
+    spectr_augment_config = conformer_params.get('SpectrogramAugmentation', None)
     if spectr_augment_config:
         data_spectr_augmentation = nemo_asr.SpectrogramAugmentation(**spectr_augment_config)
 

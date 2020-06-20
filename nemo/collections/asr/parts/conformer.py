@@ -1,10 +1,14 @@
-from nemo import logging
+import math
+from distutils.util import strtobool
+
+import numpy as np
 import torch
 import torch.nn as nn
-import math
 import torch.nn.functional as F
-import numpy as np
-from distutils.util import strtobool
+
+from nemo import logging
+
+from nemo.collections.asr.parts.jasper import init_weights
 
 
 class ConformerConvBlock(nn.Module):
@@ -21,35 +25,35 @@ class ConformerConvBlock(nn.Module):
         self.d_model = d_model
         assert kernel_size % 2 == 1
 
-        self.pointwise_conv1 = nn.Conv1d(in_channels=d_model,
-                                         out_channels=d_model * 2,  # for GLU
-                                         kernel_size=1,
-                                         stride=1,
-                                         padding=0)
-        self.depthwise_conv = nn.Conv1d(in_channels=d_model,
-                                        out_channels=d_model,
-                                        kernel_size=kernel_size,
-                                        stride=1,
-                                        # padding=kernel_size // 2 - 1,
-                                        padding=kernel_size // 2,
-                                        groups=d_model)  # depthwise
+        self.pointwise_conv1 = nn.Conv1d(
+            in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0  # for GLU
+        )
+        self.depthwise_conv = nn.Conv1d(
+            in_channels=d_model,
+            out_channels=d_model,
+            kernel_size=kernel_size,
+            stride=1,
+            # padding=kernel_size // 2 - 1,
+            padding=kernel_size // 2,
+            groups=d_model,
+        )  # depthwise
         self.batch_norm = nn.BatchNorm1d(d_model)
         self.activation = Swish()
-        self.pointwise_conv2 = nn.Conv1d(in_channels=d_model,
-                                         out_channels=d_model,
-                                         kernel_size=1,
-                                         stride=1,
-                                         padding=0)
+        self.pointwise_conv2 = nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1, stride=1, padding=0)
 
-        if param_init == 'xavier_uniform':
-            self.reset_parameters()
+        self.apply(lambda x: init_weights(x, mode=param_init))
+        self.to(self._device)
 
-    def reset_parameters(self):
-        """Initialize parameters with Xavier uniform distribution."""
-        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-        for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
-            for n, p in layer.named_parameters():
-                init_with_xavier_uniform(n, p)
+        # changed here
+        # if param_init == 'xavier_uniform':
+        #     self.reset_parameters()
+
+    # def reset_parameters(self):
+    #     """Initialize parameters with Xavier uniform distribution."""
+    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+    #     for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
+    #         for n, p in layer.named_parameters():
+    #             init_with_xavier_uniform(n, p)
 
     def forward(self, xs):
         """Forward pass.
@@ -76,22 +80,6 @@ class ConformerConvBlock(nn.Module):
         return xs
 
 
-class Swish(nn.Module):
-    def forward(self, x):
-        return x * torch.sigmoid(x)
-
-
-def init_with_xavier_uniform(n, p):
-    if p.dim() == 1:
-        nn.init.constant_(p, 0.)  # bias
-        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.))
-    elif p.dim() in [2, 3]:
-        nn.init.xavier_uniform_(p)  # linear layer
-        logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
-    else:
-        raise ValueError(n)
-
-
 class PositionwiseFeedForward(nn.Module):
     """Positionwise fully-connected feed-forward neural network (FFN) layer.
     Args:
@@ -103,8 +91,7 @@ class PositionwiseFeedForward(nn.Module):
         bottleneck_dim (int): bottleneck dimension for low-rank FFN
     """
 
-    def __init__(self, d_model, d_ff, dropout, activation, param_init,
-                 bottleneck_dim=0):
+    def __init__(self, d_model, d_ff, dropout, activation, param_init, bottleneck_dim=0):
         super(PositionwiseFeedForward, self).__init__()
 
         self.bottleneck_dim = bottleneck_dim
@@ -133,19 +120,22 @@ class PositionwiseFeedForward(nn.Module):
             raise NotImplementedError(activation)
         logging.info('FFN activation: %s' % activation)
 
-        if param_init == 'xavier_uniform':
-            self.reset_parameters()
+        self.apply(lambda x: init_weights(x, mode=param_init))
+        self.to(self._device)
 
-    def reset_parameters(self):
-        """Initialize parameters with Xavier uniform distribution."""
-        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-        for n, p in self.named_parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.)
-            elif p.dim() == 2:
-                nn.init.xavier_uniform_(p)
-            else:
-                raise ValueError(n)
+        # if param_init == 'xavier_uniform':
+        #     self.reset_parameters()
+
+    # def reset_parameters(self):
+    #     """Initialize parameters with Xavier uniform distribution."""
+    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+    #     for n, p in self.named_parameters():
+    #         if p.dim() == 1:
+    #             nn.init.constant_(p, 0.0)
+    #         elif p.dim() == 2:
+    #             nn.init.xavier_uniform_(p)
+    #         else:
+    #             raise ValueError(n)
 
     def forward(self, xs):
         """Forward computation.
@@ -173,8 +163,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         param_init (str): parameter initialization method
     """
 
-    def __init__(self, kdim, qdim, adim, odim, n_heads, dropout,
-                 bias=True, param_init=''):
+    def __init__(self, kdim, qdim, adim, odim, n_heads, dropout, bias=True, param_init=''):
         super(RelativeMultiheadAttentionMechanism, self).__init__()
 
         assert adim % n_heads == 0
@@ -203,13 +192,13 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         nn.init.xavier_uniform_(self.w_value.weight, gain=1 / math.sqrt(2))
         nn.init.xavier_uniform_(self.w_query.weight, gain=1 / math.sqrt(2))
         if bias:
-            nn.init.constant_(self.w_key.bias, 0.)
-            nn.init.constant_(self.w_value.bias, 0.)
-            nn.init.constant_(self.w_query.bias, 0.)
+            nn.init.constant_(self.w_key.bias, 0.0)
+            nn.init.constant_(self.w_value.bias, 0.0)
+            nn.init.constant_(self.w_query.bias, 0.0)
 
         nn.init.xavier_uniform_(self.w_out.weight)
         if bias:
-            nn.init.constant_(self.w_out.bias, 0.)
+            nn.init.constant_(self.w_out.bias, 0.0)
 
     def _rel_shift(self, xs):
         """Calculate relative positional attention efficiently.
@@ -223,9 +212,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         xs = xs.permute(1, 2, 0, 3).contiguous().view(qlen, klen, bs * n_heads)
 
         zero_pad = xs.new_zeros((qlen, 1, bs * n_heads))
-        xs_shifted = (torch.cat([zero_pad, xs], dim=1)
-                      .view(klen + 1, qlen, bs * n_heads)[1:]
-                      .view_as(xs))
+        xs_shifted = torch.cat([zero_pad, xs], dim=1).view(klen + 1, qlen, bs * n_heads)[1:].view_as(xs)
         return xs_shifted.view(qlen, klen, bs, n_heads).permute(2, 0, 1, 3)
 
     def forward(self, key, query, memory, pos_embs, mask, u=None, v=None):
@@ -242,7 +229,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
             cv (FloatTensor): `[B, qlen, vdim]`
             aw (FloatTensor): `[B, H, qlen, klen+mlen]`
         """
-        bs, qlen = query.size()[: 2]
+        bs, qlen = query.size()[:2]
         klen = key.size(1)
         mlen = memory.size(1) if memory is not None and memory.dim() > 1 else 0
         if mlen > 0:
@@ -252,8 +239,10 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         key = self.w_key(key).view(bs, -1, self.n_heads, self.d_k)  # `[B, klen+mlen, H, d_k]`
         if mask is not None:
             mask = mask.unsqueeze(3).repeat([1, 1, 1, self.n_heads])
-            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), \
-                (mask.size(), (bs, qlen, klen + mlen, self.n_heads))
+            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), (
+                mask.size(),
+                (bs, qlen, klen + mlen, self.n_heads),
+            )
 
         query = self.w_query(query).view(bs, -1, self.n_heads, self.d_k)  # `[B, qlen, H, d_k]`
         pos_embs = self.w_position(pos_embs)
@@ -319,26 +308,42 @@ def gelu(x):
         return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
 
 
+class Swish(nn.Module):
+    def forward(self, x):
+        return x * torch.sigmoid(x)
+
+
+# def init_with_xavier_uniform(n, p):
+#     if p.dim() == 1:
+#         nn.init.constant_(p, 0.0)  # bias
+#         logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
+#     elif p.dim() in [2, 3]:
+#         nn.init.xavier_uniform_(p)  # linear layer
+#         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
+#     else:
+#         raise ValueError(n)
+
+
 def init_with_lecun_normal(n, p, param_init):
     if p.dim() == 1:
-        nn.init.constant_(p, 0.)  # bias
-        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.))
+        nn.init.constant_(p, 0.0)  # bias
+        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
     elif p.dim() == 2:
         fan_in = p.size(1)
-        nn.init.normal_(p, mean=0., std=1. / math.sqrt(fan_in))  # linear weight
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
         logging.info('Initialize %s with %s / %.3f' % (n, 'lecun', param_init))
     elif p.dim() == 3:
         fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0., std=1. / math.sqrt(fan_in))  # 1d conv weight
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
         logging.info('Initialize %s with %s / %.3f' % (n, 'lecun', param_init))
     elif p.dim() == 4:
         fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0., std=1. / math.sqrt(fan_in))  # 2d conv weight
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
         logging.info('Initialize %s with %s / %.3f' % (n, 'lecun', param_init))
     else:
         raise ValueError(n)
-    
-    
+
+
 class XLPositionalEmbedding(nn.Module):
     def __init__(self, d_model, dropout):
         """Positional embedding for TransformerXL."""
@@ -363,9 +368,9 @@ class XLPositionalEmbedding(nn.Module):
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
         pos_emb = self.dropout(pos_emb)
         return pos_emb.unsqueeze(1)
-    
-    
-class ConvEncoder():
+
+
+class ConvEncoder(nn.Module):
     """CNN encoder.
 
     Args:
@@ -385,15 +390,28 @@ class ConvEncoder():
 
     """
 
-    def __init__(self, input_dim, in_channel, channels,
-                 kernel_sizes, strides, poolings,
-                 dropout, batch_norm, layer_norm, residual,
-                 bottleneck_dim, param_init, layer_norm_eps=1e-12):
+    def __init__(
+        self,
+        input_dim,
+        in_channel,
+        channels,
+        kernel_sizes,
+        strides,
+        poolings,
+        dropout,
+        batch_norm,
+        layer_norm,
+        residual,
+        bottleneck_dim,
+        param_init,
+        layer_norm_eps=1e-12,
+    ):
 
         super(ConvEncoder, self).__init__()
 
         (channels, kernel_sizes, strides, poolings), is_1dconv = parse_cnn_config(
-            channels, kernel_sizes, strides, poolings)
+            channels, kernel_sizes, strides, poolings
+        )
 
         self.is_1dconv = is_1dconv
         self.in_channel = in_channel
@@ -410,28 +428,32 @@ class ConvEncoder():
         in_freq = self.input_freq
         for lth in range(len(channels)):
             if is_1dconv:
-                block = Conv1dBlock(in_channel=C_i,
-                                    out_channel=channels[lth],
-                                    kernel_size=kernel_sizes[lth],  # T
-                                    stride=strides[lth],  # T
-                                    pooling=poolings[lth],  # T
-                                    dropout=dropout,
-                                    batch_norm=batch_norm,
-                                    layer_norm=layer_norm,
-                                    layer_norm_eps=layer_norm_eps,
-                                    residual=residual)
+                block = Conv1dBlock(
+                    in_channel=C_i,
+                    out_channel=channels[lth],
+                    kernel_size=kernel_sizes[lth],  # T
+                    stride=strides[lth],  # T
+                    pooling=poolings[lth],  # T
+                    dropout=dropout,
+                    batch_norm=batch_norm,
+                    layer_norm=layer_norm,
+                    layer_norm_eps=layer_norm_eps,
+                    residual=residual,
+                )
             else:
-                block = Conv2dBlock(input_dim=in_freq,
-                                    in_channel=C_i,
-                                    out_channel=channels[lth],
-                                    kernel_size=kernel_sizes[lth],  # (T,F)
-                                    stride=strides[lth],  # (T,F)
-                                    pooling=poolings[lth],  # (T,F)
-                                    dropout=dropout,
-                                    batch_norm=batch_norm,
-                                    layer_norm=layer_norm,
-                                    layer_norm_eps=layer_norm_eps,
-                                    residual=residual)
+                block = Conv2dBlock(
+                    input_dim=in_freq,
+                    in_channel=C_i,
+                    out_channel=channels[lth],
+                    kernel_size=kernel_sizes[lth],  # (T,F)
+                    stride=strides[lth],  # (T,F)
+                    pooling=poolings[lth],  # (T,F)
+                    dropout=dropout,
+                    batch_norm=batch_norm,
+                    layer_norm=layer_norm,
+                    layer_norm_eps=layer_norm_eps,
+                    residual=residual,
+                )
             self.layers += [block]
             in_freq = block.output_dim
             C_i = channels[lth]
@@ -448,35 +470,47 @@ class ConvEncoder():
             for p in poolings:
                 self._factor *= p if is_1dconv else p[0]
 
-        self.reset_parameters(param_init)
+        # changed here
+        param_init = "xavier_uniform"
+        self.apply(lambda x: init_weights(x, mode=param_init))
+        self.to(self.device)
 
-    @staticmethod
-    def add_args(parser, args):
-        """Add arguments."""
-        group = parser.add_argument_group("CNN encoder")
-        group.add_argument('--conv_in_channel', type=int, default=1,
-                           help='input dimension of the first CNN block')
-        group.add_argument('--conv_channels', type=str, default="",
-                           help='delimited list of channles in each CNN block')
-        group.add_argument('--conv_kernel_sizes', type=str, default="",
-                           help='delimited list of kernel sizes in each CNN block')
-        group.add_argument('--conv_strides', type=str, default="",
-                           help='delimited list of strides in each CNN block')
-        group.add_argument('--conv_poolings', type=str, default="",
-                           help='delimited list of poolings in each CNN block')
-        group.add_argument('--conv_batch_norm', type=strtobool, default=False,
-                           help='apply batch normalization in each CNN block')
-        group.add_argument('--conv_layer_norm', type=strtobool, default=False,
-                           help='apply layer normalization in each CNN block')
-        group.add_argument('--conv_bottleneck_dim', type=int, default=0,
-                           help='dimension of the bottleneck layer between CNN and the subsequent RNN/Transformer layers')
-        return parser
+        # self.reset_parameters(param_init)
 
-    def reset_parameters(self, param_init):
-        """Initialize parameters with lecun style."""
-        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
-        for n, p in self.named_parameters():
-            init_with_lecun_normal(n, p, param_init)
+    # @staticmethod
+    # def add_args(parser, args):
+    #     """Add arguments."""
+    #     group = parser.add_argument_group("CNN encoder")
+    #     group.add_argument('--conv_in_channel', type=int, default=1, help='input dimension of the first CNN block')
+    #     group.add_argument(
+    #         '--conv_channels', type=str, default="", help='delimited list of channles in each CNN block'
+    #     )
+    #     group.add_argument(
+    #         '--conv_kernel_sizes', type=str, default="", help='delimited list of kernel sizes in each CNN block'
+    #     )
+    #     group.add_argument('--conv_strides', type=str, default="", help='delimited list of strides in each CNN block')
+    #     group.add_argument(
+    #         '--conv_poolings', type=str, default="", help='delimited list of poolings in each CNN block'
+    #     )
+    #     group.add_argument(
+    #         '--conv_batch_norm', type=strtobool, default=False, help='apply batch normalization in each CNN block'
+    #     )
+    #     group.add_argument(
+    #         '--conv_layer_norm', type=strtobool, default=False, help='apply layer normalization in each CNN block'
+    #     )
+    #     group.add_argument(
+    #         '--conv_bottleneck_dim',
+    #         type=int,
+    #         default=0,
+    #         help='dimension of the bottleneck layer between CNN and the subsequent RNN/Transformer layers',
+    #     )
+    #     return parser
+
+    # def reset_parameters(self, param_init):
+    #     """Initialize parameters with lecun style."""
+    #     logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+    #     for n, p in self.named_parameters():
+    #         init_with_lecun_normal(n, p, param_init)
 
     def forward(self, xs, xlens):
         """Forward computation.
@@ -507,12 +541,22 @@ class ConvEncoder():
         return xs, xlens
 
 
-class Conv1dBlock():
+class Conv1dBlock:
     """1d-CNN block."""
 
-    def __init__(self, in_channel, out_channel,
-                 kernel_size, stride, pooling,
-                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
+    def __init__(
+        self,
+        in_channel,
+        out_channel,
+        kernel_size,
+        stride,
+        pooling,
+        dropout,
+        batch_norm,
+        layer_norm,
+        layer_norm_eps,
+        residual,
+    ):
 
         super(Conv1dBlock, self).__init__()
 
@@ -522,34 +566,25 @@ class Conv1dBlock():
         self.dropout = nn.Dropout(p=dropout)
 
         # 1st layer
-        self.conv1 = nn.Conv1d(in_channels=in_channel,
-                               out_channels=out_channel,
-                               kernel_size=kernel_size,
-                               stride=stride,
-                               padding=1)
+        self.conv1 = nn.Conv1d(
+            in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=1
+        )
         self._odim = update_lens_1d([in_channel], self.conv1)[0]
         self.batch_norm1 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = nn.LayerNorm(out_channel,
-                                        eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm1 = nn.LayerNorm(out_channel, eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # 2nd layer
-        self.conv2 = nn.Conv1d(in_channels=out_channel,
-                               out_channels=out_channel,
-                               kernel_size=kernel_size,
-                               stride=stride,
-                               padding=1)
+        self.conv2 = nn.Conv1d(
+            in_channels=out_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=1
+        )
         self._odim = update_lens_1d([self._odim], self.conv2)[0]
         self.batch_norm2 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = nn.LayerNorm(out_channel,
-                                        eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm2 = nn.LayerNorm(out_channel, eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # Max Pooling
         self.pool = None
         if pooling > 1:
-            self.pool = nn.MaxPool1d(kernel_size=pooling,
-                                     stride=pooling,
-                                     padding=0,
-                                     ceil_mode=True)
+            self.pool = nn.MaxPool1d(kernel_size=pooling, stride=pooling, padding=0, ceil_mode=True)
             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
             self._odim = update_lens_1d([self._odim], self.pool)[0].item()
             if self._odim % 2 != 0:
@@ -596,12 +631,23 @@ class Conv1dBlock():
         return xs, xlens
 
 
-class Conv2dBlock(EncoderBase):
+class Conv2dBlock(torch.nn.Module):
     """2d-CNN block."""
 
-    def __init__(self, input_dim, in_channel, out_channel,
-                 kernel_size, stride, pooling,
-                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
+    def __init__(
+        self,
+        input_dim,
+        in_channel,
+        out_channel,
+        kernel_size,
+        stride,
+        pooling,
+        dropout,
+        batch_norm,
+        layer_norm,
+        layer_norm_eps,
+        residual,
+    ):
 
         super(Conv2dBlock, self).__init__()
 
@@ -611,39 +657,45 @@ class Conv2dBlock(EncoderBase):
         self.dropout = nn.Dropout(p=dropout)
 
         # 1st layer
-        self.conv1 = nn.Conv2d(in_channels=in_channel,
-                               out_channels=out_channel,
-                               kernel_size=tuple(kernel_size),
-                               stride=tuple(stride),
-                               padding=(1, 1))
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channel,
+            out_channels=out_channel,
+            kernel_size=tuple(kernel_size),
+            stride=tuple(stride),
+            padding=(1, 1),
+        )
         self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0]
         self.batch_norm1 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = LayerNorm2D(out_channel * self._odim.item(),
-                                       eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm1 = (
+            LayerNorm2D(out_channel * self._odim.item(), eps=layer_norm_eps) if layer_norm else lambda x: x
+        )
 
         # 2nd layer
-        self.conv2 = nn.Conv2d(in_channels=out_channel,
-                               out_channels=out_channel,
-                               kernel_size=tuple(kernel_size),
-                               stride=tuple(stride),
-                               padding=(1, 1))
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channel,
+            out_channels=out_channel,
+            kernel_size=tuple(kernel_size),
+            stride=tuple(stride),
+            padding=(1, 1),
+        )
         self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0]
         self.batch_norm2 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = LayerNorm2D(out_channel * self._odim.item(),
-                                       eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm2 = (
+            LayerNorm2D(out_channel * self._odim.item(), eps=layer_norm_eps) if layer_norm else lambda x: x
+        )
 
         # Max Pooling
         self.pool = None
         if len(pooling) > 0 and np.prod(pooling) > 1:
-            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling),
-                                     stride=tuple(pooling),
-                                     padding=(0, 0),
-                                     ceil_mode=True)
+            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling), stride=tuple(pooling), padding=(0, 0), ceil_mode=True)
             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
             self._odim = update_lens_2d([self._odim], self.pool, dim=1)[0].item()
             if self._odim % 2 != 0:
                 self._odim = (self._odim // 2) * 2
                 # TODO(hirofumi0810): more efficient way?
+
+        # changed here
+        self.output_dim = self._odim
 
     def forward(self, xs, xlens):
         """Forward computation.
@@ -728,11 +780,9 @@ def update_lens_1d(seq_lens, layer, device_id=-1):
 
 def _update_1d(seq_len, layer):
     if type(layer) == nn.MaxPool1d and layer.ceil_mode:
-        return math.ceil(
-            (seq_len + 1 + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
+        return math.ceil((seq_len + 1 + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
     else:
-        return math.floor(
-            (seq_len + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
+        return math.floor((seq_len + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
 
 
 def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
@@ -760,10 +810,12 @@ def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
 def _update_2d(seq_len, layer, dim):
     if type(layer) == nn.MaxPool2d and layer.ceil_mode:
         return math.ceil(
-            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
+            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+        )
     else:
         return math.floor(
-            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
+            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+        )
 
 
 def parse_cnn_config(channels, kernel_sizes, strides, poolings):
@@ -775,20 +827,26 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
         if is_1dconv:
             _kernel_sizes = [int(c) for c in kernel_sizes.split('_')]
         else:
-            _kernel_sizes = [[int(c.split(',')[0].replace('(', '')),
-                              int(c.split(',')[1].replace(')', ''))] for c in kernel_sizes.split('_')]
+            _kernel_sizes = [
+                [int(c.split(',')[0].replace('(', '')), int(c.split(',')[1].replace(')', ''))]
+                for c in kernel_sizes.split('_')
+            ]
     if len(strides) > 0:
         if is_1dconv:
             assert '(' not in _strides and ')' not in _strides
             _strides = [int(s) for s in strides.split('_')]
         else:
-            _strides = [[int(s.split(',')[0].replace('(', '')),
-                         int(s.split(',')[1].replace(')', ''))] for s in strides.split('_')]
+            _strides = [
+                [int(s.split(',')[0].replace('(', '')), int(s.split(',')[1].replace(')', ''))]
+                for s in strides.split('_')
+            ]
     if len(poolings) > 0:
         if is_1dconv:
             assert '(' not in poolings and ')' not in poolings
             _poolings = [int(p) for p in strides.split('_')]
         else:
-            _poolings = [[int(p.split(',')[0].replace('(', '')),
-                          int(p.split(',')[1].replace(')', ''))] for p in poolings.split('_')]
+            _poolings = [
+                [int(p.split(',')[0].replace('(', '')), int(p.split(',')[1].replace(')', ''))]
+                for p in poolings.split('_')
+            ]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
