@@ -20,10 +20,10 @@ def parse_args():
     )
     parser.set_defaults(
         checkpoint_dir=None,
-        optimizer="novograd",
+        optimizer="adam",
         batch_size=32,
         eval_batch_size=64,
-        lr=0.01,
+        lr=0.05/(144**(0.5)),
         weight_decay=0.001,
         amp_opt_level="O0",
         create_tb_writer=True,
@@ -43,8 +43,8 @@ def parse_args():
 
     # Create new args
     parser.add_argument("--exp_name", default="QuartzNet", type=str)
-    parser.add_argument("--beta1", default=0.95, type=float)
-    parser.add_argument("--beta2", default=0.5, type=float)
+    parser.add_argument("--beta1", default=0.9, type=float)
+    parser.add_argument("--beta2", default=0.98, type=float)
     parser.add_argument("--warmup_steps", default=1000, type=int)
     parser.add_argument("--load_dir", default=None, type=str)
     parser.add_argument("--synced_bn", action='store_true', help="Use synchronized batch norm")
@@ -135,7 +135,7 @@ def create_all_dags(args, neural_factory):
     )
 
     decoder = nemo_asr.JasperDecoderForCTC(
-        feat_in=conformer_params["ConformerEncoder"]["conformer"][-1]["filters"], num_classes=len(vocab),
+        feat_in=conformer_params["ConformerEncoder"]["feat_out"], num_classes=len(vocab),
     )
 
     ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab))

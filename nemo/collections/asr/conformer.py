@@ -200,6 +200,7 @@ class ConformerEncoder(TrainableNM):
         ffn_bottleneck_dim,
         last_proj_dim,
         dropout_in,
+        feat_out,
     ):
         super().__init__()
 
@@ -251,6 +252,7 @@ class ConformerEncoder(TrainableNM):
                 residual=False,
                 bottleneck_dim=d_model,
                 param_init=conv_param_init,
+                device=self._device,
             )
             self._odim = self.conv.output_dim
         else:
@@ -281,6 +283,7 @@ class ConformerEncoder(TrainableNM):
                         ffn_activation,
                         param_init,
                         ffn_bottleneck_dim=ffn_bottleneck_dim,
+                        device=self._device,
                     )
                 )
                 for _ in range(n_layers)
@@ -354,7 +357,7 @@ class ConformerEncoder(TrainableNM):
                 nn.init.xavier_uniform_(self.bridge_sub2.weight)
                 nn.init.constant_(self.bridge_sub2.bias, 0.0)
 
-    def forward(self, xs, xlens=None):
+    def forward(self, audio_signal, length=None):
         ## type: (Tensor, Optional[Tensor]) -> Tensor, Optional[Tensor]
 
         # s_input, length = self.encoder(([audio_signal], length))
@@ -363,83 +366,79 @@ class ConformerEncoder(TrainableNM):
         #          'ys_sub1': {'xs': None, 'xlens': None},
         #          'ys_sub2': {'xs': None, 'xlens': None}}
 
+        audio_signal = torch.transpose(audio_signal, 1, 2)
         N_l = self.chunk_size_left
         N_c = self.chunk_size_current
         N_r = self.chunk_size_right
 
+        bs, xmax, idim = audio_signal.size()
+
         if self.latency_controlled:
-            bs, xmax, idim = xs.size()
-            n_blocks = xmax // N_c
-            if xmax % N_c != 0:
-                n_blocks += 1
-            xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
-            xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim), xs, xs.new_zeros(bs, N_r, idim)], dim=1)
-            for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
-                xs_chunk = xs_pad[:, t - N_l : t + (N_c + N_r)]
-                xs_tmp[:, blc_id, : xs_chunk.size(1), :] = xs_chunk
-            xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
+            audio_signal = blockwise(audio_signal, N_l, N_c, N_r)
 
         if self.conv is None:
-            xs = self.embed(xs)
+            audio_signal = self.embed(audio_signal)
         else:
             # Path through CNN blocks
-            xs, xlens = self.conv(xs, xlens)
+            audio_signal, length = self.conv(audio_signal, length)
 
         if not self.training:
-            self.data_dict['elens'] = tensor2np(xlens)
+            self.data_dict['elens'] = tensor2np(length)
 
         if self.latency_controlled:
             # streaming Conformer encoder
-            N_l = max(0, N_l // self.subsampling_factor)
-            N_c = N_c // self.subsampling_factor
+            _N_l = max(0, N_l // self.subsampling_factor)
+            _N_c = N_c // self.subsampling_factor
+
+            n_blocks = audio_signal.size(0) // bs
 
             emax = xmax // self.subsampling_factor
             if xmax % self.subsampling_factor != 0:
                 emax += 1
 
-            xs = xs * self.scale
-            pos_idxs = torch.arange(xs.size(1) - 1, -1, -1.0, dtype=torch.float)
+            audio_signal = audio_signal * self.scale
+            pos_idxs = torch.arange(audio_signal.size(1) - 1, -1, -1.0, dtype=torch.float)
             pos_embs = self.pos_emb(pos_idxs, self.device_id)
 
             xx_mask = None  # NOTE: no mask
             for lth, layer in enumerate(self.layers):
-                xs, xx_aws = layer(xs, xx_mask, pos_embs=pos_embs)
+                audio_signal, xx_aws = layer(audio_signal, xx_mask, pos_embs=pos_embs)
                 if not self.training:
                     n_heads = xx_aws.size(1)
-                    xx_aws = xx_aws[:, :, N_l : N_l + N_c, N_l : N_l + N_c]
-                    xx_aws = xx_aws.view(bs, n_blocks, n_heads, N_c, N_c)
+                    xx_aws = xx_aws[:, :, _N_l:_N_l + _N_c, _N_l:_N_l + _N_c]
+                    xx_aws = xx_aws.view(bs, n_blocks, n_heads, _N_c, _N_c)
                     xx_aws_center = xx_aws.new_zeros(bs, n_heads, emax, emax)
                     for blc_id in range(n_blocks):
-                        offset = blc_id * N_c
-                        emax_blc = xx_aws_center[:, :, offset : offset + N_c].size(2)
+                        offset = blc_id * _N_c
+                        emax_blc = xx_aws_center[:, :, offset:offset + _N_c].size(2)
                         xx_aws_chunk = xx_aws[:, blc_id, :, :emax_blc, :emax_blc]
-                        xx_aws_center[:, :, offset : offset + N_c, offset : offset + N_c] = xx_aws_chunk
+                        xx_aws_center[:, :, offset:offset + _N_c, offset:offset + _N_c] = xx_aws_chunk
                     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws_center)
 
             # Extract the center region
-            xs = xs[:, N_l : N_l + N_c]  # `[B * n_blocks, N_c // subsampling_factor, d_model]`
-            xs = xs.contiguous().view(bs, -1, xs.size(2))
-            xs = xs[:, :emax]
+            audio_signal = audio_signal[:, _N_l:_N_l + _N_c]  # `[B * n_blocks, _N_c, d_model]`
+            audio_signal = audio_signal.contiguous().view(bs, -1, audio_signal.size(2))
+            audio_signal = audio_signal[:, :emax]
 
         else:
-            bs, xmax, idim = xs.size()
-            xs = xs * self.scale
+            bs, xmax, idim = audio_signal.size()
+            audio_signal = audio_signal * self.scale
 
             # Create the self-attention mask
-            xx_mask = make_pad_mask(xlens, self.device_id).unsqueeze(2).repeat([1, 1, xmax])
+            xx_mask = make_pad_mask(length, self.device_id).unsqueeze(2).repeat([1, 1, xmax])
 
             pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
             pos_embs = self.pos_emb(pos_idxs, self.device_id)
 
             for lth, layer in enumerate(self.layers):
-                xs, xx_aws = layer(xs, xx_mask, pos_embs=pos_embs)
+                audio_signal, xx_aws = layer(audio_signal, xx_mask, pos_embs=pos_embs)
                 if not self.training:
                     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
                 # Pick up outputs in the sub task before the projection layer
                 if lth == self.n_layers_sub1 - 1:
                     xs_sub1 = (
-                        self.layer_sub1(xs, xx_mask, pos_embs=pos_embs)[0] if self.task_specific_layer else xs.clone()
+                        self.layer_sub1(audio_signal, xx_mask, pos_embs=pos_embs)[0] if self.task_specific_layer else audio_signal.clone()
                     )
                     xs_sub1 = self.norm_out_sub1(xs_sub1)
                     if self.bridge_sub1 is not None:
@@ -449,7 +448,7 @@ class ConformerEncoder(TrainableNM):
                     #     return eouts
                 if lth == self.n_layers_sub2 - 1:
                     xs_sub2 = (
-                        self.layer_sub2(xs, xx_mask, pos_embs=pos_embs)[0] if self.task_specific_layer else xs.clone()
+                        self.layer_sub2(audio_signal, xx_mask, pos_embs=pos_embs)[0] if self.task_specific_layer else audio_signal.clone()
                     )
                     xs_sub2 = self.norm_out_sub2(xs_sub2)
                     if self.bridge_sub2 is not None:
@@ -458,11 +457,11 @@ class ConformerEncoder(TrainableNM):
                     #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub2, xlens
                     #     return eouts
 
-        xs = self.norm_out(xs)
+        audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:
-            xs = self.bridge(xs)
+            audio_signal = self.bridge(audio_signal)
 
         # if task in ['all', 'ys']:
         #     eouts['ys']['xs'], eouts['ys']['xlens'] = xs, xlens
@@ -472,10 +471,10 @@ class ConformerEncoder(TrainableNM):
         #     eouts['ys_sub2']['xs'], eouts['ys_sub2']['xlens'] = xs_sub2, xlens
         # return eouts
 
-        if xlens is None:
-            return xs
+        if length is None:
+            return audio_signal
         else:
-            return xs, xlens
+            return audio_signal, length
 
         # return s_input[-1], length
 
@@ -855,9 +854,12 @@ class ConformerEncoderBlock(torch.nn.Module):
         layer_norm_eps,
         ffn_activation,
         param_init,
+        device,
         ffn_bottleneck_dim=0,
     ):
         super(ConformerEncoderBlock, self).__init__()
+
+        self._device = device
 
         self.n_heads = n_heads
         self.fc_factor = 0.5
@@ -868,7 +870,7 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # conv module
         self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
-        self.conv = ConformerConvBlock(d_model, kernel_size, param_init)
+        self.conv = ConformerConvBlock(d_model, kernel_size, param_init, device=self._device)
 
         # self-attention
         self.norm3 = nn.LayerNorm(d_model, eps=layer_norm_eps)
@@ -964,3 +966,21 @@ def make_pad_mask(seq_lens, device_id=-1):
     if device_id >= 0:
         mask = mask.cuda(device_id)
     return mask
+
+
+def blockwise(xs, N_l, N_c, N_r):
+    bs, xmax, idim = xs.size()
+
+    n_blocks = xmax // N_c
+    if xmax % N_c != 0:
+        n_blocks += 1
+    xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
+    xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim),
+                        xs,
+                        xs.new_zeros(bs, N_r, idim)], dim=1)
+    for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
+        xs_chunk = xs_pad[:, t - N_l:t + (N_c + N_r)]
+        xs_tmp[:, blc_id, :xs_chunk.size(1), :] = xs_chunk
+    xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
+
+    return xs

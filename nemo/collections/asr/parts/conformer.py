@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nemo import logging
-
 from nemo.collections.asr.parts.jasper import init_weights
 
 
@@ -19,9 +18,10 @@ class ConformerConvBlock(nn.Module):
         param_init (str): parameter initialization method
     """
 
-    def __init__(self, d_model, kernel_size, param_init):
+    def __init__(self, d_model, kernel_size, param_init, device):
         super(ConformerConvBlock, self).__init__()
 
+        self._device = device
         self.d_model = d_model
         assert kernel_size % 2 == 1
 
@@ -91,7 +91,7 @@ class PositionwiseFeedForward(nn.Module):
         bottleneck_dim (int): bottleneck dimension for low-rank FFN
     """
 
-    def __init__(self, d_model, d_ff, dropout, activation, param_init, bottleneck_dim=0):
+    def __init__(self, d_model, d_ff, dropout, activation, param_init, device, bottleneck_dim=0):
         super(PositionwiseFeedForward, self).__init__()
 
         self.bottleneck_dim = bottleneck_dim
@@ -121,6 +121,7 @@ class PositionwiseFeedForward(nn.Module):
         logging.info('FFN activation: %s' % activation)
 
         self.apply(lambda x: init_weights(x, mode=param_init))
+        self._device = device
         self.to(self._device)
 
         # if param_init == 'xavier_uniform':
@@ -404,6 +405,7 @@ class ConvEncoder(nn.Module):
         residual,
         bottleneck_dim,
         param_init,
+        device,
         layer_norm_eps=1e-12,
     ):
 
@@ -412,6 +414,8 @@ class ConvEncoder(nn.Module):
         (channels, kernel_sizes, strides, poolings), is_1dconv = parse_cnn_config(
             channels, kernel_sizes, strides, poolings
         )
+
+        self._device = device
 
         self.is_1dconv = is_1dconv
         self.in_channel = in_channel
@@ -473,8 +477,10 @@ class ConvEncoder(nn.Module):
         # changed here
         param_init = "xavier_uniform"
         self.apply(lambda x: init_weights(x, mode=param_init))
-        self.to(self.device)
+        self.to(self._device)
 
+        self.output_dim = self._odim
+        self.subsampling_factor = 1
         # self.reset_parameters(param_init)
 
     # @staticmethod
@@ -850,3 +856,4 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
                 for p in poolings.split('_')
             ]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
+

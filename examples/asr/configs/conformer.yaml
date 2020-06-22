@@ -13,12 +13,12 @@ AudioToTextDataLayer:
         max_duration: null
 
 AudioToMelSpectrogramPreprocessor:
-    window_size: 0.02
+    window_size: 0.025
     window_stride: 0.01
     window: "hann"
     normalize: "per_feature"
     n_fft: 512
-    features: 64
+    features: 80
     dither: 0.00001
     pad_to: 16
     stft_conv: true
@@ -63,7 +63,7 @@ ConformerEncoder:
 #    ctc_weight: 0.3
 #    ctc_lsm_prob: 0.1
 #    mtl_per_batch: false
-    n_layers: 12
+    n_layers: 16
     last_proj_dim: 0
     n_stacks: 1
     conv_in_channel: 1
@@ -75,7 +75,7 @@ ConformerEncoder:
     conv_layer_norm: false
     kernel_size: 3
     pe_type: relative  ###
-    d_model: 256
+    d_model: 144
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
@@ -87,17 +87,18 @@ ConformerEncoder:
     ## added by me, please check then
     n_layers_sub1: 0
     n_layers_sub2: 0
-    chunk_size_left: 64
-    chunk_size_current: 128
-    chunk_size_right: 64
+    chunk_size_left: 0
+    chunk_size_current: 0
+    chunk_size_right: 0
     n_splices: 1
-    input_dim: 64
+    input_dim: 80
     conv_param_init: 1
     layer_norm_eps: 1e-12
-    d_ff: 1024*4
+    d_ff: 576
     dropout_layer: 0.0
     ffn_activation: swish
     ffn_bottleneck_dim: 0
+    feat_out: 144
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
