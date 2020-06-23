@@ -42,7 +42,7 @@ def parse_args():
     )
 
     # Create new args
-    parser.add_argument("--exp_name", default="QuartzNet", type=str)
+    parser.add_argument("--exp_name", default="Conformer", type=str)
     parser.add_argument("--beta1", default=0.9, type=float)
     parser.add_argument("--beta2", default=0.98, type=float)
     parser.add_argument("--warmup_steps", default=1000, type=int)
@@ -50,8 +50,11 @@ def parse_args():
     parser.add_argument("--synced_bn", action='store_true', help="Use synchronized batch norm")
     parser.add_argument("--synced_bn_groupsize", default=0, type=int)
 
+    parser.add_argument("--grad_norm_clip", type=float, default=-1, help="gradient clipping")
+
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
+
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -263,6 +266,8 @@ def main():
     # build dags
     train_loss, callbacks, steps_per_epoch = create_all_dags(args, neural_factory)
 
+    grad_norm_clip = args.grad_norm_clip if args.grad_norm_clip > 0 else None
+
     # train model
     neural_factory.train(
         tensors_to_optimize=[train_loss],
@@ -274,7 +279,7 @@ def main():
             "lr": args.lr,
             "betas": (args.beta1, args.beta2),
             "weight_decay": args.weight_decay,
-            "grad_norm_clip": None,
+            "grad_norm_clip": grad_norm_clip,
             "eps": 10e-9,
         },
         batches_per_step=args.iter_per_step,

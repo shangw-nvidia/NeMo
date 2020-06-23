@@ -1,5 +1,4 @@
 import math
-from distutils.util import strtobool
 
 import numpy as np
 import torch
