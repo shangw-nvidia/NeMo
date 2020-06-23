@@ -23,7 +23,7 @@ def parse_args():
         optimizer="adam",
         batch_size=32,
         eval_batch_size=64,
-        lr=0.05/(144**(0.5)),
+        lr=0.05 / (144 ** (0.5)),
         weight_decay=0.001,
         amp_opt_level="O0",
         create_tb_writer=True,
@@ -49,6 +49,9 @@ def parse_args():
     parser.add_argument("--load_dir", default=None, type=str)
     parser.add_argument("--synced_bn", action='store_true', help="Use synchronized batch norm")
     parser.add_argument("--synced_bn_groupsize", default=0, type=int)
+
+    parser.add_argument("--wandb_project", default="Conformer", type=str)
+    parser.add_argument("--wandb_exp", default=None, type=str)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -191,6 +194,17 @@ def create_all_dags(args, neural_factory):
 
         callbacks.append(chpt_callback)
 
+    if args.wandb_exp is not None:
+        wand_callback = nemo.core.WandbCallback(
+            train_tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
+            wandb_name=args.wandb_exp,
+            wandb_project=args.wandb_project,
+            update_freq=1, #args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
+            args=args,
+        )
+        callbacks.append(wand_callback)
+
+
     # assemble eval DAGs
     for i, eval_dl in enumerate(data_layers_eval):
         (audio_signal_e, a_sig_length_e, transcript_e, transcript_len_e,) = eval_dl()
@@ -211,6 +225,8 @@ def create_all_dags(args, neural_factory):
             user_epochs_done_callback=partial(process_evaluation_epoch, tag=tagname),
             eval_step=args.eval_freq,
             tb_writer=neural_factory.tb_writer,
+            wandb_name=args.wandb_exp,
+            wandb_project=args.wandb_project,
         )
 
         callbacks.append(eval_callback)
@@ -228,7 +244,6 @@ def main():
 
     # instantiate Neural Factory with supported backend
     neural_factory = nemo.core.NeuralModuleFactory(
-        backend=nemo.core.Backend.PyTorch,
         local_rank=args.local_rank,
         optimization_level=args.amp_opt_level,
         log_dir=work_dir,
@@ -260,6 +275,7 @@ def main():
             "betas": (args.beta1, args.beta2),
             "weight_decay": args.weight_decay,
             "grad_norm_clip": None,
+            "eps": 10e-9,
         },
         batches_per_step=args.iter_per_step,
         synced_batchnorm=args.synced_bn,

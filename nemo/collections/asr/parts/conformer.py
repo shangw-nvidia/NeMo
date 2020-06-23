@@ -18,12 +18,14 @@ class ConformerConvBlock(nn.Module):
         param_init (str): parameter initialization method
     """
 
-    def __init__(self, d_model, kernel_size, param_init, device):
+    def __init__(self, d_model, kernel_size, param_init, dropout, layer_norm_eps, device):
         super(ConformerConvBlock, self).__init__()
 
         self._device = device
         self.d_model = d_model
         assert kernel_size % 2 == 1
+
+        self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.pointwise_conv1 = nn.Conv1d(
             in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0  # for GLU
@@ -40,6 +42,8 @@ class ConformerConvBlock(nn.Module):
         self.batch_norm = nn.BatchNorm1d(d_model)
         self.activation = Swish()
         self.pointwise_conv2 = nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1, stride=1, padding=0)
+
+        self.dropout = nn.Dropout(dropout)
 
         self.apply(lambda x: init_weights(x, mode=param_init))
         self.to(self._device)
@@ -65,6 +69,7 @@ class ConformerConvBlock(nn.Module):
         B, T, d_model = xs.size()
         assert d_model == self.d_model
 
+        xs = self.layer_norm(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.pointwise_conv1(xs)  # `[B, 2 * C, T]`
         xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
@@ -75,7 +80,7 @@ class ConformerConvBlock(nn.Module):
         xs = self.batch_norm(xs)
         xs = self.activation(xs)
         xs = self.pointwise_conv2(xs)  # `[B, C, T]`
-
+        xs = self.dropout(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
@@ -91,8 +96,10 @@ class PositionwiseFeedForward(nn.Module):
         bottleneck_dim (int): bottleneck dimension for low-rank FFN
     """
 
-    def __init__(self, d_model, d_ff, dropout, activation, param_init, device, bottleneck_dim=0):
+    def __init__(self, d_model, d_ff, dropout, activation, param_init, layer_norm_eps, bottleneck_dim, device):
         super(PositionwiseFeedForward, self).__init__()
+
+        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.bottleneck_dim = bottleneck_dim
         if bottleneck_dim > 0:
@@ -148,7 +155,9 @@ class PositionwiseFeedForward(nn.Module):
         if self.bottleneck_dim > 0:
             return self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
         else:
-            return self.w_2(self.dropout(self.activation(self.w_1(xs))))
+            xs = self.norm1(xs)
+            xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))
+            return self.dropout(xs)
 
 
 class RelativeMultiheadAttentionMechanism(nn.Module):
@@ -355,15 +364,15 @@ class XLPositionalEmbedding(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, positions, device_id):
+    def forward(self, positions, device):
         """Forward computation.
         Args:
             positions (LongTensor): `[L]`
         Returns:
             pos_emb (LongTensor): `[L, 1, d_model]`
         """
-        if device_id >= 0:
-            positions = positions.cuda(device_id)
+        if device:
+            positions = positions.to(device)
         # outer product
         sinusoid_inp = torch.einsum("i,j->ij", positions.float(), self.inv_freq)
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
@@ -377,7 +386,7 @@ class ConvEncoder(nn.Module):
     Args:
         input_dim (int): dimension of input features (freq * channel)
         in_channel (int): number of channels of input features
-        channels (list): number of channles in CNN blocks
+        channels (list): number of channels in CNN blocks
         kernel_sizes (list): size of kernels in CNN blocks
         strides (list): strides in CNN blocks
         poolings (list): size of poolings in CNN blocks
@@ -856,4 +865,3 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
                 for p in poolings.split('_')
             ]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
-
