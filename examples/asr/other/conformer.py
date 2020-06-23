@@ -196,7 +196,7 @@ def create_all_dags(args, neural_factory):
 
     if args.wandb_exp is not None:
         wand_callback = nemo.core.WandbCallback(
-            train_tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
+            train_tensors=[loss_t],
             wandb_name=args.wandb_exp,
             wandb_project=args.wandb_project,
             update_freq=1, #args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
