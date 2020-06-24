@@ -424,7 +424,7 @@ class ConformerEncoder(TrainableNM):
         #
         # else:
         bs, xmax, idim = audio_signal.size()
-        # audio_signal = audio_signal * self.scale  # why really?
+        audio_signal = audio_signal * self.scale  # why really?
 
         # Create the self-attention mask
         xx_mask = make_pad_mask(length, max_time=xmax, device=self._device).unsqueeze(2).repeat([1, 1, xmax])
@@ -441,7 +441,7 @@ class ConformerEncoder(TrainableNM):
             # Pick up outputs in the sub task before the projection layer
             if lth == self.n_layers_sub1 - 1:
                 xs_sub1 = (
-                    self.layer_sub1(audio_signal, xx_mask, pos_embs=pos_embs)[0]
+                    self.layer_sub1(audio_signal, xx_mask, pos_embs=pos_embs)
                     if self.task_specific_layer
                     else audio_signal.clone()
                 )
@@ -453,7 +453,7 @@ class ConformerEncoder(TrainableNM):
                 #     return eouts
             if lth == self.n_layers_sub2 - 1:
                 xs_sub2 = (
-                    self.layer_sub2(audio_signal, xx_mask, pos_embs=pos_embs)[0]
+                    self.layer_sub2(audio_signal, xx_mask, pos_embs=pos_embs)
                     if self.task_specific_layer
                     else audio_signal.clone()
                 )
