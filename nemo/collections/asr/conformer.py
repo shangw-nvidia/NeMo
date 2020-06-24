@@ -378,11 +378,11 @@ class ConformerEncoder(TrainableNM):
         # if self.latency_controlled:
         #     audio_signal = blockwise(audio_signal, N_l, N_c, N_r)
 
-        #if self.conv is None:
-        audio_signal = self.embed(audio_signal)
-        # else:
-        #     # Path through CNN blocks
-        #     audio_signal, length = self.conv(audio_signal, length)
+        if self.conv is None:
+            audio_signal = self.embed(audio_signal)
+        else:
+            # Path through CNN blocks
+            audio_signal, length = self.conv(audio_signal, length)
 
         if not self.training:
             self.data_dict['elens'] = tensor2np(length)
