@@ -55,7 +55,6 @@ def parse_args():
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
 
-
     args = parser.parse_args()
     if args.max_steps is not None:
         raise ValueError("QuartzNet uses num_epochs instead of max_steps")
@@ -202,11 +201,10 @@ def create_all_dags(args, neural_factory):
             train_tensors=[loss_t],
             wandb_name=args.wandb_exp,
             wandb_project=args.wandb_project,
-            update_freq=1, #args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
+            update_freq=1,  # args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
             args=args,
         )
         callbacks.append(wand_callback)
-
 
     # assemble eval DAGs
     for i, eval_dl in enumerate(data_layers_eval):
