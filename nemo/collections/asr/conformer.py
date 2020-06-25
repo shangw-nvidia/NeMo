@@ -386,8 +386,8 @@ class ConformerEncoder(TrainableNM):
             # Path through CNN blocks
             audio_signal, length = self.conv(audio_signal, length)
 
-        if not self.training:
-            self.data_dict['elens'] = tensor2np(length)
+        # if not self.training:
+        #     self.data_dict['elens'] = tensor2np(length)
 
         # if self.latency_controlled:
         #     # streaming Conformer encoder
@@ -441,30 +441,30 @@ class ConformerEncoder(TrainableNM):
                 self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
             # Pick up outputs in the sub task before the projection layer
-            if lth == self.n_layers_sub1 - 1:
-                xs_sub1 = (
-                    self.layer_sub1(audio_signal, xx_mask, pos_embs=pos_embs)
-                    if self.task_specific_layer
-                    else audio_signal.clone()
-                )
-                xs_sub1 = self.norm_out_sub1(xs_sub1)
-                if self.bridge_sub1 is not None:
-                    xs_sub1 = self.bridge_sub1(xs_sub1)
-                # if task == 'ys_sub1':
-                #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub1, xlens
-                #     return eouts
-            if lth == self.n_layers_sub2 - 1:
-                xs_sub2 = (
-                    self.layer_sub2(audio_signal, xx_mask, pos_embs=pos_embs)
-                    if self.task_specific_layer
-                    else audio_signal.clone()
-                )
-                xs_sub2 = self.norm_out_sub2(xs_sub2)
-                if self.bridge_sub2 is not None:
-                    xs_sub2 = self.bridge_sub2(xs_sub2)
-                # if task == 'ys_sub2':
-                #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub2, xlens
-                #     return eouts
+            # if lth == self.n_layers_sub1 - 1:
+            #     xs_sub1 = (
+            #         self.layer_sub1(audio_signal, xx_mask, pos_embs=pos_embs)
+            #         if self.task_specific_layer
+            #         else audio_signal.clone()
+            #     )
+            #     xs_sub1 = self.norm_out_sub1(xs_sub1)
+            #     if self.bridge_sub1 is not None:
+            #         xs_sub1 = self.bridge_sub1(xs_sub1)
+            #     # if task == 'ys_sub1':
+            #     #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub1, xlens
+            #     #     return eouts
+            # if lth == self.n_layers_sub2 - 1:
+            #     xs_sub2 = (
+            #         self.layer_sub2(audio_signal, xx_mask, pos_embs=pos_embs)
+            #         if self.task_specific_layer
+            #         else audio_signal.clone()
+            #     )
+            #     xs_sub2 = self.norm_out_sub2(xs_sub2)
+            #     if self.bridge_sub2 is not None:
+            #         xs_sub2 = self.bridge_sub2(xs_sub2)
+            #     # if task == 'ys_sub2':
+            #     #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub2, xlens
+            #     #     return eouts
 
         # audio_signal = self.norm_out(audio_signal)
 
