@@ -9,7 +9,6 @@ from nemo.collections.asr.parts import cleaners
 
 class CharParser:
     """Functor for parsing raw strings into list of int tokens.
-
     Examples:
         >>> parser = CharParser(['a', 'b', 'c'])
         >>> parser('abc')
@@ -22,11 +21,12 @@ class CharParser:
         *,
         unk_id: int = -1,
         blank_id: int = -1,
+        bos_id: int = None,
+        eos_id: int = None,
         do_normalize: bool = True,
         do_lowercase: bool = True,
     ):
         """Creates simple mapping char parser.
-
         Args:
             labels: List of labels to allocate indexes for. Essentially,
                 this is a id to str mapping.
@@ -42,6 +42,8 @@ class CharParser:
         self._labels = labels
         self._unk_id = unk_id
         self._blank_id = blank_id
+        self._bos_id = bos_id
+        self._eos_id = eos_id
         self._do_normalize = do_normalize
         self._do_lowercase = do_lowercase
 
@@ -83,6 +85,10 @@ class CharParser:
         # If unk_id == blank_id, OOV tokens are removed.
         tokens = [token for token in tokens if token != self._blank_id]
 
+        if self._bos_id:
+            tokens = [self._bos_id] + tokens
+        if self._eos_id:
+            tokens = tokens + [self._eos_id]
         return tokens
 
 
@@ -93,9 +99,7 @@ class ENCharParser(CharParser):
 
     def __init__(self, *args, **kwargs):
         """Creates english-specific mapping char parser.
-
         This class overrides normalizing implementation.
-
         Args:
             *args: Positional args to pass to `CharParser` constructor.
             **kwargs: Key-value args to pass to `CharParser` constructor.
@@ -133,9 +137,8 @@ class ENCharParser(CharParser):
 NAME_TO_PARSER = frozendict.frozendict({'base': CharParser, 'en': ENCharParser})
 
 
-def make_parser(labels: Optional[List[str]] = None, name: str = 'base', **kwargs,) -> CharParser:
+def make_parser(labels: Optional[List[str]] = None, name: str = 'base', **kwargs) -> CharParser:
     """Creates parser from labels, set of arguments and concise parser name.
-
     Args:
         labels: List of labels to allocate indexes for. If set to
             None then labels would be ascii table list. Essentially, this is a
@@ -143,13 +146,10 @@ def make_parser(labels: Optional[List[str]] = None, name: str = 'base', **kwargs
         name: Concise name of parser to create (default: 'base').
             (default: -1).
         **kwargs: Other set of kwargs to pass to parser constructor.
-
     Returns:
         Instance of `CharParser`.
-
     Raises:
         ValueError: For invalid parser name.
-
     Examples:
         >>> type(make_parser(['a', 'b', 'c'], 'en'))
         ENCharParser

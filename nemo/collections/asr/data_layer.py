@@ -24,27 +24,31 @@ import braceexpand
 import torch
 import webdataset as wd
 
-from .parts.collections import ASRAudioText
-from .parts.dataset import (
+from nemo.backends.pytorch import DataLayerNM
+from nemo.collections.asr.parts.collections import ASRAudioText
+from nemo.collections.asr.parts.dataset import (
+    AudioBPEDataset,
+    AudioCharDataset,
     AudioDataset,
     AudioLabelDataset,
     KaldiFeatureDataset,
     TranscriptDataset,
+    _process_augmentations,
     fixed_seq_collate_fn,
     seq_collate_fn,
 )
-from .parts.features import WaveformFeaturizer
-from .parts.parsers import make_parser
-from .parts.perturb import AudioAugmentor, perturbation_types
-from nemo.backends.pytorch import DataLayerNM
+from nemo.collections.asr.parts.features import WaveformFeaturizer
+from nemo.collections.asr.parts.parsers import make_parser
 from nemo.core import DeviceType
 from nemo.core.neural_types import *
 from nemo.utils import logging
-from nemo.utils.decorators import add_port_docs
+from nemo.utils.decorators import add_port_docs, deprecated
 from nemo.utils.misc import pad_to
 
 __all__ = [
     'AudioToTextDataLayer',
+    'AudioToTextCharDataLayer',
+    'AudioToTextBPEDataLayer',
     'TarredAudioToTextDataLayer',
     'KaldiFeatureDataLayer',
     'TranscriptDataLayer',
@@ -52,166 +56,25 @@ __all__ = [
 ]
 
 
-def _process_augmentations(augmenter) -> AudioAugmentor:
-    """Process list of online data augmentations.
-
-    Accepts either an AudioAugmentor object with pre-defined augmentations,
-    or a dictionary that points to augmentations that have been defined.
-
-    If a dictionary is passed, must follow the below structure:
-    Dict[str, Dict[str, Any]]: Which refers to a dictionary of string
-    names for augmentations, defined in `asr/parts/perturb.py`.
-
-    The inner dictionary may contain key-value arguments of the specific
-    augmentation, along with an essential key `prob`. `prob` declares the
-    probability of the augmentation being applied, and must be a float
-    value in the range [0, 1].
-
-    # Example in YAML config file
-
-    Augmentations are generally applied only during training, so we can add
-    these augmentations to our yaml config file, and modify the behaviour
-    for training and evaluation.
-
-    ```yaml
-    AudioToSpeechLabelDataLayer:
-        ...  # Parameters shared between train and evaluation time
-        train:
-            augmentor:
-                shift:
-                    prob: 0.5
-                    min_shift_ms: -5.0
-                    max_shift_ms: 5.0
-                white_noise:
-                    prob: 1.0
-                    min_level: -90
-                    max_level: -46
-                ...
-        eval:
-            ...
-    ```
-
-    Then in the training script,
-
-    ```python
-    import copy
-    from ruamel.yaml import YAML
-
-    yaml = YAML(typ="safe")
-    with open(model_config) as f:
-        params = yaml.load(f)
-
-    # Train Config for Data Loader
-    train_dl_params = copy.deepcopy(params["AudioToTextDataLayer"])
-    train_dl_params.update(params["AudioToTextDataLayer"]["train"])
-    del train_dl_params["train"]
-    del train_dl_params["eval"]
-
-    data_layer_train = nemo_asr.AudioToTextDataLayer(
-        ...,
-        **train_dl_params,
-    )
-
-    # Evaluation Config for Data Loader
-    eval_dl_params = copy.deepcopy(params["AudioToTextDataLayer"])
-    eval_dl_params.update(params["AudioToTextDataLayer"]["eval"])
-    del eval_dl_params["train"]
-    del eval_dl_params["eval"]
-
-    data_layer_eval = nemo_asr.AudioToTextDataLayer(
-        ...,
-        **eval_dl_params,
-    )
-    ```
-
-    # Registering your own Augmentations
-
-    To register custom augmentations to obtain the above convenience of
-    the declaring the augmentations in YAML, you can put additional keys in
-    `perturbation_types` dictionary as follows.
-
-    ```python
-    from nemo.collections.asr.parts import perturb
-
-    # Define your own perturbation here
-    class CustomPerturbation(perturb.Perturbation):
-        ...
-
-    perturb.register_perturbation(name_of_perturbation, CustomPerturbation)
-    ```
-
-    Args:
-        augmenter: AudioAugmentor object or
-            dictionary of str -> kwargs (dict) which is parsed and used
-            to initialize an AudioAugmentor.
-            Note: It is crucial that each individual augmentation has
-            a keyword `prob`, that defines a float probability in the
-            the range [0, 1] of this augmentation being applied.
-            If this keyword is not present, then the augmentation is
-            disabled and a warning is logged.
-
-    Returns: AudioAugmentor object
-    """
-    if isinstance(augmenter, AudioAugmentor):
-        return augmenter
-
-    if not type(augmenter) == dict:
-        raise ValueError("Cannot parse augmenter. Must be a dict or an AudioAugmentor object ")
-
-    augmenter = copy.deepcopy(augmenter)
-
-    augmentations = []
-    for augment_name, augment_kwargs in augmenter.items():
-        prob = augment_kwargs.get('prob', None)
-
-        if prob is None:
-            raise KeyError(
-                f'Augmentation "{augment_name}" will not be applied as '
-                f'keyword argument "prob" was not defined for this augmentation.'
-            )
-
-        else:
-            _ = augment_kwargs.pop('prob')
-
-            if prob < 0.0 or prob > 1.0:
-                raise ValueError("`prob` must be a float value between 0 and 1.")
-
-            try:
-                augmentation = perturbation_types[augment_name](**augment_kwargs)
-                augmentations.append([prob, augmentation])
-            except KeyError:
-                raise KeyError(f"Invalid perturbation name. Allowed values : {perturbation_types.keys()}")
-
-    augmenter = AudioAugmentor(perturbations=augmentations)
-    return augmenter
-
-
 class AudioToTextDataLayer(DataLayerNM):
     """Data Layer for general ASR tasks.
-
-    Module which reads ASR labeled data. It accepts comma-separated
-    JSON manifest files describing the correspondence between wav audio files
-    and their transcripts. JSON files should be of the following format::
-
+    Module which reads ASR labeled data. It accepts comma-separated JSON manifest files describing the correspondence
+    between wav audio files and their transcripts. JSON files should be of the following format::
         {"audio_filepath": path_to_wav_0, "duration": time_in_sec_0, "text": \
 transcript_0}
         ...
         {"audio_filepath": path_to_wav_n, "duration": time_in_sec_n, "text": \
 transcript_n}
-
     Args:
-        manifest_filepath (str): Dataset parameter.
-            Path to JSON containing data.
+        manifest_filepath (str): Dataset parameter. Path to JSON containing data.
         labels (list): Dataset parameter.
-            List of characters that can be output by the ASR model.
-            For Jasper, this is the 28 character set {a-z '}. The CTC blank
-            symbol is automatically added later for models using ctc.
+            List of characters that can be output by the ASR model. For Jasper, this is the 28 character set {a-z '}.
+            The CTC blank symbol is automatically added later for models using ctc.
         batch_size (int): batch size
-        sample_rate (int): Target sampling rate for data. Audio files will be
-            resampled to sample_rate if it is not already.
+        sample_rate (int): Target sampling rate for data. Audio files will be resampled to sample_rate if it is not
+            already.
             Defaults to 16000.
-        int_values (bool): Bool indicating whether the audio file is saved as
-            int data or float data.
+        int_values (bool): Bool indicating whether the audio file is saved as int data or float data.
             Defaults to False.
         bos_id (id): Dataset parameter.
             Beginning of string symbol id used for seq2seq models.
@@ -219,27 +82,24 @@ transcript_n}
         eos_id (id): Dataset parameter.
             End of string symbol id used for seq2seq models.
             Defaults to None.
-        pad_id (id): Token used to pad when collating samples in batches.
-            If this is None, pads using 0s.
+        pad_id (id): Token used to pad when collating samples in batches. If this is None, pads using 0s.
             Defaults to None.
         min_duration (float): Dataset parameter.
-            All training files which have a duration less than min_duration
-            are dropped. Note: Duration is read from the manifest JSON.
+            All training files which have a duration less than min_duration are dropped. Note: Duration is read from
+            the manifest JSON.
             Defaults to 0.1.
         max_duration (float): Dataset parameter.
-            All training files which have a duration more than max_duration
-            are dropped. Note: Duration is read from the manifest JSON.
+            All training files which have a duration more than max_duration are dropped. Note: Duration is read from
+            the manifest JSON.
             Defaults to None.
         normalize_transcripts (bool): Dataset parameter.
-            Whether to use automatic text cleaning.
-            It is highly recommended to manually clean text for best results.
+            Whether to use automatic text cleaning. It is highly recommended to manually clean text for best results.
             Defaults to True.
-        trim_silence (bool): Whether to use trim silence from beginning and end
-            of audio signal using librosa.effects.trim().
+        trim_silence (bool): Whether to use trim silence from beginning and end of audio signal using
+            librosa.effects.trim().
             Defaults to False.
         load_audio (bool): Dataset parameter.
-            Controls whether the dataloader loads the audio signal and
-            transcript or just the transcript.
+            Controls whether the dataloader loads the audio signal and transcript or just the transcript.
             Defaults to True.
         drop_last (bool): See PyTorch DataLoader.
             Defaults to False.
@@ -247,15 +107,11 @@ transcript_n}
             Defaults to True.
         num_workers (int): See PyTorch DataLoader.
             Defaults to 0.
-        perturb_config (dict): Currently disabled.
-        augmentor (AudioAugmentor or dict): Optional AudioAugmentor or
-            dictionary of str -> kwargs (dict) which is parsed and used
-            to initialize an AudioAugmentor.
-            Note: It is crucial that each individual augmentation has
-            a keyword `prob`, that defines a float probability in the
-            the range [0, 1] of this augmentation being applied.
-            If this keyword is not present, then the augmentation is
-            disabled and a warning is logged.
+        augmentor (AudioAugmentor or dict): Optional AudioAugmentor or dictionary of str -> kwargs (dict) which is
+            parsed and used to initialize an AudioAugmentor.
+            Note: It is crucial that each individual augmentation has a keyword `prob`, that defines a float
+            probability in the the range [0, 1] of this augmentation being applied. If this keyword is not present,
+            then the augmentation is disabled and a warning is logged.
     """
 
     @property
@@ -264,10 +120,6 @@ transcript_n}
         """Returns definitions of module output ports.
         """
         return {
-            # 'audio_signal': NeuralType({0: AxisType(BatchTag), 1: AxisType(TimeTag)}),
-            # 'a_sig_length': NeuralType({0: AxisType(BatchTag)}),
-            # 'transcripts': NeuralType({0: AxisType(BatchTag), 1: AxisType(TimeTag)}),
-            # 'transcript_length': NeuralType({0: AxisType(BatchTag)}),
             'audio_signal': NeuralType(
                 ('B', 'T'),
                 AudioSignal(freq=self._sample_rate)
@@ -281,9 +133,9 @@ transcript_n}
 
     def __init__(
         self,
-        manifest_filepath,
-        labels,
-        batch_size,
+        manifest_filepath=None,
+        labels=None,
+        batch_size=None,
         sample_rate=16000,
         int_values=False,
         bos_id=None,
@@ -297,7 +149,7 @@ transcript_n}
         drop_last=False,
         shuffle=True,
         num_workers=0,
-        augmentor: Optional[Union[AudioAugmentor, Dict[str, Dict[str, Any]]]] = None,
+        augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
     ):
         super().__init__()
         self._sample_rate = sample_rate
@@ -309,7 +161,7 @@ transcript_n}
             sample_rate=self._sample_rate, int_values=int_values, augmentor=augmentor
         )
 
-        # Set up dataset
+        # # Set up dataset
         dataset_params = {
             'manifest_filepath': manifest_filepath,
             'labels': labels,
@@ -358,28 +210,325 @@ transcript_n}
         return self._dataloader
 
 
+class _AudioToTextDataLayer(DataLayerNM):
+    """TODO: Fix Docstring
+    Data Layer for general ASR tasks.
+    Module which reads ASR labeled data. It accepts comma-separated JSON manifest files describing the correspondence
+    between wav audio files and their transcripts. JSON files should be of the following format::
+        {"audio_filepath": path_to_wav_0, "duration": time_in_sec_0, "text": \
+transcript_0}
+        ...
+        {"audio_filepath": path_to_wav_n, "duration": time_in_sec_n, "text": \
+transcript_n}
+    Args:
+        manifest_filepath (str): Dataset parameter. Path to JSON containing data.
+        labels (list): Dataset parameter.
+            List of characters that can be output by the ASR model. For Jasper, this is the 28 character set {a-z '}.
+            The CTC blank symbol is automatically added later for models using ctc.
+        batch_size (int): batch size
+        sample_rate (int): Target sampling rate for data. Audio files will be resampled to sample_rate if it is not
+            already.
+            Defaults to 16000.
+        int_values (bool): Bool indicating whether the audio file is saved as int data or float data.
+            Defaults to False.
+        bos_id (id): Dataset parameter.
+            Beginning of string symbol id used for seq2seq models.
+            Defaults to None.
+        eos_id (id): Dataset parameter.
+            End of string symbol id used for seq2seq models.
+            Defaults to None.
+        pad_id (id): Token used to pad when collating samples in batches. If this is None, pads using 0s.
+            Defaults to None.
+        min_duration (float): Dataset parameter.
+            All training files which have a duration less than min_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to 0.1.
+        max_duration (float): Dataset parameter.
+            All training files which have a duration more than max_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to None.
+        normalize_transcripts (bool): Dataset parameter.
+            Whether to use automatic text cleaning. It is highly recommended to manually clean text for best results.
+            Defaults to True.
+        trim_silence (bool): Whether to use trim silence from beginning and end of audio signal using
+            librosa.effects.trim().
+            Defaults to False.
+        load_audio (bool): Dataset parameter.
+            Controls whether the dataloader loads the audio signal and transcript or just the transcript.
+            Defaults to True.
+        drop_last (bool): See PyTorch DataLoader.
+            Defaults to False.
+        shuffle (bool): See PyTorch DataLoader.
+            Defaults to True.
+        num_workers (int): See PyTorch DataLoader.
+            Defaults to 0.
+        augmentor (AudioAugmentor or dict): Optional AudioAugmentor or dictionary of str -> kwargs (dict) which is
+            parsed and used to initialize an AudioAugmentor.
+            Note: It is crucial that each individual augmentation has a keyword `prob`, that defines a float
+            probability in the the range [0, 1] of this augmentation being applied. If this keyword is not present,
+            then the augmentation is disabled and a warning is logged.
+    """
+
+    @property
+    @add_port_docs()
+    def output_ports(self):
+        """Returns definitions of module output ports.
+        """
+        return {
+            'audio_signal': NeuralType(
+                ('B', 'T'),
+                AudioSignal(freq=self._sample_rate)
+                if self is not None and self._sample_rate is not None
+                else AudioSignal(),
+            ),
+            'a_sig_length': NeuralType(tuple('B'), LengthsType()),
+            'transcripts': NeuralType(('B', 'T'), LabelsType()),
+            'transcript_length': NeuralType(tuple('B'), LengthsType()),
+        }
+
+    def __init__(
+        self, batch_size=None, pad_id=None, drop_last=False, shuffle=True, num_workers=0,
+    ):
+        super().__init__()
+        self._batch_size = batch_size
+
+        # Set up data loader
+        if self._placement == DeviceType.AllGpu:
+            logging.info("Parallelizing Datalayer.")
+            sampler = torch.utils.data.distributed.DistributedSampler(self._dataset)
+        else:
+            sampler = None
+
+        if batch_size == -1:
+            batch_size = len(self._dataset)
+
+        pad_id = 0 if pad_id is None else pad_id
+        self._dataloader = torch.utils.data.DataLoader(
+            dataset=self._dataset,
+            batch_size=batch_size,
+            collate_fn=partial(seq_collate_fn, token_pad_value=pad_id),
+            drop_last=drop_last,
+            shuffle=shuffle if sampler is None else False,
+            sampler=sampler,
+            num_workers=num_workers,
+        )
+
+    def __len__(self):
+        return len(self._dataset)
+
+    @property
+    def dataset(self):
+        return None
+
+    @property
+    def data_iterator(self):
+        return self._dataloader
+
+
+class AudioToTextCharDataLayer(_AudioToTextDataLayer):
+    """TODO: Fix Docstring
+    Data Layer for general ASR tasks.
+    Module which reads ASR labeled data. It accepts comma-separated JSON manifest files describing the correspondence
+    between wav audio files and their transcripts. JSON files should be of the following format::
+        {"audio_filepath": path_to_wav_0, "duration": time_in_sec_0, "text": \
+transcript_0}
+        ...
+        {"audio_filepath": path_to_wav_n, "duration": time_in_sec_n, "text": \
+transcript_n}
+    Args:
+        manifest_filepath (str): Dataset parameter. Path to JSON containing data.
+        labels (list): Dataset parameter.
+            List of characters that can be output by the ASR model. For Jasper, this is the 28 character set {a-z '}.
+            The CTC blank symbol is automatically added later for models using ctc.
+        batch_size (int): batch size
+        sample_rate (int): Target sampling rate for data. Audio files will be resampled to sample_rate if it is not
+            already.
+            Defaults to 16000.
+        int_values (bool): Bool indicating whether the audio file is saved as int data or float data.
+            Defaults to False.
+        bos_id (id): Dataset parameter.
+            Beginning of string symbol id used for seq2seq models.
+            Defaults to None.
+        eos_id (id): Dataset parameter.
+            End of string symbol id used for seq2seq models.
+            Defaults to None.
+        pad_id (id): Token used to pad when collating samples in batches. If this is None, pads using 0s.
+            Defaults to None.
+        min_duration (float): Dataset parameter.
+            All training files which have a duration less than min_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to 0.1.
+        max_duration (float): Dataset parameter.
+            All training files which have a duration more than max_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to None.
+        normalize_transcripts (bool): Dataset parameter.
+            Whether to use automatic text cleaning. It is highly recommended to manually clean text for best results.
+            Defaults to True.
+        trim_silence (bool): Whether to use trim silence from beginning and end of audio signal using
+            librosa.effects.trim().
+            Defaults to False.
+        load_audio (bool): Dataset parameter.
+            Controls whether the dataloader loads the audio signal and transcript or just the transcript.
+            Defaults to True.
+        drop_last (bool): See PyTorch DataLoader.
+            Defaults to False.
+        shuffle (bool): See PyTorch DataLoader.
+            Defaults to True.
+        num_workers (int): See PyTorch DataLoader.
+            Defaults to 0.
+        augmentor (AudioAugmentor or dict): Optional AudioAugmentor or dictionary of str -> kwargs (dict) which is
+            parsed and used to initialize an AudioAugmentor.
+            Note: It is crucial that each individual augmentation has a keyword `prob`, that defines a float
+            probability in the the range [0, 1] of this augmentation being applied. If this keyword is not present,
+            then the augmentation is disabled and a warning is logged.
+    """
+
+    def __init__(
+        self,
+        manifest_filepath,
+        labels,
+        batch_size,
+        sample_rate=16000,
+        int_values=False,
+        bos_id=None,
+        eos_id=None,
+        pad_id=None,
+        min_duration=0.1,
+        max_duration=None,
+        normalize_transcripts=True,
+        trim_silence=False,
+        load_audio=True,
+        drop_last=False,
+        shuffle=True,
+        num_workers=0,
+        augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
+    ):
+        self._dataset = AudioCharDataset(
+            manifest_filepath=manifest_filepath,
+            labels=labels,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            normalize=normalize_transcripts,
+            trim=trim_silence,
+            bos_id=bos_id,
+            eos_id=eos_id,
+            load_audio=load_audio,
+            augmentor=augmentor,
+            sample_rate=sample_rate,
+            int_values=int_values,
+        )
+        super().__init__(
+            batch_size=batch_size, pad_id=pad_id, drop_last=drop_last, shuffle=shuffle, num_workers=num_workers,
+        )
+
+
+class AudioToTextBPEDataLayer(_AudioToTextDataLayer):
+    """TODO: Fix Docstring
+    Data Layer for general ASR tasks.
+    Module which reads ASR labeled data. It accepts comma-separated JSON manifest files describing the correspondence
+    between wav audio files and their transcripts. JSON files should be of the following format::
+        {"audio_filepath": path_to_wav_0, "duration": time_in_sec_0, "text": \
+transcript_0}
+        ...
+        {"audio_filepath": path_to_wav_n, "duration": time_in_sec_n, "text": \
+transcript_n}
+    Args:
+        manifest_filepath (str): Dataset parameter. Path to JSON containing data.
+        tokenizer (nemo_nlp.data.tokzenizers.TokenizerSpec): The tokenizer used to parse the transcripts.
+        batch_size (int): batch size
+        sample_rate (int): Target sampling rate for data. Audio files will be resampled to sample_rate if it is not
+            already.
+            Defaults to 16000.
+        int_values (bool): Bool indicating whether the audio file is saved as int data or float data.
+            Defaults to False.
+        bos_id (id): Dataset parameter.
+            Beginning of string symbol id used for seq2seq models.
+            Defaults to None.
+        eos_id (id): Dataset parameter.
+            End of string symbol id used for seq2seq models.
+            Defaults to None.
+        pad_id (id): Token used to pad when collating samples in batches. If this is None, pads using 0s.
+            Defaults to None.
+        min_duration (float): Dataset parameter.
+            All training files which have a duration less than min_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to 0.1.
+        max_duration (float): Dataset parameter.
+            All training files which have a duration more than max_duration are dropped. Note: Duration is read from
+            the manifest JSON.
+            Defaults to None.
+        normalize_transcripts (bool): Dataset parameter.
+            Whether to use automatic text cleaning. It is highly recommended to manually clean text for best results.
+            Defaults to True.
+        trim_silence (bool): Whether to use trim silence from beginning and end of audio signal using
+            librosa.effects.trim().
+            Defaults to False.
+        load_audio (bool): Dataset parameter.
+            Controls whether the dataloader loads the audio signal and transcript or just the transcript.
+            Defaults to True.
+        drop_last (bool): See PyTorch DataLoader.
+            Defaults to False.
+        shuffle (bool): See PyTorch DataLoader.
+            Defaults to True.
+        num_workers (int): See PyTorch DataLoader.
+            Defaults to 0.
+        augmentor (AudioAugmentor or dict): Optional AudioAugmentor or dictionary of str -> kwargs (dict) which is
+            parsed and used to initialize an AudioAugmentor.
+            Note: It is crucial that each individual augmentation has a keyword `prob`, that defines a float
+            probability in the the range [0, 1] of this augmentation being applied. If this keyword is not present,
+            then the augmentation is disabled and a warning is logged.
+    """
+
+    def __init__(
+        self,
+        manifest_filepath,
+        tokenizer,
+        batch_size,
+        sample_rate=16000,
+        int_values=False,
+        pad_id=None,
+        min_duration=0.1,
+        max_duration=None,
+        trim_silence=False,
+        load_audio=True,
+        drop_last=False,
+        shuffle=True,
+        num_workers=0,
+        augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
+    ):
+        self._dataset = AudioBPEDataset(
+            manifest_filepath=manifest_filepath,
+            tokenizer=tokenizer,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            trim=trim_silence,
+            load_audio=load_audio,
+            augmentor=augmentor,
+            sample_rate=sample_rate,
+            int_values=int_values,
+        )
+        super().__init__(
+            batch_size=batch_size, pad_id=pad_id, drop_last=drop_last, shuffle=shuffle, num_workers=num_workers,
+        )
+
+
 class TarredAudioToTextDataLayer(DataLayerNM):
     """Data Layer for general ASR tasks, where the audio files are tarred.
-
     Module which reads ASR labeled data. It accepts a single comma-separated JSON manifest file, as well as the
     path(s) to the tarball(s) with the wav files. Each line of the manifest should contain the information for one
     audio file, including at least the transcript and name of the audio file (doesn't have to be exact, only the
     basename must be the same).
-
     Valid formats for the audio_tar_filepaths argument include (1) a single string that can be brace-expanded,
     e.g. 'path/to/audio.tar' or 'path/to/audio_{1..100}.tar.gz', or (2) a list of file paths that will not be
     brace-expanded, e.g. ['audio_1.tar', 'audio_2.tar', ...]. See the WebDataset documentation for more information
     about accepted data and input formats.
-
     If using torch.distributed, the number of shards should be divisible by the number of workers to ensure an
     even split among workers. If it is not divisible, logging will give a warning but we will continue.
-
     Notice that a few arguments are different from the AudioToTextDataLayer; for example, shuffle (bool) has been
     replaced by shuffle_n (int).
-
     Additionally, please note that the len() of this DataLayer is assumed to be the length of the manifest. Be aware
     of this especially if the tarred audio is a subset of the samples represented in the manifest.
-
     Args:
         audio_tar_filepaths: Either a list of audio tarball filepaths, or a
             string (can be brace-expandable).
@@ -466,7 +615,7 @@ class TarredAudioToTextDataLayer(DataLayerNM):
         trim_silence=False,
         shuffle_n=0,
         num_workers=0,
-        augmentor: Optional[Union[AudioAugmentor, Dict[str, Dict[str, Any]]]] = None,
+        augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
     ):
         super().__init__()
         self._sample_rate = sample_rate
@@ -594,16 +743,13 @@ class TarredAudioToTextDataLayer(DataLayerNM):
 
 class KaldiFeatureDataLayer(DataLayerNM):
     """Data layer for reading generic Kaldi-formatted data.
-
     Module that reads ASR labeled data that is in a Kaldi-compatible format.
     It assumes that you have a directory that contains:
-
     - feats.scp: A mapping from utterance IDs to .ark files that
             contains the corresponding MFCC (or other format) data
     - text: A mapping from utterance IDs to transcripts
     - utt2dur (optional): A mapping from utterance IDs to audio durations,
             needed if you want to filter based on duration
-
     Args:
         kaldi_dir (str): Directory that contains the above files.
         labels (list): List of characters that can be output by the ASR model,
@@ -630,8 +776,6 @@ class KaldiFeatureDataLayer(DataLayerNM):
     @add_port_docs()
     def output_ports(self):
         """Returns definitions of module output ports.
-
-
         """
         return {
             # 'processed_signal': NeuralType(
@@ -641,8 +785,7 @@ class KaldiFeatureDataLayer(DataLayerNM):
             # 'transcripts': NeuralType({0: AxisType(BatchTag), 1: AxisType(TimeTag)}),
             # 'transcript_length': NeuralType({0: AxisType(BatchTag)}),
             'processed_signal': NeuralType(('B', 'D', 'T'), SpectrogramType()),
-            'processed_length': NeuralType(tuple('B'), LengthsType()),
-            'transcripts': NeuralType(('B', 'T'), LabelsType()),
+            'transcripts': NeuralType(('B', 'T'), ChannelType()),
             'transcript_length': NeuralType(tuple('B'), LengthsType()),
         }
 
@@ -691,12 +834,10 @@ class KaldiFeatureDataLayer(DataLayerNM):
     def _collate_fn(batch):
         """Collate batch of (features, feature len, tokens, tokens len).
         Kaldi generally uses MFCC (and PLP) features.
-
         Args:
             batch: A batch of elements, where each element is a tuple of
                 features, feature length, tokens, and token
                 length for a single sample.
-
         Returns:
             The same batch, with the features and token length padded
             to the maximum of the batch.
@@ -743,7 +884,6 @@ class KaldiFeatureDataLayer(DataLayerNM):
 class TranscriptDataLayer(DataLayerNM):
     """A simple Neural Module for loading textual transcript data.
     The path, labels, and eos_id arguments are dataset parameters.
-
     Args:
         pad_id (int): Label position of padding symbol
         batch_size (int): Size of batches to generate in data loader
@@ -758,15 +898,11 @@ class TranscriptDataLayer(DataLayerNM):
     @add_port_docs()
     def output_ports(self):
         """Returns definitions of module output ports.
-
         texts:
             0: AxisType(BatchTag)
-
             1: AxisType(TimeTag)
-
         texts_length:
             0: AxisType(BatchTag)
-
         """
         return {
             # 'texts': NeuralType({0: AxisType(BatchTag), 1: AxisType(TimeTag)}),
@@ -851,17 +987,14 @@ class TranscriptDataLayer(DataLayerNM):
 # Ported from https://github.com/NVIDIA/OpenSeq2Seq/blob/master/open_seq2seq/data/speech2text/speech_commands.py
 class AudioToSpeechLabelDataLayer(DataLayerNM):
     """Data Layer for general speech classification.
-
     Module which reads speech recognition with target label. It accepts comma-separated
     JSON manifest files describing the correspondence between wav audio files
     and their target labels. JSON files should be of the following format::
-
         {"audio_filepath": path_to_wav_0, "duration": time_in_sec_0, "label": \
 target_label_0, "offset": offset_in_sec_0}
         ...
         {"audio_filepath": path_to_wav_n, "duration": time_in_sec_n, "label": \
 target_label_n, "offset": offset_in_sec_n}
-
     Args:
         manifest_filepath (str): Dataset parameter.
             Path to JSON containing data.
@@ -932,7 +1065,7 @@ target_label_n, "offset": offset_in_sec_n}
         trim_silence: bool = False,
         drop_last: bool = False,
         load_audio: bool = True,
-        augmentor: Optional[Union[AudioAugmentor, Dict[str, Dict[str, Any]]]] = None,
+        augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
         time_length: int = 0,
     ):
         super(AudioToSpeechLabelDataLayer, self).__init__()
