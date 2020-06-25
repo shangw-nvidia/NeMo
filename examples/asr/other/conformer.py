@@ -51,6 +51,7 @@ def parse_args():
     parser.add_argument("--synced_bn_groupsize", default=0, type=int)
 
     parser.add_argument("--grad_norm_clip", type=float, default=-1, help="gradient clipping")
+    parser.add_argument("--optimizer_eps", type=float, default=1e-9, help="The eps param of the optimizers.")
 
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
@@ -278,7 +279,7 @@ def main():
             "betas": (args.beta1, args.beta2),
             "weight_decay": args.weight_decay,
             "grad_norm_clip": grad_norm_clip,
-            "eps": 10e-9,
+            "eps": args.optimizer_eps,
         },
         batches_per_step=args.iter_per_step,
         synced_batchnorm=args.synced_bn,
