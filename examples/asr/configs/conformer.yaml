@@ -13,7 +13,7 @@ AudioToTextDataLayer:
         max_duration: null
 
 AudioToMelSpectrogramPreprocessor:
-    window_size: 0.02
+    window_size: 0.025
     window_stride: 0.01
     window: "hann"
     normalize: "per_feature"
@@ -79,11 +79,11 @@ ConformerEncoder:
     conv_layer_norm: false
     kernel_size: 3
     pe_type: relative  ###
-    d_model: 256
+    d_model: 144
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
-    dropout_in: 0.0
+    dropout_in: 0.1
     dropout: 0.1
     dropout_att: 0.0
     ### MTL
@@ -98,11 +98,11 @@ ConformerEncoder:
     input_dim: 80
     conv_param_init: 1
     layer_norm_eps: 1e-12
-    d_ff: 1024
+    d_ff: 144
     dropout_layer: 0.0
     ffn_activation: swish
     ffn_bottleneck_dim: 0
-    feat_out: 256
+    feat_out: 144
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
