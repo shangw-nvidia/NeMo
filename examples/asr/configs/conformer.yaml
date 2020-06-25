@@ -96,7 +96,7 @@ ConformerEncoder:
     chunk_size_right: 0
     n_splices: 1
     input_dim: 80
-    conv_param_init: 1
+    conv_param_init: "xavier_uniform" # check it out, it was 1 before
     layer_norm_eps: 1e-12
     ff_expansion_factor: 4
     dropout_layer: 0.0

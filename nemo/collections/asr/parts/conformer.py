@@ -483,7 +483,7 @@ class ConvEncoder(nn.Module):
                 self._factor *= p if is_1dconv else p[0]
 
         # changed here
-        param_init = "xavier_uniform"
+        #param_init = "xavier_uniform"
         self.apply(lambda x: init_weights(x, mode=param_init))
         self.to(self._device)
 
