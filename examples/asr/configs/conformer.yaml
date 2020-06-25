@@ -77,7 +77,7 @@ ConformerEncoder:
     conv_poolings: "(2,2)_(2,2)"  # (T,F)
     conv_batch_norm: false
     conv_layer_norm: false
-    kernel_size: 32
+    kernel_size: 3
     pe_type: relative  ###
     d_model: 144
     n_heads: 4
