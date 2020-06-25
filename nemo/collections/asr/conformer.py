@@ -191,7 +191,7 @@ class ConformerEncoder(TrainableNM):
         layer_norm_eps,
         conv_poolings,
         dropout,
-        d_ff,
+        ff_expansion_factor,
         kernel_size,
         dropout_att,
         dropout_layer,
@@ -208,6 +208,8 @@ class ConformerEncoder(TrainableNM):
             raise ValueError('Set n_layers_sub1 between 1 to n_layers.')
         if n_layers_sub2 < 0 or (n_layers_sub2 > 1 and n_layers_sub1 < n_layers_sub2):
             raise ValueError('Set n_layers_sub2 between 1 to n_layers_sub1.')
+
+        d_ff = d_model * ff_expansion_factor
 
         self.d_model = d_model
         self.n_layers = n_layers
