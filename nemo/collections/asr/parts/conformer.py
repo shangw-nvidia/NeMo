@@ -9,6 +9,142 @@ from nemo import logging
 from nemo.collections.asr.parts.jasper import init_weights
 
 
+class ConformerEncoderBlock(torch.nn.Module):
+    """A single layer of the Conformer encoder.
+
+    Args:
+        d_model (int): input dimension of MultiheadAttentionMechanism and PositionwiseFeedForward
+        d_ff (int): hidden dimension of PositionwiseFeedForward
+        n_heads (int): number of heads for multi-head attention
+        kernel_size (int): kernel size for depthwise convolution in convolution module
+        dropout (float): dropout probabilities for linear layers
+        dropout_att (float): dropout probabilities for attention distributions
+        dropout_layer (float): LayerDrop probability
+        layer_norm_eps (float): epsilon parameter for layer normalization
+        ffn_activation (str): nonolinear function for PositionwiseFeedForward
+        param_init (str): parameter initialization method
+        ffn_bottleneck_dim (int): bottleneck dimension for the light-weight FFN layer
+
+    """
+
+    def __init__(
+        self,
+        d_model,
+        d_ff,
+        n_heads,
+        kernel_size,
+        dropout,
+        dropout_att,
+        dropout_layer,
+        layer_norm_eps,
+        ffn_activation,
+        param_init,
+        device,
+        ffn_bottleneck_dim=0,
+    ):
+        super(ConformerEncoderBlock, self).__init__()
+
+        self._device = device
+
+        self.n_heads = n_heads
+        self.fc_factor = 0.5
+
+        # first half position-wise feed-forward
+        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.feed_forward1 = PositionwiseFeedForward(
+            d_model=d_model,
+            d_ff=d_ff,
+            dropout=dropout,
+            activation=ffn_activation,
+            param_init=param_init,
+            layer_norm_eps=layer_norm_eps,
+            bottleneck_dim=ffn_bottleneck_dim,
+            device=device,
+        )
+
+        # conv module
+        self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.conv = ConformerConvBlock(
+            d_model, kernel_size, param_init, dropout=dropout, layer_norm_eps=layer_norm_eps, device=self._device
+        )
+
+        # self-attention
+        self.norm3 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.self_attn = RelativeMultiheadAttentionMechanism(
+            kdim=d_model,
+            qdim=d_model,
+            adim=d_model,
+            odim=d_model,
+            n_heads=n_heads,
+            dropout=dropout_att,
+            param_init=param_init,
+        )
+
+        # second half position-wise feed-forward
+        self.norm4 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+
+        self.feed_forward2 = PositionwiseFeedForward(
+            d_model=d_model,
+            d_ff=d_ff,
+            dropout=dropout,
+            activation=ffn_activation,
+            param_init=param_init,
+            layer_norm_eps=layer_norm_eps,
+            bottleneck_dim=ffn_bottleneck_dim,
+            device=device,
+        )
+
+        self.dropout = nn.Dropout(dropout)
+        self.dropout_layer = dropout_layer
+
+    def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None):
+        """Conformer encoder layer definition.
+
+        Args:
+            xs (FloatTensor): `[B, T, d_model]`
+            xx_mask (ByteTensor): `[B, T, T]`
+            pos_embs (LongTensor): `[L, 1, d_model]`
+            u (FloatTensor): global parameter for relative positinal embedding
+            v (FloatTensor): global parameter for relative positinal embedding
+        Returns:
+            xs (FloatTensor): `[B, T, d_model]`
+            xx_aws (FloatTensor): `[B, H, T, T]`
+
+        """
+        # if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
+        #    return xs, None
+
+        # first half FFN
+        residual = xs
+        # xs = self.norm1(xs)
+        xs = self.feed_forward1(xs)
+        xs = self.fc_factor * xs + residual  # Macaron FFN
+        # xs = self.fc_factor * xs + residual  # Macaron FFN
+
+        # self-attention
+        residual = xs
+        # xs = self.norm3(xs)
+        # relative positional encoding
+        memory = None
+        xs, xx_aws = self.self_attn(xs, xs, memory, pos_embs, xx_mask, u, v)
+        xs = xs + residual
+        # xs = self.dropout(xs) + residual
+
+        # conv
+        residual = xs
+        # xs = self.norm2(xs)
+        xs = self.conv(xs)
+        xs = xs + residual
+
+        # second half FFN
+        residual = xs
+        # xs = self.norm4(xs)
+        xs = self.feed_forward2(xs)
+        xs = self.fc_factor * xs + residual  # Macaron FFN
+
+        return xs, xx_aws
+
+
 class ConformerConvBlock(nn.Module):
     """A single convolution block for the Conformer encoder.
     Args:
@@ -864,3 +1000,29 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
                 for p in poolings.split('_')
             ]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
+
+
+def tensor2np(x):
+    """Convert torch.Tensor to np.ndarray.
+    Args:
+        x (Tensor):
+    Returns:
+        np.ndarray
+    """
+    return x.cpu().numpy()
+
+
+def blockwise(xs, N_l, N_c, N_r):
+    bs, xmax, idim = xs.size()
+
+    n_blocks = xmax // N_c
+    if xmax % N_c != 0:
+        n_blocks += 1
+    xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
+    xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim), xs, xs.new_zeros(bs, N_r, idim)], dim=1)
+    for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
+        xs_chunk = xs_pad[:, t - N_l : t + (N_c + N_r)]
+        xs_tmp[:, blc_id, : xs_chunk.size(1), :] = xs_chunk
+    xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
+
+    return xs
