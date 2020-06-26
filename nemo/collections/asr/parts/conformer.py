@@ -587,6 +587,8 @@ class ConvEncoder(nn.Module):
                     layer_norm=layer_norm,
                     layer_norm_eps=layer_norm_eps,
                     residual=residual,
+                    param_init=param_init,
+                    device=self._device,
                 )
             else:
                 block = Conv2dBlock(
@@ -601,6 +603,8 @@ class ConvEncoder(nn.Module):
                     layer_norm=layer_norm,
                     layer_norm_eps=layer_norm_eps,
                     residual=residual,
+                    param_init=param_init,
+                    device=self._device,
                 )
             self.layers += [block]
             in_freq = block.output_dim
@@ -691,7 +695,7 @@ class ConvEncoder(nn.Module):
         return xs, xlens
 
 
-class Conv1dBlock:
+class Conv1dBlock(torch.nn.Module):
     """1d-CNN block."""
 
     def __init__(
@@ -706,9 +710,13 @@ class Conv1dBlock:
         layer_norm,
         layer_norm_eps,
         residual,
+        param_init,
+        device
     ):
 
         super(Conv1dBlock, self).__init__()
+
+        self._device = device
 
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
@@ -740,6 +748,9 @@ class Conv1dBlock:
             if self._odim % 2 != 0:
                 self._odim = (self._odim // 2) * 2
                 # TODO(hirofumi0810): more efficient way?
+
+        self.apply(lambda x: init_weights(x, mode=param_init))
+        self.to(self._device)
 
     def forward(self, xs, xlens):
         """Forward computation.
@@ -797,10 +808,13 @@ class Conv2dBlock(torch.nn.Module):
         layer_norm,
         layer_norm_eps,
         residual,
+        param_init,
+        device,
     ):
 
         super(Conv2dBlock, self).__init__()
 
+        self._device = device
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
         self.residual = residual
@@ -843,6 +857,9 @@ class Conv2dBlock(torch.nn.Module):
             if self._odim % 2 != 0:
                 self._odim = (self._odim // 2) * 2
                 # TODO(hirofumi0810): more efficient way?
+
+        self.apply(lambda x: init_weights(x, mode=param_init))
+        self.to(self._device)
 
         # changed here
         self.output_dim = self._odim
