@@ -141,7 +141,7 @@ def create_all_dags(args, neural_factory):
     )
 
     decoder = nemo_asr.JasperDecoderForCTC(
-        feat_in=conformer_params["ConformerEncoder"]["feat_out"], num_classes=len(vocab),
+        feat_in=conformer_params["ConformerEncoder"]["d_model"], num_classes=len(vocab),
     )
 
     ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab))

@@ -200,7 +200,7 @@ class ConformerEncoder(TrainableNM):
         ffn_bottleneck_dim,
         last_proj_dim,
         dropout_in,
-        feat_out,
+        #feat_out,
     ):
         super().__init__()
 

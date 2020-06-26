@@ -102,7 +102,7 @@ ConformerEncoder:
     dropout_layer: 0.0
     ffn_activation: swish
     ffn_bottleneck_dim: 0
-    feat_out: 144
+    #feat_out: 144
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
