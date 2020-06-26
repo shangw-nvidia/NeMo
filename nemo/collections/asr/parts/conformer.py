@@ -1002,16 +1002,6 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
 
 
-def tensor2np(x):
-    """Convert torch.Tensor to np.ndarray.
-    Args:
-        x (Tensor):
-    Returns:
-        np.ndarray
-    """
-    return x.cpu().numpy()
-
-
 def blockwise(xs, N_l, N_c, N_r):
     bs, xmax, idim = xs.size()
 

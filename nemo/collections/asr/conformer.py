@@ -852,3 +852,13 @@ def make_pad_mask(seq_lens, max_time, device=None):
     if device:
         mask = mask.to(device)
     return mask
+
+
+def tensor2np(x):
+    """Convert torch.Tensor to np.ndarray.
+    Args:
+        x (Tensor):
+    Returns:
+        np.ndarray
+    """
+    return x.cpu().numpy()
