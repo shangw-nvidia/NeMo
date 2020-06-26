@@ -83,7 +83,7 @@ ConformerEncoder:
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
-    dropout_in: 0.1
+    dropout_in: 0.0
     dropout: 0.1
     dropout_att: 0.0
     ### MTL
