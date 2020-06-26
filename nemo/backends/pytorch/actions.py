@@ -233,10 +233,9 @@ class PtActions(Actions):
             elif optimizer_class.lower() == "adam":
                 optimizer = optim.Adam(
                     params=params_to_optimize, lr=lr,
-                    betas=optimization_params.get("betas", (0.9, 0.999),
+                    betas=optimization_params.get("betas", (0.9, 0.999)),
                     weight_decay=optimization_params.get("weight_decay", 0.0),
-                    eps=optimization_params.get("eps", 1e-8)),
-                )
+                    eps=optimization_params.get("eps", 1e-8))
             elif optimizer_class.lower() == "fused_adam":
                 if not FusedAdam:
                     raise ValueError("FusedAdam works only with torch DDP.")
@@ -252,6 +251,7 @@ class PtActions(Actions):
                     lr=lr,
                     weight_decay=optimization_params.get("weight_decay", 0.0),
                     betas=optimization_params.get("betas", (0.9, 0.999)),
+                    eps=optimization_params.get("eps", 1e-8),
                 )
             elif optimizer_class.lower() == "novograd":
                 optimizer = Novograd(
