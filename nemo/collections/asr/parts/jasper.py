@@ -28,7 +28,7 @@ jasper_activations = {
 def init_weights(m, mode='xavier_uniform'):
     if isinstance(m, MaskedConv1d):
         init_weights(m.conv, mode)
-    if isinstance(m, (nn.Conv1d, nn.Linear)):
+    if isinstance(m, (nn.Conv1d, nn.Linear, nn.Conv2d)):
         if mode == 'xavier_uniform':
             nn.init.xavier_uniform_(m.weight, gain=1.0)
         elif mode == 'xavier_normal':
