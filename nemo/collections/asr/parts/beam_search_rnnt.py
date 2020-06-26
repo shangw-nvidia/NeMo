@@ -56,8 +56,8 @@ def remove_padded_timesteps(mask_cumsum):
         return T
 
 
-def rnnt_beam_decode_static(x, blank_idx, beam_size):
-    if HAVE_JOBLIB:
+def rnnt_beam_decode_static(x, blank_idx, beam_size, parallel=True):
+    if HAVE_JOBLIB and parallel:
         return _rnnt_beam_decode_static_joblib(x, blank_idx, beam_size)
     else:
         return _rnnt_beam_decode_static_sequential(x, blank_idx, beam_size)
@@ -131,8 +131,8 @@ def decode_static(log_probs, blank, beam_size=1):
     return hyp, score + log_probs[-1, -1, blank]
 
 
-def rnnt_beam_decode_dynamic(packed_results, blank_idx):
-    if HAVE_JOBLIB:
+def rnnt_beam_decode_dynamic(packed_results, blank_idx, parallel=True):
+    if HAVE_JOBLIB and parallel:
         return _rnnt_beam_decode_dynamic_joblib(packed_results, blank_idx)
     else:
         return _rnnt_beam_decode_dynamic_sequential(packed_results, blank_idx)
