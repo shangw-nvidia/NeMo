@@ -22,7 +22,7 @@ def parse_args():
         checkpoint_dir=None,
         optimizer="adam",
         batch_size=32,
-        eval_batch_size=64,
+        eval_batch_size=32,
         lr=0.05 / (144 ** (0.5)),
         weight_decay=0.001,
         amp_opt_level="O0",

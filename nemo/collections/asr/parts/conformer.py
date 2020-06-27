@@ -146,6 +146,24 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         return xs, xx_aws
 
+    def reset_parameters(self, param_init):
+        """Initialize parameters."""
+        if param_init == 'xavier_uniform':
+            logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+            if self.conv is None:
+                nn.init.xavier_uniform_(self.embed.weight)
+                nn.init.constant_(self.embed.bias, 0.)
+            if self.bridge is not None:
+                nn.init.xavier_uniform_(self.bridge.weight)
+                nn.init.constant_(self.bridge.bias, 0.)
+            # if self.bridge_sub1 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub1.weight)
+            #     nn.init.constant_(self.bridge_sub1.bias, 0.)
+            # if self.bridge_sub2 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub2.weight)
+            #     nn.init.constant_(self.bridge_sub2.bias, 0.)
+
+
 
 class ConformerConvBlock(nn.Module):
     """A single convolution block for the Conformer encoder.
@@ -182,19 +200,19 @@ class ConformerConvBlock(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        self.apply(lambda x: init_weights(x, mode=param_init))
+        #self.apply(lambda x: init_weights(x, mode=param_init))
         self.to(self._device)
 
         # changed here
         # if param_init == 'xavier_uniform':
-        #     self.reset_parameters()
+        self.reset_parameters()
 
-    # def reset_parameters(self):
-    #     """Initialize parameters with Xavier uniform distribution."""
-    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-    #     for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
-    #         for n, p in layer.named_parameters():
-    #             init_with_xavier_uniform(n, p)
+    def reset_parameters(self):
+        """Initialize parameters with Xavier uniform distribution."""
+        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+        for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
+            for n, p in layer.named_parameters():
+                init_with_xavier_uniform(n, p)
 
     def forward(self, xs):
         """Forward pass.
@@ -221,6 +239,22 @@ class ConformerConvBlock(nn.Module):
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
+    def reset_parameters(self, param_init):
+        """Initialize parameters."""
+        if param_init == 'xavier_uniform':
+            logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+            if self.conv is None:
+                nn.init.xavier_uniform_(self.embed.weight)
+                nn.init.constant_(self.embed.bias, 0.)
+            if self.bridge is not None:
+                nn.init.xavier_uniform_(self.bridge.weight)
+                nn.init.constant_(self.bridge.bias, 0.)
+            # if self.bridge_sub1 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub1.weight)
+            #     nn.init.constant_(self.bridge_sub1.bias, 0.)
+            # if self.bridge_sub2 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub2.weight)
+            #     nn.init.constant_(self.bridge_sub2.bias, 0.)
 
 class PositionwiseFeedForward(nn.Module):
     """Positionwise fully-connected feed-forward neural network (FFN) layer.
@@ -264,23 +298,23 @@ class PositionwiseFeedForward(nn.Module):
             raise NotImplementedError(activation)
         logging.info('FFN activation: %s' % activation)
 
-        self.apply(lambda x: init_weights(x, mode=param_init))
+        #self.apply(lambda x: init_weights(x, mode=param_init))
         self._device = device
         self.to(self._device)
 
         # if param_init == 'xavier_uniform':
-        #     self.reset_parameters()
+        self.reset_parameters()
 
-    # def reset_parameters(self):
-    #     """Initialize parameters with Xavier uniform distribution."""
-    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-    #     for n, p in self.named_parameters():
-    #         if p.dim() == 1:
-    #             nn.init.constant_(p, 0.0)
-    #         elif p.dim() == 2:
-    #             nn.init.xavier_uniform_(p)
-    #         else:
-    #             raise ValueError(n)
+    def reset_parameters(self):
+        """Initialize parameters with Xavier uniform distribution."""
+        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+        for n, p in self.named_parameters():
+            if p.dim() == 1:
+                nn.init.constant_(p, 0.0)
+            elif p.dim() == 2:
+                nn.init.xavier_uniform_(p)
+            else:
+                raise ValueError(n)
 
     def forward(self, xs):
         """Forward computation.
@@ -1038,3 +1072,13 @@ def blockwise(xs, N_l, N_c, N_r):
     xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
 
     return xs
+
+def init_with_xavier_uniform(n, p):
+    if p.dim() == 1:
+        nn.init.constant_(p, 0.)  # bias
+        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.))
+    elif p.dim() in [2, 3]:
+        nn.init.xavier_uniform_(p)  # linear layer
+        logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
+    else:
+        raise ValueError(n)
