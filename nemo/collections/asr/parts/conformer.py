@@ -77,6 +77,7 @@ class ConformerEncoderBlock(torch.nn.Module):
             odim=d_model,
             n_heads=n_heads,
             dropout=dropout_att,
+            bias=True,
             param_init=param_init,
         )
 
@@ -123,17 +124,18 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # self-attention
         residual = xs
-        # xs = self.norm3(xs)
+        xs = self.norm3(xs)
         # relative positional encoding
         memory = None
         xs, xx_aws = self.self_attn(xs, xs, memory, pos_embs, xx_mask, u, v)
-        xs = xs + residual
-        # xs = self.dropout(xs) + residual
+        #xs = xs + residual
+        xs = self.dropout(xs) + residual
 
         # conv
         residual = xs
         # xs = self.norm2(xs)
         xs = self.conv(xs)
+        #xs = self.dropout(xs) + residual
         xs = xs + residual
 
         # second half FFN
@@ -288,7 +290,8 @@ class PositionwiseFeedForward(nn.Module):
             xs (FloatTensor): `[B, T, d_model]`
         """
         if self.bottleneck_dim > 0:
-            return self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
+            xs = self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
+            return self.dropout(xs)
         else:
             xs = self.norm1(xs)
             xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))
@@ -308,7 +311,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         param_init (str): parameter initialization method
     """
 
-    def __init__(self, kdim, qdim, adim, odim, n_heads, dropout, bias=True, param_init=''):
+    def __init__(self, kdim, qdim, adim, odim, n_heads, dropout, bias, param_init):
         super(RelativeMultiheadAttentionMechanism, self).__init__()
 
         assert adim % n_heads == 0
@@ -325,6 +328,8 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         self.w_position = nn.Linear(qdim, adim, bias=bias)
         # TODO: fix later
         self.w_out = nn.Linear(adim, odim, bias=bias)
+
+        #self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         if param_init == 'xavier_uniform':
             self.reset_parameters(bias)
