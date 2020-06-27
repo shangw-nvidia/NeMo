@@ -351,12 +351,12 @@ class ConformerEncoder(TrainableNM):
             if self.bridge is not None:
                 nn.init.xavier_uniform_(self.bridge.weight)
                 nn.init.constant_(self.bridge.bias, 0.0)
-            if self.bridge_sub1 is not None:
-                nn.init.xavier_uniform_(self.bridge_sub1.weight)
-                nn.init.constant_(self.bridge_sub1.bias, 0.0)
-            if self.bridge_sub2 is not None:
-                nn.init.xavier_uniform_(self.bridge_sub2.weight)
-                nn.init.constant_(self.bridge_sub2.bias, 0.0)
+            # if self.bridge_sub1 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub1.weight)
+            #     nn.init.constant_(self.bridge_sub1.bias, 0.0)
+            # if self.bridge_sub2 is not None:
+            #     nn.init.xavier_uniform_(self.bridge_sub2.weight)
+            #     nn.init.constant_(self.bridge_sub2.bias, 0.0)
 
     def forward(self, audio_signal, length=None):
         ## type: (Tensor, Optional[Tensor]) -> Tensor, Optional[Tensor]
