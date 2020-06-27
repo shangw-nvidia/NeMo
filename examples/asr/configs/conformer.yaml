@@ -13,7 +13,7 @@ AudioToTextDataLayer:
         max_duration: null
 
 AudioToMelSpectrogramPreprocessor:
-    window_size: 0.025
+    window_size: 0.02
     window_stride: 0.01
     window: "hann"
     normalize: "per_feature"
