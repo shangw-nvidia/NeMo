@@ -164,7 +164,6 @@ class ConformerEncoderBlock(torch.nn.Module):
             #     nn.init.constant_(self.bridge_sub2.bias, 0.)
 
 
-
 class ConformerConvBlock(nn.Module):
     """A single convolution block for the Conformer encoder.
     Args:
@@ -239,22 +238,6 @@ class ConformerConvBlock(nn.Module):
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
-    def reset_parameters(self, param_init):
-        """Initialize parameters."""
-        if param_init == 'xavier_uniform':
-            logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-            if self.conv is None:
-                nn.init.xavier_uniform_(self.embed.weight)
-                nn.init.constant_(self.embed.bias, 0.)
-            if self.bridge is not None:
-                nn.init.xavier_uniform_(self.bridge.weight)
-                nn.init.constant_(self.bridge.bias, 0.)
-            # if self.bridge_sub1 is not None:
-            #     nn.init.xavier_uniform_(self.bridge_sub1.weight)
-            #     nn.init.constant_(self.bridge_sub1.bias, 0.)
-            # if self.bridge_sub2 is not None:
-            #     nn.init.xavier_uniform_(self.bridge_sub2.weight)
-            #     nn.init.constant_(self.bridge_sub2.bias, 0.)
 
 class PositionwiseFeedForward(nn.Module):
     """Positionwise fully-connected feed-forward neural network (FFN) layer.
