@@ -426,7 +426,8 @@ class ConformerEncoder(TrainableNM):
         audio_signal = audio_signal * self.scale  # why really?
 
         # Create the self-attention mask
-        xx_mask = make_pad_mask(length, max_time=xmax, device=self._device).unsqueeze(2).repeat([1, 1, xmax])
+        pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
+        xx_mask = pad_mask.unsqueeze(2).repeat([1, 1, xmax])
 
         pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
         pos_embs = self.pos_emb(pos_idxs, self._device)
@@ -476,6 +477,7 @@ class ConformerEncoder(TrainableNM):
         # if self.n_layers_sub2 >= 1 and task == 'all':
         #     eouts['ys_sub2']['xs'], eouts['ys_sub2']['xlens'] = xs_sub2, xlens
         # return eouts
+        audio_signal.masked_fill_((~pad_mask).unsqueeze(2).repeat(1, 1, idim), 0.0)
 
         audio_signal = torch.transpose(audio_signal, 1, 2)
         if length is None:
