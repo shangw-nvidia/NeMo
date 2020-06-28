@@ -629,12 +629,12 @@ class ConvEncoder(nn.Module):
 
         # changed here
         #param_init = "xavier_uniform"
-        self.apply(lambda x: init_weights(x, mode=param_init))
+        #self.apply(lambda x: init_weights(x, mode=param_init))
         self.to(self._device)
 
         self.output_dim = self._odim
         self.subsampling_factor = 1
-        # self.reset_parameters(param_init)
+        self.reset_parameters(param_init)
 
     # @staticmethod
     # def add_args(parser, args):
@@ -665,11 +665,11 @@ class ConvEncoder(nn.Module):
     #     )
     #     return parser
 
-    # def reset_parameters(self, param_init):
-    #     """Initialize parameters with lecun style."""
-    #     logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
-    #     for n, p in self.named_parameters():
-    #         init_with_lecun_normal(n, p, param_init)
+    def reset_parameters(self, param_init):
+        """Initialize parameters with lecun style."""
+        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+        for n, p in self.named_parameters():
+            init_with_lecun_normal(n, p, param_init)
 
     def forward(self, xs, xlens):
         """Forward computation.
@@ -1038,6 +1038,7 @@ def blockwise(xs, N_l, N_c, N_r):
     xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
 
     return xs
+
 
 def init_with_xavier_uniform(n, p):
     if p.dim() == 1:
