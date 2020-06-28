@@ -435,8 +435,8 @@ class ConformerEncoder(TrainableNM):
 
         audio_signal = self.dropout(audio_signal)
         for lth, layer in enumerate(self.layers):
-            audio_signal, xx_aws = layer(audio_signal, xx_mask, pos_embs=pos_embs)
-            audio_signal.masked_fill_(pad_mask, 0.0)
+            audio_signal, xx_aws = layer(audio_signal, xx_mask, pos_embs=pos_embs, pad_mask=pad_mask)
+            #audio_signal.masked_fill_(pad_mask, 0.0)
 
             if not self.training:
                 self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)

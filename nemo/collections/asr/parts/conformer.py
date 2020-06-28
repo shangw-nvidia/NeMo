@@ -98,7 +98,7 @@ class ConformerEncoderBlock(torch.nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.dropout_layer = dropout_layer
 
-    def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None):
+    def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None, pad_mask=None):
         """Conformer encoder layer definition.
 
         Args:
@@ -131,6 +131,9 @@ class ConformerEncoderBlock(torch.nn.Module):
         #xs = xs + residual
         xs = self.dropout(xs) + residual
 
+        if pad_mask is not None:
+            xs.masked_fill_(pad_mask, 0.0)
+
         # conv
         residual = xs
         # xs = self.norm2(xs)
@@ -143,6 +146,9 @@ class ConformerEncoderBlock(torch.nn.Module):
         # xs = self.norm4(xs)
         xs = self.feed_forward2(xs)
         xs = self.fc_factor * xs + residual  # Macaron FFN
+
+        if pad_mask is not None:
+            xs.masked_fill_(pad_mask, 0.0)
 
         return xs, xx_aws
 
