@@ -477,7 +477,7 @@ class Swish(nn.Module):
 def init_with_lecun_normal(n, p, param_init):
     if p.dim() == 1:
         nn.init.constant_(p, 0.0)  # bias
-        logging.info('Initialize %s with %s' % (n, 'constant', 0.0))
+        logging.info('Initialize %s with %s' % (n, 'constant'))
     elif p.dim() == 2:
         fan_in = p.size(1)
         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
