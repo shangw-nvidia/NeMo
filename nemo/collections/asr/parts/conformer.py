@@ -131,8 +131,8 @@ class ConformerEncoderBlock(torch.nn.Module):
         #xs = xs + residual
         xs = self.dropout(xs) + residual
 
-        if pad_mask is not None:
-            xs.masked_fill_(pad_mask, 0.0)
+        #if pad_mask is not None:
+        #    xs.masked_fill_(pad_mask, 0.0)
 
         # conv
         residual = xs
@@ -147,8 +147,8 @@ class ConformerEncoderBlock(torch.nn.Module):
         xs = self.feed_forward2(xs)
         xs = self.fc_factor * xs + residual  # Macaron FFN
 
-        if pad_mask is not None:
-            xs.masked_fill_(pad_mask, 0.0)
+        #if pad_mask is not None:
+        #    xs.masked_fill_(pad_mask, 0.0)
 
         return xs, xx_aws
 

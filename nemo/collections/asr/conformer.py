@@ -480,7 +480,7 @@ class ConformerEncoder(TrainableNM):
         # if self.n_layers_sub2 >= 1 and task == 'all':
         #     eouts['ys_sub2']['xs'], eouts['ys_sub2']['xlens'] = xs_sub2, xlens
         # return eouts
-        audio_signal.masked_fill_(pad_mask, 0.0)
+        #audio_signal.masked_fill_(pad_mask, 0.0)
 
         audio_signal = torch.transpose(audio_signal, 1, 2)
         if length is None:
