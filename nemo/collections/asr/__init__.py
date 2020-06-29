@@ -20,6 +20,8 @@ from nemo.collections.asr.beam_search_decoder import BeamSearchDecoderWithLM
 from nemo.collections.asr.contextnet import ContextNetDecoderForCTC, ContextNetEncoder
 from nemo.collections.asr.data_layer import (
     AudioToSpeechLabelDataLayer,
+    AudioToTextBPEDataLayer,
+    AudioToTextCharDataLayer,
     AudioToTextDataLayer,
     KaldiFeatureDataLayer,
     TarredAudioToTextDataLayer,
@@ -44,6 +46,8 @@ from nemo.collections.asr.rnnt import RNNTDecoder, RNNTEncoder, RNNTJoint
 __all__ = [
     'AudioToTextDataLayer',
     'TarredAudioToTextDataLayer',
+    'AudioToTextCharDataLayer',
+    'AudioToTextBPEDataLayer',
     'AudioToSpeechLabelDataLayer',
     'AudioPreprocessing',
     'AudioPreprocessor',

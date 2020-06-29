@@ -507,7 +507,11 @@ class AudioBPEDataset(_AudioDataset):
 
             def __call__(self, text):
                 t = self._tokenizer.text_to_ids(text)
-                t = [self.bos_id] + t + [self.eos_id]
+                if self.bos_id is not None:
+                    t = [self.bos_id] + t
+
+                if self.eos_id is not None:
+                    t = t + [self.eos_id]
                 return t
 
         super().__init__(

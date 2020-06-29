@@ -4,7 +4,7 @@ from functools import partial
 import torch
 
 import nemo
-from nemo.collections.asr.helpers import __gather_losses
+from nemo.collections.asr.helpers import __gather_losses, process_evaluation_epoch
 from nemo.collections.asr.metrics import classification_accuracy, word_error_rate
 from nemo.collections.asr.parts.beam_search_rnnt import rnnt_beam_decode_dynamic, rnnt_beam_decode_static
 from nemo.collections.nlp.data.tokenizers.tokenizer_spec import TokenizerSpec
@@ -37,7 +37,7 @@ def __ctc_decoder_predictions_tensor(tensor, tokenizer: TokenizerSpec):
     return hypotheses
 
 
-def __rnnt_decoder_predictions_list(decoded_predictions, tokenizer: TokenizerSpec, decoder_type, beam_size=1):
+def __rnnt_decoder_predictions_list(decoded_predictions, tokenizer: TokenizerSpec, decoder_type, beam_size=1, parallel=True):
     """
     Decodes a sequence of labels to words
     """
@@ -48,9 +48,9 @@ def __rnnt_decoder_predictions_list(decoded_predictions, tokenizer: TokenizerSpe
 
     if decoder_type == 'static':
         decoded_prediction = rnnt_beam_decode_static(decoded_predictions, blank_id, beam_size=beam_size,
-                                                     parallel=True)
+                                                     parallel=parallel)
     elif decoder_type == 'dynamic':
-        decoded_prediction = rnnt_beam_decode_dynamic(decoded_predictions, blank_id, parallel=True)
+        decoded_prediction = rnnt_beam_decode_dynamic(decoded_predictions, blank_id, parallel=parallel)
     else:
         raise ValueError('`decoder_type` can only be one of {}'.format(str(ALLOWED_RNNT_DECODING_SCHEMES)))
 

@@ -288,9 +288,11 @@ transcript_n}
 
     def __init__(
         self, batch_size=None, pad_id=None, drop_last=False, shuffle=True, num_workers=0,
+        sample_rate=16000,
     ):
         super().__init__()
         self._batch_size = batch_size
+        self._sample_rate = sample_rate
 
         # Set up data loader
         if self._placement == DeviceType.AllGpu:
@@ -420,6 +422,7 @@ transcript_n}
         )
         super().__init__(
             batch_size=batch_size, pad_id=pad_id, drop_last=drop_last, shuffle=shuffle, num_workers=num_workers,
+            sample_rate=sample_rate
         )
 
 
@@ -510,6 +513,7 @@ transcript_n}
         )
         super().__init__(
             batch_size=batch_size, pad_id=pad_id, drop_last=drop_last, shuffle=shuffle, num_workers=num_workers,
+            sample_rate=sample_rate,
         )
 
 
