@@ -421,9 +421,8 @@ class RNNTJoint(TrainableNM):
 
         res = self.joint_net(inp)
 
-        # print("joint res", res.shape)
-
         del inp
+
         if self.preserve_memory:
             torch.cuda.empty_cache()
 

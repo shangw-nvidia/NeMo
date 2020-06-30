@@ -86,6 +86,10 @@ def parse_args():
     parser.add_argument('--freeze_encoder', action="store_true", required=False)
     parser.add_argument('--freeze_decoder', action="store_true", required=False)
 
+    parser.add_argument('--max_test_duration', default=None, type=float, help='Maximum duration for test set.'
+                                                                              'Filters out files !'
+                                                                              'Do not use during final evaluation !')
+
     parser.set_defaults(freeze_encoder=False, freeze_decoder=False)
 
     args = parser.parse_args()
@@ -151,6 +155,11 @@ def create_all_dags(args, neural_factory):
     eval_dl_params.update(contextnet_params["AudioToTextDataLayer"]["eval"])
     del eval_dl_params["train"]
     del eval_dl_params["eval"]
+
+    if args.max_test_duration is not None:
+        eval_dl_params['max_duration'] = args.max_test_duration
+        logging.warning('Setting max duration for eval sets ! Please evaluate again '
+                        'without filtering on eval set after training.')
 
     data_layers_eval = []
     if args.eval_datasets:
