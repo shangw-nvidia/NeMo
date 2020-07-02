@@ -218,14 +218,18 @@ class ConformerConvBlock(nn.Module):
         xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
         xs = F.glu(xs)  # `[B, T, C]`
 
-        # if pad_mask is not None:
-        #     xs.masked_fill_(pad_mask, 0.0)
+        if pad_mask is not None:
+            xs.masked_fill_(pad_mask, 0.0)
 
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.depthwise_conv(xs)  # `[B, C, T]`
 
         xs = self.batch_norm(xs)
         xs = self.activation(xs)
+
+        if pad_mask is not None:
+            xs.masked_fill_(pad_mask.transpose(2, 1), 0.0)
+
         xs = self.pointwise_conv2(xs)  # `[B, C, T]`
         xs = self.dropout(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
