@@ -646,7 +646,7 @@ class ConvEncoder(nn.Module):
         self.to(self._device)
 
         self.output_dim = self._odim
-        self.subsampling_factor = 1
+        #self.subsampling_factor = 1
         self.apply(lambda x: init_weights(x, mode=param_init))
         #self.reset_parameters(param_init)
 
@@ -1063,3 +1063,33 @@ def init_with_xavier_uniform(n, p):
         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
     else:
         raise ValueError(n)
+
+
+class Conv2dSubsampling(nn.Module):
+    """Convolutional 2D subsampling (to 1/4 length)
+    :param int idim: input dim
+    :param int odim: output dim
+    :param flaot dropout_rate: dropout rate
+    """
+
+    def __init__(self, idim, odim, dropout_rate):
+        super(Conv2dSubsampling, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, odim, 3, 2),
+            nn.ReLU(),
+            nn.Conv2d(odim, odim, 3, 2),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        """Subsample x
+        :param torch.Tensor x: input tensor
+        :param torch.Tensor x_mask: input mask
+        :return: subsampled x and mask
+        :rtype Tuple[torch.Tensor, torch.Tensor]
+        """
+        x = x.unsqueeze(1)  # (b, c, t, f)
+        x = self.conv(x)
+        b, c, t, f = x.size()
+        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+        return x

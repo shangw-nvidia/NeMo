@@ -260,9 +260,9 @@ class ConformerEncoder(TrainableNM):
             self.embed = nn.Linear(self._odim, d_model)
 
         # calculate subsampling factor
-        self._factor = 1
-        if self.conv is not None:
-            self._factor *= self.conv.subsampling_factor
+        # self._factor = 1
+        # if self.conv is not None:
+        #     self._factor *= self.conv.subsampling_factor
 
         self.pos_emb = XLPositionalEmbedding(d_model, dropout)  # TODO: dropout_in? maybe?
         assert pe_type == 'relative'
