@@ -131,8 +131,8 @@ class ConformerEncoderBlock(torch.nn.Module):
         #xs = xs + residual
         xs = self.dropout(xs) + residual
 
-        if pad_mask is not None:
-           xs.masked_fill_(pad_mask, 0.0)
+        # if pad_mask is not None:
+        #    xs.masked_fill_(pad_mask, 0.0)
 
         # conv
         residual = xs
@@ -147,8 +147,8 @@ class ConformerEncoderBlock(torch.nn.Module):
         xs = self.feed_forward2(xs)
         xs = self.fc_factor * xs + residual  # Macaron FFN
 
-        if pad_mask is not None:
-           xs.masked_fill_(pad_mask, 0.0)
+        # if pad_mask is not None:
+        #    xs.masked_fill_(pad_mask, 0.0)
 
         return xs, xx_aws
 
@@ -202,7 +202,7 @@ class ConformerConvBlock(nn.Module):
             for n, p in layer.named_parameters():
                 init_with_xavier_uniform(n, p)
 
-    def forward(self, xs):
+    def forward(self, xs, pad_mask=None):
         """Forward pass.
         Args:
             xs (FloatTensor): `[B, T, d_model]`
@@ -217,6 +217,10 @@ class ConformerConvBlock(nn.Module):
         xs = self.pointwise_conv1(xs)  # `[B, 2 * C, T]`
         xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
         xs = F.glu(xs)  # `[B, T, C]`
+
+        # if pad_mask is not None:
+        #     xs.masked_fill_(pad_mask, 0.0)
+
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.depthwise_conv(xs)  # `[B, C, T]`
 
