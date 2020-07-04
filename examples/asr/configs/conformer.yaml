@@ -78,7 +78,7 @@ ConformerEncoder:
     conv_batch_norm: false
     conv_layer_norm: false
     kernel_size: 3
-    pe_type: relative  ###
+    pe_type: relative
     d_model: 256
     n_heads: 4
     param_init: xavier_uniform

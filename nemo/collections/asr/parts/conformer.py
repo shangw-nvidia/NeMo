@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 
 from nemo import logging
 from nemo.collections.asr.parts.jasper import init_weights
@@ -112,15 +113,25 @@ class ConformerEncoderBlock(torch.nn.Module):
             xx_aws (FloatTensor): `[B, H, T, T]`
 
         """
-        # if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
-        #    return xs, None
+        if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
+           return xs
 
         # first half FFN
         residual = xs
-        # xs = self.norm1(xs)
+        xs = self.norm1(xs)
         xs = self.feed_forward1(xs)
-        xs = self.fc_factor * xs + residual  # Macaron FFN
         # xs = self.fc_factor * xs + residual  # Macaron FFN
+        xs = self.fc_factor * self.dropout(xs) + residual  # Macaron FFN
+
+        # if pad_mask is not None:
+        #    xs.masked_fill_(pad_mask, 0.0)
+
+        # conv
+        residual = xs
+        xs = self.norm2(xs)
+        xs = self.conv(xs)
+        xs = self.dropout(xs) + residual
+        #xs = xs + residual
 
         # self-attention
         residual = xs
@@ -131,26 +142,17 @@ class ConformerEncoderBlock(torch.nn.Module):
         #xs = xs + residual
         xs = self.dropout(xs) + residual
 
-        # if pad_mask is not None:
-        #    xs.masked_fill_(pad_mask, 0.0)
-
-        # conv
-        residual = xs
-        # xs = self.norm2(xs)
-        xs = self.conv(xs)
-        #xs = self.dropout(xs) + residual
-        xs = xs + residual
-
         # second half FFN
         residual = xs
-        # xs = self.norm4(xs)
+        xs = self.norm4(xs)
         xs = self.feed_forward2(xs)
-        xs = self.fc_factor * xs + residual  # Macaron FFN
+        #xs = self.fc_factor * xs + residual  # Macaron FFN
+        xs = self.fc_factor * self.dropout(xs) + residual  # Macaron FFN
 
         # if pad_mask is not None:
         #    xs.masked_fill_(pad_mask, 0.0)
 
-        return xs, xx_aws
+        return xs
 
 
 class ConformerConvBlock(nn.Module):
@@ -166,9 +168,9 @@ class ConformerConvBlock(nn.Module):
 
         self._device = device
         self.d_model = d_model
-        assert kernel_size % 2 == 1
+        assert (kernel_size - 1) % 2 == 0
 
-        self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        #self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.pointwise_conv1 = nn.Conv1d(
             in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0  # for GLU
@@ -179,7 +181,7 @@ class ConformerConvBlock(nn.Module):
             kernel_size=kernel_size,
             stride=1,
             # padding=kernel_size // 2 - 1,
-            padding=kernel_size // 2,
+            padding=(kernel_size - 1) // 2,
             groups=d_model,
         )  # depthwise
         self.batch_norm = nn.BatchNorm1d(d_model)
@@ -212,14 +214,14 @@ class ConformerConvBlock(nn.Module):
         B, T, d_model = xs.size()
         assert d_model == self.d_model
 
-        xs = self.layer_norm(xs)
+        #xs = self.layer_norm(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.pointwise_conv1(xs)  # `[B, 2 * C, T]`
         xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
         xs = F.glu(xs)  # `[B, T, C]`
-
-        if pad_mask is not None:
-            xs.masked_fill_(pad_mask, 0.0)
+        #
+        # if pad_mask is not None:
+        #     xs.masked_fill_(pad_mask, 0.0)
 
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.depthwise_conv(xs)  # `[B, C, T]`
@@ -227,11 +229,11 @@ class ConformerConvBlock(nn.Module):
         xs = self.batch_norm(xs)
         xs = self.activation(xs)
 
-        if pad_mask is not None:
-            xs.masked_fill_(pad_mask.transpose(2, 1), 0.0)
+        # if pad_mask is not None:
+        #     xs.masked_fill_(pad_mask.transpose(2, 1), 0.0)
 
         xs = self.pointwise_conv2(xs)  # `[B, C, T]`
-        xs = self.dropout(xs)
+        #xs = self.dropout(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
@@ -250,7 +252,7 @@ class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout, activation, param_init, layer_norm_eps, bottleneck_dim, device):
         super(PositionwiseFeedForward, self).__init__()
 
-        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        #self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.bottleneck_dim = bottleneck_dim
         if bottleneck_dim > 0:
@@ -289,12 +291,7 @@ class PositionwiseFeedForward(nn.Module):
         """Initialize parameters with Xavier uniform distribution."""
         logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
         for n, p in self.named_parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0.0)
-            elif p.dim() == 2:
-                nn.init.xavier_uniform_(p)
-            else:
-                raise ValueError(n)
+            init_with_xavier_uniform(n, p)
 
     def forward(self, xs):
         """Forward computation.
@@ -307,9 +304,10 @@ class PositionwiseFeedForward(nn.Module):
             xs = self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
             return self.dropout(xs)
         else:
-            xs = self.norm1(xs)
+            #xs = self.norm1(xs)
             xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))
-            return self.dropout(xs)
+            #return self.dropout(xs)
+            return xs
 
 
 class RelativeMultiheadAttentionMechanism(nn.Module):
@@ -393,7 +391,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
             cv (FloatTensor): `[B, qlen, vdim]`
             aw (FloatTensor): `[B, H, qlen, klen+mlen]`
         """
-        bs, qlen = query.size()[:2]
+        bs, qlen = query.size()[: 2]
         klen = key.size(1)
         mlen = memory.size(1) if memory is not None and memory.dim() > 1 else 0
         if mlen > 0:
@@ -403,10 +401,8 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         key = self.w_key(key).view(bs, -1, self.n_heads, self.d_k)  # `[B, klen+mlen, H, d_k]`
         if mask is not None:
             mask = mask.unsqueeze(3).repeat([1, 1, 1, self.n_heads])
-            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), (
-                mask.size(),
-                (bs, qlen, klen + mlen, self.n_heads),
-            )
+            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), \
+                (mask.size(), (bs, qlen, klen + mlen, self.n_heads))
 
         query = self.w_query(query).view(bs, -1, self.n_heads, self.d_k)  # `[B, qlen, H, d_k]`
         pos_embs = self.w_position(pos_embs)
@@ -488,28 +484,28 @@ class Swish(nn.Module):
 #         raise ValueError(n)
 
 
-# def init_with_lecun_normal(n, p, param_init):
-#     if p.dim() == 1:
-#         nn.init.constant_(p, 0.0)  # bias
-#         logging.info('Initialize %s with %s' % (n, 'constant'))
-#     elif p.dim() == 2:
-#         fan_in = p.size(1)
-#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
-#         logging.info('Initialize %s with %s' % (n, 'lecun'))
-#     elif p.dim() == 3:
-#         fan_in = p.size(1) * p[0][0].numel()
-#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
-#         logging.info('Initialize %s with %s' % (n, 'lecun'))
-#     elif p.dim() == 4:
-#         fan_in = p.size(1) * p[0][0].numel()
-#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
-#         logging.info('Initialize %s with %s' % (n, 'lecun'))
-#     else:
-#         raise ValueError(n)
+def init_with_lecun_normal(n, p, param_init):
+    if p.dim() == 1:
+        nn.init.constant_(p, 0.0)  # bias
+        logging.info('Initialize %s with %s' % (n, 'constant'))
+    elif p.dim() == 2:
+        fan_in = p.size(1)
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
+    elif p.dim() == 3:
+        fan_in = p.size(1) * p[0][0].numel()
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
+    elif p.dim() == 4:
+        fan_in = p.size(1) * p[0][0].numel()
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
+    else:
+        raise ValueError(n)
 
 
 class XLPositionalEmbedding(nn.Module):
-    def __init__(self, d_model, dropout):
+    def __init__(self, d_model, dropout, device=None):
         """Positional embedding for TransformerXL."""
         super().__init__()
         self.d_model = d_model
@@ -518,15 +514,17 @@ class XLPositionalEmbedding(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, positions, device):
+        self._device = device
+
+    def forward(self, positions):
         """Forward computation.
         Args:
             positions (LongTensor): `[L]`
         Returns:
             pos_emb (LongTensor): `[L, 1, d_model]`
         """
-        if device:
-            positions = positions.to(device)
+        if self._device:
+            positions = positions.to(self._device)
         # outer product
         sinusoid_inp = torch.einsum("i,j->ij", positions.float(), self.inv_freq)
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
@@ -606,10 +604,9 @@ class ConvEncoder(nn.Module):
                     layer_norm=layer_norm,
                     layer_norm_eps=layer_norm_eps,
                     residual=residual,
-                    param_init=param_init,
-                    device=self._device,
                 )
             else:
+                # block = nn.ReLU(nn.Conv2d(C_i, channels[lth], kernel_size=kernel_sizes[lth], stride=strides[lth]).to(self._device))
                 block = Conv2dBlock(
                     input_dim=in_freq,
                     in_channel=C_i,
@@ -622,16 +619,16 @@ class ConvEncoder(nn.Module):
                     layer_norm=layer_norm,
                     layer_norm_eps=layer_norm_eps,
                     residual=residual,
-                    param_init=param_init,
-                    device=self._device,
                 )
             self.layers += [block]
-            in_freq = block.output_dim
+            in_freq = block._odim
             C_i = channels[lth]
 
+        #check here
         self._odim = C_i if is_1dconv else int(C_i * in_freq)
+        #self._odim = C_i if is_1dconv else int(C_i * 32)
 
-        if bottleneck_dim > 0:
+        if bottleneck_dim > 0 and bottleneck_dim != self._odim:
             self.bridge = nn.Linear(self._odim, bottleneck_dim)
             self._odim = bottleneck_dim
 
@@ -643,12 +640,18 @@ class ConvEncoder(nn.Module):
 
         # changed here
         #param_init = "xavier_uniform"
-        self.to(self._device)
 
         self.output_dim = self._odim
         #self.subsampling_factor = 1
-        self.apply(lambda x: init_weights(x, mode=param_init))
-        #self.reset_parameters(param_init)
+        #self.apply(lambda x: init_weights(x, mode=param_init))
+        self.reset_parameters(param_init)
+        self.to(self._device)
+
+    def reset_parameters(self, param_init):
+        """Initialize parameters with lecun style."""
+        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+        for n, p in self.named_parameters():
+            init_with_lecun_normal(n, p, param_init)
 
     # @staticmethod
     # def add_args(parser, args):
@@ -679,11 +682,6 @@ class ConvEncoder(nn.Module):
     #     )
     #     return parser
 
-    # def reset_parameters(self, param_init):
-    #     """Initialize parameters with lecun style."""
-    #     logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
-    #     for n, p in self.named_parameters():
-    #         init_with_lecun_normal(n, p, param_init)
 
     def forward(self, xs, xlens):
         """Forward computation.
@@ -714,28 +712,14 @@ class ConvEncoder(nn.Module):
         return xs, xlens
 
 
-class Conv1dBlock(torch.nn.Module):
+class Conv1dBlock(nn.Module):
     """1d-CNN block."""
 
-    def __init__(
-        self,
-        in_channel,
-        out_channel,
-        kernel_size,
-        stride,
-        pooling,
-        dropout,
-        batch_norm,
-        layer_norm,
-        layer_norm_eps,
-        residual,
-        param_init,
-        device
-    ):
+    def __init__(self, in_channel, out_channel,
+                 kernel_size, stride, pooling,
+                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
 
         super(Conv1dBlock, self).__init__()
-
-        self._device = device
 
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
@@ -743,59 +727,63 @@ class Conv1dBlock(torch.nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # 1st layer
-        self.conv1 = nn.Conv1d(
-            in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=1
-        )
-        self._odim = update_lens_1d([in_channel], self.conv1)[0]
+        self.conv1 = nn.Conv1d(in_channels=in_channel,
+                               out_channels=out_channel,
+                               kernel_size=kernel_size,
+                               stride=stride,
+                               padding=1)
+        self._odim = update_lens_1d([in_channel], self.conv1)[0].item()
         self.batch_norm1 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = nn.LayerNorm(out_channel, eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm1 = nn.LayerNorm(out_channel,
+                                        eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # 2nd layer
-        self.conv2 = nn.Conv1d(
-            in_channels=out_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride, padding=1
-        )
-        self._odim = update_lens_1d([self._odim], self.conv2)[0]
+        self.conv2 = nn.Conv1d(in_channels=out_channel,
+                               out_channels=out_channel,
+                               kernel_size=kernel_size,
+                               stride=stride,
+                               padding=1)
+        self._odim = update_lens_1d([self._odim], self.conv2)[0].item()
         self.batch_norm2 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = nn.LayerNorm(out_channel, eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm2 = nn.LayerNorm(out_channel,
+                                        eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # Max Pooling
         self.pool = None
         if pooling > 1:
-            self.pool = nn.MaxPool1d(kernel_size=pooling, stride=pooling, padding=0, ceil_mode=True)
+            self.pool = nn.MaxPool1d(kernel_size=pooling,
+                                     stride=pooling,
+                                     padding=0,
+                                     ceil_mode=True)
             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
             self._odim = update_lens_1d([self._odim], self.pool)[0].item()
             if self._odim % 2 != 0:
                 self._odim = (self._odim // 2) * 2
                 # TODO(hirofumi0810): more efficient way?
 
-        self.apply(lambda x: init_weights(x, mode=param_init))
-        self.to(self._device)
-
-    def forward(self, xs, xlens):
+    def forward(self, xs, xlens, lookback=False, lookahead=False):
         """Forward computation.
-
         Args:
             xs (FloatTensor): `[B, T, F]`
             xlens (IntTensor): `[B]`
+            lookback (bool): truncate the leftmost frames
+                because of lookback frames for context
+            lookahead (bool): truncate the rightmost frames
+                because of lookahead frames for context
         Returns:
             xs (FloatTensor): `[B, T', F']`
             xlens (IntTensor): `[B]`
-
         """
         residual = xs
 
-        xs = xs.transpose(2, 1)
-        xs = self.conv1(xs)
-        xs = xs.transpose(2, 1)
+        xs = self.conv1(xs.transpose(2, 1)).transpose(2, 1)
         xs = self.batch_norm1(xs)
         xs = self.layer_norm1(xs)
         xs = torch.relu(xs)
         xs = self.dropout(xs)
         xlens = update_lens_1d(xlens, self.conv1)
 
-        xs = xs.transpose(2, 1)
-        xs = self.conv2(xs)
-        xs = xs.transpose(2, 1)
+        xs = self.conv2(xs.transpose(2, 1)).transpose(2, 1)
         xs = self.batch_norm2(xs)
         xs = self.layer_norm2(xs)
         if self.residual and xs.size() == residual.size():
@@ -805,94 +793,77 @@ class Conv1dBlock(torch.nn.Module):
         xlens = update_lens_1d(xlens, self.conv2)
 
         if self.pool is not None:
-            xs = self.pool(xs)
+            xs = self.pool(xs.transpose(2, 1)).transpose(2, 1)
             xlens = update_lens_1d(xlens, self.pool)
 
         return xs, xlens
 
 
-class Conv2dBlock(torch.nn.Module):
+class Conv2dBlock(nn.Module):
     """2d-CNN block."""
 
-    def __init__(
-        self,
-        input_dim,
-        in_channel,
-        out_channel,
-        kernel_size,
-        stride,
-        pooling,
-        dropout,
-        batch_norm,
-        layer_norm,
-        layer_norm_eps,
-        residual,
-        param_init,
-        device,
-    ):
+    def __init__(self, input_dim, in_channel, out_channel,
+                 kernel_size, stride, pooling,
+                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
 
         super(Conv2dBlock, self).__init__()
 
-        self._device = device
         self.batch_norm = batch_norm
         self.layer_norm = layer_norm
         self.residual = residual
         self.dropout = nn.Dropout(p=dropout)
 
         # 1st layer
-        self.conv1 = nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=out_channel,
-            kernel_size=tuple(kernel_size),
-            stride=tuple(stride),
-            padding=(1, 1),
-        )
-        self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0]
+        self.conv1 = nn.Conv2d(in_channels=in_channel,
+                               out_channels=out_channel,
+                               kernel_size=tuple(kernel_size),
+                               stride=tuple(stride),
+                               padding=(1, 1))
+        self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0].item()
         self.batch_norm1 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = (
-            LayerNorm2D(out_channel * self._odim.item(), eps=layer_norm_eps) if layer_norm else lambda x: x
-        )
+        self.layer_norm1 = LayerNorm2D(out_channel, self._odim,
+                                       eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # 2nd layer
-        self.conv2 = nn.Conv2d(
-            in_channels=out_channel,
-            out_channels=out_channel,
-            kernel_size=tuple(kernel_size),
-            stride=tuple(stride),
-            padding=(1, 1),
-        )
-        self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0]
+        self.conv2 = nn.Conv2d(in_channels=out_channel,
+                               out_channels=out_channel,
+                               kernel_size=tuple(kernel_size),
+                               stride=tuple(stride),
+                               padding=(1, 1))
+        self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0].item()
         self.batch_norm2 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = (
-            LayerNorm2D(out_channel * self._odim.item(), eps=layer_norm_eps) if layer_norm else lambda x: x
-        )
+        self.layer_norm2 = LayerNorm2D(out_channel, self._odim,
+                                       eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # Max Pooling
         self.pool = None
+        self._factor = 1
         if len(pooling) > 0 and np.prod(pooling) > 1:
-            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling), stride=tuple(pooling), padding=(0, 0), ceil_mode=True)
+            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling),
+                                     stride=tuple(pooling),
+                                     padding=(0, 0),
+                                     ceil_mode=True)
             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
             self._odim = update_lens_2d([self._odim], self.pool, dim=1)[0].item()
             if self._odim % 2 != 0:
                 self._odim = (self._odim // 2) * 2
                 # TODO(hirofumi0810): more efficient way?
 
-        self.apply(lambda x: init_weights(x, mode=param_init))
-        self.to(self._device)
+            # calculate subsampling factor
+            self._factor *= pooling[0]
 
-        # changed here
-        self.output_dim = self._odim
-
-    def forward(self, xs, xlens):
+    def forward(self, xs, xlens, lookback=False, lookahead=False):
         """Forward computation.
-
         Args:
             xs (FloatTensor): `[B, C_i, T, F]`
             xlens (IntTensor): `[B]`
+            lookback (bool): truncate the leftmost frames
+                because of lookback frames for context
+            lookahead (bool): truncate the rightmost frames
+                because of lookahead frames for context
         Returns:
             xs (FloatTensor): `[B, C_o, T', F']`
             xlens (IntTensor): `[B]`
-
         """
         residual = xs
 
@@ -902,6 +873,10 @@ class Conv2dBlock(torch.nn.Module):
         xs = torch.relu(xs)
         xs = self.dropout(xs)
         xlens = update_lens_2d(xlens, self.conv1, dim=0)
+        if lookback and xs.size(2) > self.conv1.stride[0]:
+            xs = xs[:, :, self.conv1.stride[0]:]
+        if lookahead and xs.size(2) > self.conv1.stride[0]:
+            xs = xs[:, :, :xs.size(2) - self.conv1.stride[0]]
 
         xs = self.conv2(xs)
         xs = self.batch_norm2(xs)
@@ -911,6 +886,10 @@ class Conv2dBlock(torch.nn.Module):
         xs = torch.relu(xs)
         xs = self.dropout(xs)
         xlens = update_lens_2d(xlens, self.conv2, dim=0)
+        if lookback and xs.size(2) > self.conv2.stride[0]:
+            xs = xs[:, :, self.conv2.stride[0]:]
+        if lookahead and xs.size(2) > self.conv2.stride[0]:
+            xs = xs[:, :, :xs.size(2) - self.conv2.stride[0]]
 
         if self.pool is not None:
             xs = self.pool(xs)
@@ -922,37 +901,33 @@ class Conv2dBlock(torch.nn.Module):
 class LayerNorm2D(nn.Module):
     """Layer normalization for CNN outputs."""
 
-    def __init__(self, dim, eps=1e-12):
+    def __init__(self, channel, idim, eps=1e-12):
 
         super(LayerNorm2D, self).__init__()
-        self.norm = nn.LayerNorm(dim, eps=eps)
+        self.norm = nn.LayerNorm([channel, idim], eps=eps)
 
     def forward(self, xs):
         """Forward computation.
-
         Args:
             xs (FloatTensor): `[B, C, T, F]`
         Returns:
             xs (FloatTensor): `[B, C, T, F]`
-
         """
         B, C, T, F = xs.size()
-        xs = xs.transpose(2, 1).contiguous().view(B, T, C * F)
+        xs = xs.transpose(2, 1).contiguous()
         xs = self.norm(xs)
-        xs = xs.view(B, T, C, F).transpose(2, 1)
+        xs = xs.transpose(2, 1)
         return xs
 
 
 def update_lens_1d(seq_lens, layer, device_id=-1):
     """Update lenghts (frequency or time).
-
     Args:
         seq_lens (list or IntTensor):
         layer (nn.Conv1d or nn.MaxPool1d):
         device_id (int):
     Returns:
         seq_lens (IntTensor):
-
     """
     if seq_lens is None:
         return seq_lens
@@ -966,14 +941,15 @@ def update_lens_1d(seq_lens, layer, device_id=-1):
 
 def _update_1d(seq_len, layer):
     if type(layer) == nn.MaxPool1d and layer.ceil_mode:
-        return math.ceil((seq_len + 1 + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
+        return math.ceil(
+            (seq_len + 1 + 2 * layer.padding - (layer.kernel_size - 1) - 1) / layer.stride + 1)
     else:
-        return math.floor((seq_len + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
+        return math.floor(
+            (seq_len + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
 
 
 def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
     """Update lenghts (frequency or time).
-
     Args:
         seq_lens (list or IntTensor):
         layer (nn.Conv2d or nn.MaxPool2d):
@@ -981,7 +957,6 @@ def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
         device_id (int):
     Returns:
         seq_lens (IntTensor):
-
     """
     if seq_lens is None:
         return seq_lens
@@ -996,12 +971,10 @@ def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
 def _update_2d(seq_len, layer, dim):
     if type(layer) == nn.MaxPool2d and layer.ceil_mode:
         return math.ceil(
-            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
-        )
+            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
     else:
         return math.floor(
-            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
-        )
+            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
 
 
 def parse_cnn_config(channels, kernel_sizes, strides, poolings):
@@ -1013,83 +986,76 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
         if is_1dconv:
             _kernel_sizes = [int(c) for c in kernel_sizes.split('_')]
         else:
-            _kernel_sizes = [
-                [int(c.split(',')[0].replace('(', '')), int(c.split(',')[1].replace(')', ''))]
-                for c in kernel_sizes.split('_')
-            ]
+            _kernel_sizes = [[int(c.split(',')[0].replace('(', '')),
+                              int(c.split(',')[1].replace(')', ''))] for c in kernel_sizes.split('_')]
     if len(strides) > 0:
         if is_1dconv:
             assert '(' not in _strides and ')' not in _strides
             _strides = [int(s) for s in strides.split('_')]
         else:
-            _strides = [
-                [int(s.split(',')[0].replace('(', '')), int(s.split(',')[1].replace(')', ''))]
-                for s in strides.split('_')
-            ]
+            _strides = [[int(s.split(',')[0].replace('(', '')),
+                         int(s.split(',')[1].replace(')', ''))] for s in strides.split('_')]
     if len(poolings) > 0:
         if is_1dconv:
             assert '(' not in poolings and ')' not in poolings
-            _poolings = [int(p) for p in strides.split('_')]
+            _poolings = [int(p) for p in poolings.split('_')]
         else:
-            _poolings = [
-                [int(p.split(',')[0].replace('(', '')), int(p.split(',')[1].replace(')', ''))]
-                for p in poolings.split('_')
-            ]
+            _poolings = [[int(p.split(',')[0].replace('(', '')),
+                          int(p.split(',')[1].replace(')', ''))] for p in poolings.split('_')]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
 
-
-def blockwise(xs, N_l, N_c, N_r):
-    bs, xmax, idim = xs.size()
-
-    n_blocks = xmax // N_c
-    if xmax % N_c != 0:
-        n_blocks += 1
-    xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
-    xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim), xs, xs.new_zeros(bs, N_r, idim)], dim=1)
-    for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
-        xs_chunk = xs_pad[:, t - N_l : t + (N_c + N_r)]
-        xs_tmp[:, blc_id, : xs_chunk.size(1), :] = xs_chunk
-    xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
-
-    return xs
+# def blockwise(xs, N_l, N_c, N_r):
+#     bs, xmax, idim = xs.size()
+#
+#     n_blocks = xmax // N_c
+#     if xmax % N_c != 0:
+#         n_blocks += 1
+#     xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
+#     xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim), xs, xs.new_zeros(bs, N_r, idim)], dim=1)
+#     for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
+#         xs_chunk = xs_pad[:, t - N_l : t + (N_c + N_r)]
+#         xs_tmp[:, blc_id, : xs_chunk.size(1), :] = xs_chunk
+#     xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
+#
+#     return xs
 
 
 def init_with_xavier_uniform(n, p):
     if p.dim() == 1:
         nn.init.constant_(p, 0.)  # bias
         logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.))
-    elif p.dim() in [2, 3]:
+    elif p.dim() in [2, 3, 4]:
         nn.init.xavier_uniform_(p)  # linear layer
         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
     else:
         raise ValueError(n)
 
 
-class Conv2dSubsampling(nn.Module):
-    """Convolutional 2D subsampling (to 1/4 length)
-    :param int idim: input dim
-    :param int odim: output dim
-    :param flaot dropout_rate: dropout rate
-    """
-
-    def __init__(self, idim, odim, dropout_rate):
-        super(Conv2dSubsampling, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, odim, 3, 2),
-            nn.ReLU(),
-            nn.Conv2d(odim, odim, 3, 2),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        """Subsample x
-        :param torch.Tensor x: input tensor
-        :param torch.Tensor x_mask: input mask
-        :return: subsampled x and mask
-        :rtype Tuple[torch.Tensor, torch.Tensor]
-        """
-        x = x.unsqueeze(1)  # (b, c, t, f)
-        x = self.conv(x)
-        b, c, t, f = x.size()
-        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
-        return x
+# class Conv2dSubsampling(nn.Module):
+#     """Convolutional 2D subsampling (to 1/4 length)
+#     :param int idim: input dim
+#     :param int odim: output dim
+#     :param flaot dropout_rate: dropout rate
+#     """
+#
+#     def __init__(self, idim, odim, dropout_rate):
+#         super(Conv2dSubsampling, self).__init__()
+#         self.conv = nn.Sequential(
+#             nn.Conv2d(1, odim, 3, 2),
+#             nn.ReLU(),
+#             nn.Conv2d(odim, odim, 3, 2),
+#             nn.ReLU()
+#         )
+#
+#     def forward(self, x):
+#         """Subsample x
+#         :param torch.Tensor x: input tensor
+#         :param torch.Tensor x_mask: input mask
+#         :return: subsampled x and mask
+#         :rtype Tuple[torch.Tensor, torch.Tensor]
+#         """
+#         x = x.unsqueeze(1)  # (b, c, t, f)
+#         x = self.conv(x)
+#         b, c, t, f = x.size()
+#         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+#         return x
