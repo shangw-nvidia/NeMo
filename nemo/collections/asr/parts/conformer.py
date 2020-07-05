@@ -302,7 +302,8 @@ class PositionwiseFeedForward(nn.Module):
         """
         if self.bottleneck_dim > 0:
             xs = self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
-            return self.dropout(xs)
+            #return self.dropout(xs)
+            return xs
         else:
             #xs = self.norm1(xs)
             xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))

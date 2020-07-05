@@ -467,7 +467,7 @@ class ConformerEncoder(TrainableNM):
             #     #     eouts[task]['xs'], eouts[task]['xlens'] = xs_sub2, xlens
             #     #     return eouts
 
-        audio_signal = self.norm_out(audio_signal)
+        #audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:

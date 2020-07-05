@@ -79,7 +79,7 @@ ConformerEncoder:
     conv_layer_norm: false
     kernel_size: 3
     pe_type: relative
-    d_model: 256
+    d_model: 192
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
