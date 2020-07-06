@@ -99,6 +99,9 @@ class ConformerEncoderBlock(torch.nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.dropout_layer = dropout_layer
 
+        self.norm5 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+
+
     def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None, pad_mask=None):
         """Conformer encoder layer definition.
 
@@ -113,8 +116,8 @@ class ConformerEncoderBlock(torch.nn.Module):
             xx_aws (FloatTensor): `[B, H, T, T]`
 
         """
-        if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
-           return xs
+        # if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
+        #    return xs
 
         # first half FFN
         residual = xs
@@ -151,7 +154,7 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # if pad_mask is not None:
         #    xs.masked_fill_(pad_mask, 0.0)
-
+        xs = self.norm5(xs)
         return xs
 
 
@@ -191,7 +194,7 @@ class ConformerConvBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         #self.apply(lambda x: init_weights(x, mode=param_init))
-        self.to(self._device)
+        #self.to(self._device)
 
         # changed here
         # if param_init == 'xavier_uniform':
@@ -282,7 +285,7 @@ class PositionwiseFeedForward(nn.Module):
 
         #self.apply(lambda x: init_weights(x, mode=param_init))
         self._device = device
-        self.to(self._device)
+        #self.to(self._device)
 
         # if param_init == 'xavier_uniform':
         self.reset_parameters()
@@ -300,15 +303,13 @@ class PositionwiseFeedForward(nn.Module):
         Returns:
             xs (FloatTensor): `[B, T, d_model]`
         """
+        # xs = self.norm1(xs)
         if self.bottleneck_dim > 0:
             xs = self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
-            #return self.dropout(xs)
-            return xs
         else:
-            #xs = self.norm1(xs)
             xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))
-            #return self.dropout(xs)
-            return xs
+        #return self.dropout(xs)
+        return xs
 
 
 class RelativeMultiheadAttentionMechanism(nn.Module):
@@ -485,7 +486,7 @@ class Swish(nn.Module):
 #         raise ValueError(n)
 
 
-def init_with_lecun_normal(n, p, param_init):
+def init_with_lecun_normal(n, p):
     if p.dim() == 1:
         nn.init.constant_(p, 0.0)  # bias
         logging.info('Initialize %s with %s' % (n, 'constant'))
@@ -646,13 +647,13 @@ class ConvEncoder(nn.Module):
         #self.subsampling_factor = 1
         #self.apply(lambda x: init_weights(x, mode=param_init))
         self.reset_parameters(param_init)
-        self.to(self._device)
+        #self.to(self._device)
 
     def reset_parameters(self, param_init):
         """Initialize parameters with lecun style."""
         logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
         for n, p in self.named_parameters():
-            init_with_lecun_normal(n, p, param_init)
+            init_with_lecun_normal(n, p)
 
     # @staticmethod
     # def add_args(parser, args):
@@ -1031,6 +1032,72 @@ def init_with_xavier_uniform(n, p):
     else:
         raise ValueError(n)
 
+
+class Conv2dSubsampling(torch.nn.Module):
+    """Convolutional 2D subsampling (to 1/4 length).
+
+    :param int idim: input dim
+    :param int odim: output dim
+    :param str activation: activation functions
+    :param flaot dropout_rate: dropout rate
+
+    """
+
+    def __init__(self, idim, odim, conv_channels, kernel_size, dropout_rate, activation=nn.ReLU(), rel_pos=False):
+        """Construct an Conv2dSubsampling object."""
+        super(Conv2dSubsampling, self).__init__()
+
+        #self._kernel_size = odim
+        self.conv = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=2, padding=0),
+            activation,
+            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=2, padding=0),
+            activation,
+        )
+        self.out = torch.nn.Linear(conv_channels * (((idim - 1) // 2 - 1) // 2), odim)
+        #self.out = torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim)
+
+        # self.out = torch.nn.Sequential(
+        #     torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
+        #     PositionalEncoding(odim, dropout_rate, rel_pos=rel_pos),
+        # )
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        """Initialize parameters with lecun style."""
+        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+        for n, p in self.named_parameters():
+            init_with_lecun_normal(n, p)
+
+    # def forward(self, x, x_mask):
+    def forward(self, x, lengths):
+        """Subsample x.
+
+        :param torch.Tensor x: input tensor
+        :param torch.Tensor x_mask: input mask
+        :return: subsampled x and mask
+        :rtype Tuple[torch.Tensor or Tuple[torch.Tensor, torch.Tensor], torch.Tensor]
+        """
+        x = x.unsqueeze(1)  # (b, c, t, f)
+        x = self.conv(x)
+        b, c, t, f = x.size()
+        # if use rel_pos, x: Tuple[torch.Tensor, torch.Tensor], else x: torch.Tensor
+        x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
+
+        lengths = [self.calc_length(length=length, padding=0, kernel_size=3, stride=2) for length in lengths]
+        lengths = torch.IntTensor(lengths)
+        lengths = lengths.to(x.device)
+
+        #if x_mask is None:
+        #    return x, None
+        #return x, x_mask[:, :, :-2:2][:, :, :-2:2]
+        return x, lengths
+
+    def calc_length(self, length, padding, kernel_size, stride):
+        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/stride + 1)
+        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/stride + 1)
+        return length
 
 # class Conv2dSubsampling(nn.Module):
 #     """Convolutional 2D subsampling (to 1/4 length)

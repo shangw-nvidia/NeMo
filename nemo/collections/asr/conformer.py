@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from .parts.conformer import ConvEncoder, ConformerEncoderBlock
+from .parts.conformer import ConvEncoder, ConformerEncoderBlock, Conv2dSubsampling
 from .parts.conformer import XLPositionalEmbedding
 from nemo.backends.pytorch.nm import TrainableNM
 from nemo.core.neural_types import *
@@ -214,29 +214,41 @@ class ConformerEncoder(TrainableNM):
         self.pe_type = pe_type
 
         # for streaming TransformerXL encoder
-        self.chunk_size_left = chunk_size_left
-        self.chunk_size_current = chunk_size_current
-        self.chunk_size_right = chunk_size_right
-        self.latency_controlled = chunk_size_left > 0 or chunk_size_current > 0 or chunk_size_right > 0
-        self.scale = math.sqrt(d_model)
+        #self.chunk_size_left = chunk_size_left
+        #self.chunk_size_current = chunk_size_current
+        #self.chunk_size_right = chunk_size_right
+        #self.latency_controlled = chunk_size_left > 0 or chunk_size_current > 0 or chunk_size_right > 0
+        #self.scale = math.sqrt(d_model)
 
         # for hierarchical encoder
-        self.n_layers_sub1 = n_layers_sub1
-        self.n_layers_sub2 = n_layers_sub2
-        self.task_specific_layer = task_specific_layer
+        #self.n_layers_sub1 = n_layers_sub1
+        #self.n_layers_sub2 = n_layers_sub2
+        #self.task_specific_layer = task_specific_layer
 
         # for bridge layers
         self.bridge = None
-        self.bridge_sub1 = None
-        self.bridge_sub2 = None
+        #self.bridge_sub1 = None
+        #self.bridge_sub2 = None
 
         # for attention plot
-        self.aws_dict = {}
-        self.data_dict = {}
+        #self.aws_dict = {}
+        #self.data_dict = {}
 
         # Setting for CNNs
         if conv_channels:
             assert n_stacks == 1 and n_splices == 1
+
+            # self.conv = Conv2dSubsampling(
+            #     idim=input_dim,
+            #     odim=d_model,
+            #     conv_channels=32,
+            #     kernel_size=3,
+            #     dropout_rate=0,
+            #     activation=nn.ReLU(),
+            #     rel_pos=False,
+            # )
+            # self._odim = d_model
+
             self.conv = ConvEncoder(
                 input_dim,
                 in_channel=conv_in_channel,
@@ -267,7 +279,7 @@ class ConformerEncoder(TrainableNM):
         self.pos_emb = XLPositionalEmbedding(d_model=d_model, dropout=dropout, device=self._device)  # TODO: dropout_in? maybe?
         assert pe_type == 'relative'
 
-        #self.dropout = nn.Dropout(p=dropout_in)
+        self.dropout = nn.Dropout(p=dropout_in)
 
         self.layers = nn.ModuleList(
             [
@@ -423,7 +435,7 @@ class ConformerEncoder(TrainableNM):
         #
         # else:
         bs, xmax, idim = audio_signal.size()
-        audio_signal = audio_signal * self.scale  # why really?
+        #audio_signal = audio_signal * self.scale  # why really?
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
@@ -433,7 +445,8 @@ class ConformerEncoder(TrainableNM):
         pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
         pos_embs = self.pos_emb(pos_idxs)
 
-        #audio_signal = self.dropout(audio_signal)
+        audio_signal = self.dropout(audio_signal)
+
         for lth, layer in enumerate(self.layers):
             audio_signal = layer(xs=audio_signal, xx_mask=xx_mask, pos_embs=pos_embs, pad_mask=pad_mask)
             #audio_signal.masked_fill_(pad_mask, 0.0)
