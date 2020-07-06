@@ -218,7 +218,7 @@ class ConformerEncoder(TrainableNM):
         self.chunk_size_current = chunk_size_current
         self.chunk_size_right = chunk_size_right
         self.latency_controlled = chunk_size_left > 0 or chunk_size_current > 0 or chunk_size_right > 0
-        self.scale = math.sqrt(d_model)
+        self.scale = 1 #math.sqrt(d_model)
 
         # for hierarchical encoder
         self.n_layers_sub1 = n_layers_sub1

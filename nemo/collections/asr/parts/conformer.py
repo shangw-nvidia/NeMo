@@ -430,7 +430,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         # Compute attention weights
         if mask is not None:
             NEG_INF = float(np.finfo(torch.tensor(0, dtype=e.dtype).numpy().dtype).min)
-            e = e.masked_fill_(mask == 0, NEG_INF)  # `[B, qlen, klen+mlen, H]`
+            e.masked_fill_(mask == 0, NEG_INF)  # `[B, qlen, klen+mlen, H]`
         aw = torch.softmax(e, dim=2)
         aw = self.dropout(aw)  # `[B, qlen, klen+mlen, H]`
         cv = torch.einsum("bijh,bjhd->bihd", (aw, value))  # `[B, qlen, H, d_k]`

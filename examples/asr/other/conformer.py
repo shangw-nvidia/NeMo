@@ -254,6 +254,7 @@ def main():
         files_to_copy=[args.model_config, __file__],
         cudnn_benchmark=args.cudnn_benchmark,
         tensorboard_dir=args.tensorboard_dir,
+        add_time_to_log_dir=True
     )
     args.num_gpus = neural_factory.world_size
 
