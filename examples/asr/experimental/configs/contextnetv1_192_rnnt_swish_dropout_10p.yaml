@@ -32,7 +32,7 @@ SpectrogramAugmentation:
     freq_masks: 2
     time_masks: 10
     freq_width: 27
-    time_width: 0.005
+    time_width: 0.05
 
 ContextNetEncoder:
     activation: "swish"

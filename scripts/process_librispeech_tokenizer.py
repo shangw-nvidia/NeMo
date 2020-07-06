@@ -14,6 +14,10 @@ import os
 import tokenizers
 from tqdm import tqdm
 
+"""
+python process_librispeech_tokenizer.py --manifest="/home/smajumdar/PycharmProjects/nemo-eval/nemo_eval/librispeech/manifests/train_clean_100.json,/home/smajumdar/PycharmProjects/nemo-eval/nemo_eval/librispeech/manifests/train_clean_360.json,/home/smajumdar/PycharmProjects/nemo-eval/nemo_eval/librispeech/manifests/train_other_500.json" --data_root="/home/smajumdar/PycharmProjects/nemo-eval/nemo_eval/librispeech/manifests/" --log
+"""
+
 parser = argparse.ArgumentParser(description='LibriSpeech Data download')
 parser.add_argument("--manifest", required=True, default=None, type=str)
 parser.add_argument("--data_root", required=True, default=None, type=str)
@@ -71,7 +75,7 @@ def __process_data(text_path: str, dst_folder: str, vocab_size: int):
     if not os.path.exists(tokenizer_dir):
         os.makedirs(tokenizer_dir)
 
-    tokenizer = tokenizers.ByteLevelBPETokenizer(lowercase=True)
+    tokenizer = tokenizers.BertWordPieceTokenizer(lowercase=True)
     tokenizer.train(text_path, vocab_size=vocab_size)
 
     tokenizer.save(tokenizer_dir)
