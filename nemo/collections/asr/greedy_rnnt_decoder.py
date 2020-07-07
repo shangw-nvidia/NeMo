@@ -183,7 +183,6 @@ class _GreedyRNNTDecoderInfer(NonTrainableNM):
             self,
             decoder_model: RNNTDecoder,
             joint_model: RNNTJoint,
-            vocabulary: List[str],
             blank_index: int,
             max_symbols_per_step: int,
     ):
@@ -191,8 +190,6 @@ class _GreedyRNNTDecoderInfer(NonTrainableNM):
         self.decoder = decoder_model
         self.joint = joint_model
 
-        self._vocab = vocabulary
-        self._vocab_size = len(vocabulary) + 1  # for blank character
         self._blank_index = blank_index
 
         self._SOS = blank_index  # Start of single index
@@ -381,14 +378,12 @@ class GreedyBatchedRNNTDecoderInfer(_GreedyRNNTDecoderInfer):
         self,
         decoder_model: RNNTDecoder,
         joint_model: RNNTJoint,
-        vocabulary: List[str],
         blank_index: int,
         max_symbols_per_step: int,
     ):
         super().__init__(
             decoder_model=decoder_model,
             joint_model=joint_model,
-            vocabulary=vocabulary,
             blank_index=blank_index,
             max_symbols_per_step=max_symbols_per_step
         )
