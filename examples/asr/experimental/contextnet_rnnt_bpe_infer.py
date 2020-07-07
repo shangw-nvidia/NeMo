@@ -24,14 +24,15 @@ from ruamel.yaml import YAML
 
 import nemo
 import nemo.collections.asr as nemo_asr
+import nemo.collections.nlp.data.tokenizers as nemo_tokenizers
 import nemo.utils.argparse as nm_argparse
-from nemo.collections.asr.helpers import (
+from nemo.collections.asr.bpe_helpers import (
     monitor_transducer_asr_train_progress,
     process_evaluation_epoch,
     process_transducer_evaluation_batch,
 )
 from nemo.utils import logging
-from nemo.utils.lr_policies import CosineAnnealing
+from nemo.utils.lr_policies import CosineAnnealing, SquareAnnealing
 
 
 def parse_args():
@@ -61,11 +62,14 @@ def parse_args():
         "--model_config", type=str, required=True, help="model configuration file: model.yaml",
     )
 
+    parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
+
     # Create new args
     parser.add_argument("--exp_name", default="ContextNet", type=str)
     parser.add_argument("--project", default=None, type=str)
     parser.add_argument("--beta1", default=0.95, type=float)
     parser.add_argument("--beta2", default=0.5, type=float)
+    parser.add_argument("--schedule", default="cosine", choices=["cosine", "square"], type=str)
     parser.add_argument("--warmup_steps", default=1000, type=int)
     parser.add_argument("--warmup_ratio", default=None, type=float)
     parser.add_argument('--min_lr', default=1e-5, type=float)
@@ -80,6 +84,10 @@ def parse_args():
     parser.add_argument('--pretrained_encoder', default=None, type=str)
     parser.add_argument('--pretrained_decoder', default=None, type=str)
 
+    parser.add_argument('--max_test_duration', default=None, type=float, help='Maximum duration for test set.'
+                                                                              'Filters out files !'
+                                                                              'Do not use during final evaluation !')
+    
     args = parser.parse_args()
     if args.max_steps is not None:
         raise ValueError("ContextNet uses num_epochs instead of max_steps")
@@ -103,7 +111,6 @@ def create_all_dags(args, neural_factory):
     with open(args.model_config) as f:
         contextnet_params = yaml.load(f)
 
-    vocab = contextnet_params['labels']
     sample_rate = contextnet_params['sample_rate']
 
     # Calculate num_workers for dataloader
@@ -117,10 +124,17 @@ def create_all_dags(args, neural_factory):
     del train_dl_params["eval"]
     # del train_dl_params["normalize_transcripts"]
 
-    data_layer_train = nemo_asr.AudioToTextDataLayer(
+    tokenizer = nemo_tokenizers.NemoGPT2Tokenizer(
+        pretrained_model=args.tokenizer_dir,
+    )
+
+    vocab_size = tokenizer.vocab_size
+    logging.info("Tokenizer vocabulary size : %d", vocab_size)
+
+    data_layer_train = nemo_asr.AudioToTextBPEDataLayer(
         manifest_filepath=args.train_dataset,
+        tokenizer=tokenizer,
         sample_rate=sample_rate,
-        labels=vocab,
         batch_size=args.batch_size,
         num_workers=cpu_per_traindl,
         **train_dl_params,
@@ -138,13 +152,18 @@ def create_all_dags(args, neural_factory):
     del eval_dl_params["train"]
     del eval_dl_params["eval"]
 
+    if args.max_test_duration is not None:
+        eval_dl_params['max_duration'] = args.max_test_duration
+        logging.warning('Setting max duration for eval sets ! Please evaluate again '
+                        'without filtering on eval set after training.')
+
     data_layers_eval = []
     if args.eval_datasets:
         for eval_dataset in args.eval_datasets:
-            data_layer_eval = nemo_asr.AudioToTextDataLayer(
+            data_layer_eval = nemo_asr.AudioToTextBPEDataLayer(
                 manifest_filepath=eval_dataset,
+                tokenizer=tokenizer,
                 sample_rate=sample_rate,
-                labels=vocab,
                 batch_size=args.eval_batch_size,
                 num_workers=cpu_per_traindl,
                 **eval_dl_params,
@@ -175,11 +194,11 @@ def create_all_dags(args, neural_factory):
         encoder.restore_from(args.pretrained_encoder, args.local_rank)
         logging.info(f"Restored encoder weights from {args.pretrained_encoder}")
 
-    decoder = nemo_asr.RNNTDecoder(num_classes=len(vocab), **contextnet_params["RNNTDecoder"])
+    decoder = nemo_asr.RNNTDecoder(num_classes=vocab_size, **contextnet_params["RNNTDecoder"])
 
-    joint = nemo_asr.RNNTJoint(num_classes=len(vocab), **contextnet_params['RNNTJoint'])
+    joint = nemo_asr.RNNTJoint(num_classes=vocab_size, **contextnet_params['RNNTJoint'])
 
-    rnnt_loss = nemo_asr.RNNTLoss(num_classes=len(vocab), reduction=None, zero_infinity=True)
+    rnnt_loss = nemo_asr.RNNTLoss(num_classes=vocab_size, reduction=None, zero_infinity=True)
 
     # greedy_decoder = nemo_asr.GreedyRNNTDecoderInfer(
     #     decoder_model=decoder,
@@ -192,7 +211,7 @@ def create_all_dags(args, neural_factory):
     greedy_decoder = nemo_asr.GreedyBatchedRNNTDecoderInfer(
         decoder_model=decoder,
         joint_model=joint,
-        blank_index=len(vocab),
+        blank_index=vocab_size,
         max_symbols_per_step=args.max_symbols_per_step,
     )
 
@@ -247,11 +266,10 @@ def create_all_dags(args, neural_factory):
     )
 
     # create train callbacks
-
     train_callback = nemo.core.SimpleLossLoggerCallback(
         tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
         print_func=partial(
-            monitor_transducer_asr_train_progress, labels=vocab, decoder_type='dynamic', eval_metric='WER'
+            monitor_transducer_asr_train_progress, tokenizer=tokenizer, decoder_type='dynamic', eval_metric='WER'
         ),
         get_tb_values=lambda x: [["loss", x[0]]],
         tb_writer=neural_factory.tb_writer,
@@ -306,7 +324,7 @@ def create_all_dags(args, neural_factory):
         eval_callback = nemo.core.EvaluatorCallback(
             eval_tensors=[loss_e, predictions_e, transcript_e, transcript_len_e],
             user_iter_callback=partial(
-                process_transducer_evaluation_batch, labels=vocab, decoder_type='dynamic', beam_size=args.beam_size
+                process_transducer_evaluation_batch, tokenizer=tokenizer, decoder_type='dynamic', beam_size=args.beam_size
             ),
             user_epochs_done_callback=partial(process_evaluation_epoch, tag=tagname, eval_metric='WER'),
             eval_step=args.eval_freq,
@@ -375,16 +393,30 @@ def main():
     # build dags
     train_loss, callbacks, steps_per_epoch = create_all_dags(args, neural_factory)
 
-    # train model
-    neural_factory.train(
-        tensors_to_optimize=[train_loss],
-        callbacks=callbacks,
-        lr_policy=CosineAnnealing(
+    if args.schedule == 'cosine':
+        policy = CosineAnnealing(
             args.num_epochs * steps_per_epoch,
             warmup_steps=args.warmup_steps,
             warmup_ratio=args.warmup_ratio,
             min_lr=args.min_lr,
-        ),
+        )
+
+    elif args.schedule == 'square':
+        policy = SquareAnnealing(
+            args.num_epochs * steps_per_epoch,
+            warmup_steps=args.warmup_steps,
+            warmup_ratio=args.warmup_ratio,
+            min_lr=args.min_lr,
+        )
+
+    else:
+        raise ValueError("`schedule` can be either `cosine` or `square`")
+
+    # train model
+    neural_factory.train(
+        tensors_to_optimize=[train_loss],
+        callbacks=callbacks,
+        lr_policy=policy,
         optimizer=args.optimizer,
         optimization_params={
             "num_epochs": args.num_epochs,
