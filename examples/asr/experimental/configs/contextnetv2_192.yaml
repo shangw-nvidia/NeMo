@@ -29,7 +29,7 @@ AudioToMelSpectrogramPreprocessor:
 
 SpectrogramAugmentation:
     freq_masks: 2
-    time_masks: 10
+    time_masks: 2
     freq_width: 27
     time_width: 0.05
 
