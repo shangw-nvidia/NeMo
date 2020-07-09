@@ -6,8 +6,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from .parts.conformer import ConvEncoder, ConformerEncoderBlock, Conv2dSubsampling
-from .parts.conformer import XLPositionalEmbedding
+from .parts.conformer import ConformerEncoderBlock, Conv2dSubsampling, ConvEncoder, XLPositionalEmbedding
 from nemo.backends.pytorch.nm import TrainableNM
 from nemo.core.neural_types import *
 from nemo.utils import logging
@@ -234,7 +233,7 @@ class ConformerEncoder(TrainableNM):
             # self._odim = self.conv.output_dim
         else:
             self.conv = None
-            self._odim = input_dim #* n_splices * n_stacks
+            self._odim = input_dim  # * n_splices * n_stacks
             self.embed = nn.Linear(self._odim, d_model)
 
         # calculate subsampling factor
@@ -242,7 +241,9 @@ class ConformerEncoder(TrainableNM):
         # if self.conv is not None:
         #     self._factor *= self.conv.subsampling_factor
 
-        self.pos_emb = XLPositionalEmbedding(d_model=d_model, dropout=dropout, device=self._device)  # TODO: dropout_in? maybe?
+        self.pos_emb = XLPositionalEmbedding(
+            d_model=d_model, dropout=dropout, device=self._device
+        )  # TODO: dropout_in? maybe?
         assert pe_type == 'relative'
 
         self.dropout = nn.Dropout(p=dropout_in)
@@ -276,7 +277,6 @@ class ConformerEncoder(TrainableNM):
             self.bridge = nn.Linear(self._odim, last_proj_dim)
             self._odim = last_proj_dim
 
-
         self.lstm = nn.LSTM(
             input_size=last_proj_dim, hidden_size=320, num_layers=1, batch_first=True, bidirectional=False,
         )
@@ -297,7 +297,6 @@ class ConformerEncoder(TrainableNM):
                 nn.init.xavier_uniform_(self.bridge.weight)
                 nn.init.constant_(self.bridge.bias, 0.0)
 
-
     def forward(self, audio_signal, length=None):
         ## type: (Tensor, Optional[Tensor]) -> Tensor, Optional[Tensor]
 
@@ -309,14 +308,14 @@ class ConformerEncoder(TrainableNM):
             audio_signal = self.embed(audio_signal)
         else:
             # Path through CNN blocks
-            #audio_signal1, length1 = self.conv(audio_signal, length)
+            # audio_signal1, length1 = self.conv(audio_signal, length)
             audio_signal2, length2 = self.conv(audio_signal, length)
 
         audio_signal = audio_signal2
         length = length2
 
         bs, xmax, idim = audio_signal.size()
-        #audio_signal = audio_signal * self.scale  # why really?
+        # audio_signal = audio_signal * self.scale  # why really?
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
@@ -330,19 +329,18 @@ class ConformerEncoder(TrainableNM):
 
         for lth, layer in enumerate(self.layers):
             audio_signal = layer(xs=audio_signal, xx_mask=xx_mask, pos_embs=pos_embs, pad_mask=pad_mask)
-            #audio_signal.masked_fill_(pad_mask, 0.0)
+            # audio_signal.masked_fill_(pad_mask, 0.0)
 
             # if not self.training:
             #     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
-
-        #audio_signal = self.norm_out(audio_signal)
+        # audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:
             audio_signal = self.bridge(audio_signal)
 
-        #audio_signal.masked_fill_(pad_mask, 0.0)
+        # audio_signal.masked_fill_(pad_mask, 0.0)
 
         audio_signal, _ = self.lstm(audio_signal)
 

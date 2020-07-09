@@ -1,10 +1,10 @@
 import math
+import random
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
 
 from nemo import logging
 from nemo.collections.asr.parts.jasper import init_weights
@@ -101,7 +101,6 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         self.norm5 = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
-
     def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None, pad_mask=None):
         """Conformer encoder layer definition.
 
@@ -117,7 +116,7 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         """
         if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
-           return xs
+            return xs
 
         # first half FFN
         residual = xs
@@ -133,10 +132,10 @@ class ConformerEncoderBlock(torch.nn.Module):
         residual = xs
         xs = self.norm2(xs)
         if pad_mask is not None:
-           xs.masked_fill_(pad_mask, 0.0)
+            xs.masked_fill_(pad_mask, 0.0)
         xs = self.conv(xs)
         xs = self.dropout(xs) + residual
-        #xs = xs + residual
+        # xs = xs + residual
 
         # self-attention
         residual = xs
@@ -144,14 +143,14 @@ class ConformerEncoderBlock(torch.nn.Module):
         # relative positional encoding
         memory = None
         xs, xx_aws = self.self_attn(xs, xs, memory, pos_embs, xx_mask, u, v)
-        #xs = xs + residual
+        # xs = xs + residual
         xs = self.dropout(xs) + residual
 
         # second half FFN
         residual = xs
         xs = self.norm4(xs)
         xs = self.feed_forward2(xs)
-        #xs = self.fc_factor * xs + residual  # Macaron FFN
+        # xs = self.fc_factor * xs + residual  # Macaron FFN
         xs = self.fc_factor * self.dropout(xs) + residual  # Macaron FFN
 
         # if pad_mask is not None:
@@ -175,7 +174,7 @@ class ConformerConvBlock(nn.Module):
         self.d_model = d_model
         assert (kernel_size - 1) % 2 == 0
 
-        #self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        # self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.pointwise_conv1 = nn.Conv1d(
             in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0  # for GLU
@@ -195,8 +194,8 @@ class ConformerConvBlock(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        #self.apply(lambda x: init_weights(x, mode=param_init))
-        #self.to(self._device)
+        # self.apply(lambda x: init_weights(x, mode=param_init))
+        # self.to(self._device)
 
         # changed here
         # if param_init == 'xavier_uniform':
@@ -219,7 +218,7 @@ class ConformerConvBlock(nn.Module):
         B, T, d_model = xs.size()
         assert d_model == self.d_model
 
-        #xs = self.layer_norm(xs)
+        # xs = self.layer_norm(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.pointwise_conv1(xs)  # `[B, 2 * C, T]`
         xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
@@ -238,7 +237,7 @@ class ConformerConvBlock(nn.Module):
         #     xs.masked_fill_(pad_mask.transpose(2, 1), 0.0)
 
         xs = self.pointwise_conv2(xs)  # `[B, C, T]`
-        #xs = self.dropout(xs)
+        # xs = self.dropout(xs)
         xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
@@ -257,7 +256,7 @@ class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout, activation, param_init, layer_norm_eps, bottleneck_dim, device):
         super(PositionwiseFeedForward, self).__init__()
 
-        #self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        # self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.bottleneck_dim = bottleneck_dim
         if bottleneck_dim > 0:
@@ -285,9 +284,9 @@ class PositionwiseFeedForward(nn.Module):
             raise NotImplementedError(activation)
         logging.info('FFN activation: %s' % activation)
 
-        #self.apply(lambda x: init_weights(x, mode=param_init))
+        # self.apply(lambda x: init_weights(x, mode=param_init))
         self._device = device
-        #self.to(self._device)
+        # self.to(self._device)
 
         # if param_init == 'xavier_uniform':
         self.reset_parameters()
@@ -310,7 +309,7 @@ class PositionwiseFeedForward(nn.Module):
             xs = self.w_2_d(self.w_2_e(self.dropout(self.activation(self.w_1_d(self.w_1_e(xs))))))
         else:
             xs = self.w_2(self.dropout(self.activation(self.w_1(xs))))
-        #return self.dropout(xs)
+        # return self.dropout(xs)
         return xs
 
 
@@ -345,7 +344,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         # TODO: fix later
         self.w_out = nn.Linear(adim, odim, bias=bias)
 
-        #self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        # self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         if param_init == 'xavier_uniform':
             self.reset_parameters(bias)
@@ -395,7 +394,7 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
             cv (FloatTensor): `[B, qlen, vdim]`
             aw (FloatTensor): `[B, H, qlen, klen+mlen]`
         """
-        bs, qlen = query.size()[: 2]
+        bs, qlen = query.size()[:2]
         klen = key.size(1)
         mlen = memory.size(1) if memory is not None and memory.dim() > 1 else 0
         if mlen > 0:
@@ -405,8 +404,10 @@ class RelativeMultiheadAttentionMechanism(nn.Module):
         key = self.w_key(key).view(bs, -1, self.n_heads, self.d_k)  # `[B, klen+mlen, H, d_k]`
         if mask is not None:
             mask = mask.unsqueeze(3).repeat([1, 1, 1, self.n_heads])
-            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), \
-                (mask.size(), (bs, qlen, klen + mlen, self.n_heads))
+            assert mask.size() == (bs, qlen, mlen + klen, self.n_heads), (
+                mask.size(),
+                (bs, qlen, klen + mlen, self.n_heads),
+            )
 
         query = self.w_query(query).view(bs, -1, self.n_heads, self.d_k)  # `[B, qlen, H, d_k]`
         pos_embs = self.w_position(pos_embs)
@@ -583,9 +584,9 @@ class ConvEncoder(nn.Module):
             in_freq = block._odim
             C_i = channels[lth]
 
-        #check here
+        # check here
         self._odim = C_i if is_1dconv else int(C_i * in_freq)
-        #self._odim = C_i if is_1dconv else int(C_i * 32)
+        # self._odim = C_i if is_1dconv else int(C_i * 32)
 
         if bottleneck_dim > 0 and bottleneck_dim != self._odim:
             self.bridge = nn.Linear(self._odim, bottleneck_dim)
@@ -598,13 +599,13 @@ class ConvEncoder(nn.Module):
                 self._factor *= p if is_1dconv else p[0]
 
         # changed here
-        #param_init = "xavier_uniform"
+        # param_init = "xavier_uniform"
 
         self.output_dim = self._odim
-        #self.subsampling_factor = 1
-        #self.apply(lambda x: init_weights(x, mode=param_init))
+        # self.subsampling_factor = 1
+        # self.apply(lambda x: init_weights(x, mode=param_init))
         self.reset_parameters(param_init)
-        #self.to(self._device)
+        # self.to(self._device)
 
     def reset_parameters(self, param_init):
         """Initialize parameters with lecun style."""
@@ -641,7 +642,6 @@ class ConvEncoder(nn.Module):
     #     )
     #     return parser
 
-
     def forward(self, xs, xlens):
         """Forward computation.
 
@@ -674,9 +674,20 @@ class ConvEncoder(nn.Module):
 class Conv2dBlock(nn.Module):
     """2d-CNN block."""
 
-    def __init__(self, input_dim, in_channel, out_channel,
-                 kernel_size, stride, pooling,
-                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
+    def __init__(
+        self,
+        input_dim,
+        in_channel,
+        out_channel,
+        kernel_size,
+        stride,
+        pooling,
+        dropout,
+        batch_norm,
+        layer_norm,
+        layer_norm_eps,
+        residual,
+    ):
 
         super(Conv2dBlock, self).__init__()
 
@@ -686,35 +697,34 @@ class Conv2dBlock(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # 1st layer
-        self.conv1 = nn.Conv2d(in_channels=in_channel,
-                               out_channels=out_channel,
-                               kernel_size=tuple(kernel_size),
-                               stride=tuple(stride),
-                               padding=(1, 1))
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channel,
+            out_channels=out_channel,
+            kernel_size=tuple(kernel_size),
+            stride=tuple(stride),
+            padding=(1, 1),
+        )
         self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0].item()
         self.batch_norm1 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = LayerNorm2D(out_channel, self._odim,
-                                       eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm1 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # 2nd layer
-        self.conv2 = nn.Conv2d(in_channels=out_channel,
-                               out_channels=out_channel,
-                               kernel_size=tuple(kernel_size),
-                               stride=tuple(stride),
-                               padding=(1, 1))
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channel,
+            out_channels=out_channel,
+            kernel_size=tuple(kernel_size),
+            stride=tuple(stride),
+            padding=(1, 1),
+        )
         self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0].item()
         self.batch_norm2 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = LayerNorm2D(out_channel, self._odim,
-                                       eps=layer_norm_eps) if layer_norm else lambda x: x
+        self.layer_norm2 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
 
         # Max Pooling
         self.pool = None
         self._factor = 1
         if len(pooling) > 0 and np.prod(pooling) > 1:
-            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling),
-                                     stride=tuple(pooling),
-                                     padding=(0, 0),
-                                     ceil_mode=True)
+            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling), stride=tuple(pooling), padding=(0, 0), ceil_mode=True)
             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
             self._odim = update_lens_2d([self._odim], self.pool, dim=1)[0].item()
             if self._odim % 2 != 0:
@@ -746,9 +756,9 @@ class Conv2dBlock(nn.Module):
         xs = self.dropout(xs)
         xlens = update_lens_2d(xlens, self.conv1, dim=0)
         if lookback and xs.size(2) > self.conv1.stride[0]:
-            xs = xs[:, :, self.conv1.stride[0]:]
+            xs = xs[:, :, self.conv1.stride[0] :]
         if lookahead and xs.size(2) > self.conv1.stride[0]:
-            xs = xs[:, :, :xs.size(2) - self.conv1.stride[0]]
+            xs = xs[:, :, : xs.size(2) - self.conv1.stride[0]]
 
         xs = self.conv2(xs)
         xs = self.batch_norm2(xs)
@@ -759,9 +769,9 @@ class Conv2dBlock(nn.Module):
         xs = self.dropout(xs)
         xlens = update_lens_2d(xlens, self.conv2, dim=0)
         if lookback and xs.size(2) > self.conv2.stride[0]:
-            xs = xs[:, :, self.conv2.stride[0]:]
+            xs = xs[:, :, self.conv2.stride[0] :]
         if lookahead and xs.size(2) > self.conv2.stride[0]:
-            xs = xs[:, :, :xs.size(2) - self.conv2.stride[0]]
+            xs = xs[:, :, : xs.size(2) - self.conv2.stride[0]]
 
         if self.pool is not None:
             xs = self.pool(xs)
@@ -791,6 +801,7 @@ class LayerNorm2D(nn.Module):
         xs = xs.transpose(2, 1)
         return xs
 
+
 def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
     """Update lenghts (frequency or time).
     Args:
@@ -814,10 +825,12 @@ def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
 def _update_2d(seq_len, layer, dim):
     if type(layer) == nn.MaxPool2d and layer.ceil_mode:
         return math.ceil(
-            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
+            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+        )
     else:
         return math.floor(
-            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1)
+            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+        )
 
 
 def parse_cnn_config(channels, kernel_sizes, strides, poolings):
@@ -829,29 +842,35 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
         if is_1dconv:
             _kernel_sizes = [int(c) for c in kernel_sizes.split('_')]
         else:
-            _kernel_sizes = [[int(c.split(',')[0].replace('(', '')),
-                              int(c.split(',')[1].replace(')', ''))] for c in kernel_sizes.split('_')]
+            _kernel_sizes = [
+                [int(c.split(',')[0].replace('(', '')), int(c.split(',')[1].replace(')', ''))]
+                for c in kernel_sizes.split('_')
+            ]
     if len(strides) > 0:
         if is_1dconv:
             assert '(' not in _strides and ')' not in _strides
             _strides = [int(s) for s in strides.split('_')]
         else:
-            _strides = [[int(s.split(',')[0].replace('(', '')),
-                         int(s.split(',')[1].replace(')', ''))] for s in strides.split('_')]
+            _strides = [
+                [int(s.split(',')[0].replace('(', '')), int(s.split(',')[1].replace(')', ''))]
+                for s in strides.split('_')
+            ]
     if len(poolings) > 0:
         if is_1dconv:
             assert '(' not in poolings and ')' not in poolings
             _poolings = [int(p) for p in poolings.split('_')]
         else:
-            _poolings = [[int(p.split(',')[0].replace('(', '')),
-                          int(p.split(',')[1].replace(')', ''))] for p in poolings.split('_')]
+            _poolings = [
+                [int(p.split(',')[0].replace('(', '')), int(p.split(',')[1].replace(')', ''))]
+                for p in poolings.split('_')
+            ]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
 
 
 def init_with_xavier_uniform(n, p):
     if p.dim() == 1:
-        nn.init.constant_(p, 0.)  # bias
-        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.))
+        nn.init.constant_(p, 0.0)  # bias
+        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
     elif p.dim() in [2, 3, 4]:
         nn.init.xavier_uniform_(p)  # linear layer
         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
@@ -893,7 +912,7 @@ class Conv2dSubsampling(torch.nn.Module):
         """Construct an Conv2dSubsampling object."""
         super(Conv2dSubsampling, self).__init__()
 
-        #self._kernel_size = odim
+        # self._kernel_size = odim
         # self.conv = torch.nn.Sequential(
         #     torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
         #     activation,
@@ -929,8 +948,8 @@ class Conv2dSubsampling(torch.nn.Module):
         # if out_length % 2 != 0:
         #     out_length = (out_length // 2) * 2
         self.out = torch.nn.Linear(conv_channels * out_length, odim)
-        #self.out = torch.nn.Linear(conv_channels * (((idim - 1) // 2 - 1) // 2), odim)
-        #self.out = torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim)
+        # self.out = torch.nn.Linear(conv_channels * (((idim - 1) // 2 - 1) // 2), odim)
+        # self.out = torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim)
 
         # self.out = torch.nn.Sequential(
         #     torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
@@ -943,7 +962,7 @@ class Conv2dSubsampling(torch.nn.Module):
         """Initialize parameters with lecun style."""
         logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
         for n, p in self.named_parameters():
-            #init_with_lecun_normal(n, p)
+            # init_with_lecun_normal(n, p)
             init_with_xavier_uniform(n, p)
 
     # def forward(self, x, x_mask):
@@ -961,8 +980,12 @@ class Conv2dSubsampling(torch.nn.Module):
         # if use rel_pos, x: Tuple[torch.Tensor, torch.Tensor], else x: torch.Tensor
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 
-        lengths = [calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths]
-        lengths = [calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths]
+        lengths = [
+            calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths
+        ]
+        lengths = [
+            calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths
+        ]
 
         # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
         # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
@@ -970,19 +993,18 @@ class Conv2dSubsampling(torch.nn.Module):
         lengths = torch.IntTensor(lengths)
         lengths = lengths.to(x.device)
 
-        #if x_mask is None:
+        # if x_mask is None:
         #    return x, None
-        #return x, x_mask[:, :, :-2:2][:, :, :-2:2]
+        # return x, x_mask[:, :, :-2:2][:, :, :-2:2]
         return x, lengths
 
 
 def calc_length(length, padding, kernel_size, stride, ceil_mode):
     if ceil_mode:
-        length = math.ceil((length + (2 * padding) - (kernel_size - 1) - 1)/float(stride) + 1)
+        length = math.ceil((length + (2 * padding) - (kernel_size - 1) - 1) / float(stride) + 1)
     else:
-        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/float(stride) + 1)
+        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1) / float(stride) + 1)
     return length
-
 
 
 # class Conv2dSubsampling(nn.Module):
