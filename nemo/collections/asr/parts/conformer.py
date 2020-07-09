@@ -116,8 +116,8 @@ class ConformerEncoderBlock(torch.nn.Module):
             xx_aws (FloatTensor): `[B, H, T, T]`
 
         """
-        # if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
-        #    return xs
+        if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
+           return xs
 
         # first half FFN
         residual = xs
@@ -132,6 +132,8 @@ class ConformerEncoderBlock(torch.nn.Module):
         # conv
         residual = xs
         xs = self.norm2(xs)
+        if pad_mask is not None:
+           xs.masked_fill_(pad_mask, 0.0)
         xs = self.conv(xs)
         xs = self.dropout(xs) + residual
         #xs = xs + residual
@@ -475,37 +477,6 @@ class Swish(nn.Module):
         return x * torch.sigmoid(x)
 
 
-# def init_with_xavier_uniform(n, p):
-#     if p.dim() == 1:
-#         nn.init.constant_(p, 0.0)  # bias
-#         logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
-#     elif p.dim() in [2, 3]:
-#         nn.init.xavier_uniform_(p)  # linear layer
-#         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
-#     else:
-#         raise ValueError(n)
-
-
-def init_with_lecun_normal(n, p):
-    if p.dim() == 1:
-        nn.init.constant_(p, 0.0)  # bias
-        logging.info('Initialize %s with %s' % (n, 'constant'))
-    elif p.dim() == 2:
-        fan_in = p.size(1)
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    elif p.dim() == 3:
-        fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    elif p.dim() == 4:
-        fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    else:
-        raise ValueError(n)
-
-
 class XLPositionalEmbedding(nn.Module):
     def __init__(self, d_model, dropout, device=None):
         """Positional embedding for TransformerXL."""
@@ -594,34 +565,20 @@ class ConvEncoder(nn.Module):
         C_i = input_dim if is_1dconv else in_channel
         in_freq = self.input_freq
         for lth in range(len(channels)):
-            if is_1dconv:
-                block = Conv1dBlock(
-                    in_channel=C_i,
-                    out_channel=channels[lth],
-                    kernel_size=kernel_sizes[lth],  # T
-                    stride=strides[lth],  # T
-                    pooling=poolings[lth],  # T
-                    dropout=dropout,
-                    batch_norm=batch_norm,
-                    layer_norm=layer_norm,
-                    layer_norm_eps=layer_norm_eps,
-                    residual=residual,
-                )
-            else:
-                # block = nn.ReLU(nn.Conv2d(C_i, channels[lth], kernel_size=kernel_sizes[lth], stride=strides[lth]).to(self._device))
-                block = Conv2dBlock(
-                    input_dim=in_freq,
-                    in_channel=C_i,
-                    out_channel=channels[lth],
-                    kernel_size=kernel_sizes[lth],  # (T,F)
-                    stride=strides[lth],  # (T,F)
-                    pooling=poolings[lth],  # (T,F)
-                    dropout=dropout,
-                    batch_norm=batch_norm,
-                    layer_norm=layer_norm,
-                    layer_norm_eps=layer_norm_eps,
-                    residual=residual,
-                )
+            # block = nn.ReLU(nn.Conv2d(C_i, channels[lth], kernel_size=kernel_sizes[lth], stride=strides[lth]).to(self._device))
+            block = Conv2dBlock(
+                input_dim=in_freq,
+                in_channel=C_i,
+                out_channel=channels[lth],
+                kernel_size=kernel_sizes[lth],  # (T,F)
+                stride=strides[lth],  # (T,F)
+                pooling=poolings[lth],  # (T,F)
+                dropout=dropout,
+                batch_norm=batch_norm,
+                layer_norm=layer_norm,
+                layer_norm_eps=layer_norm_eps,
+                residual=residual,
+            )
             self.layers += [block]
             in_freq = block._odim
             C_i = channels[lth]
@@ -710,93 +667,6 @@ class ConvEncoder(nn.Module):
         # Bridge layer
         if self.bridge is not None:
             xs = self.bridge(xs)
-
-        return xs, xlens
-
-
-class Conv1dBlock(nn.Module):
-    """1d-CNN block."""
-
-    def __init__(self, in_channel, out_channel,
-                 kernel_size, stride, pooling,
-                 dropout, batch_norm, layer_norm, layer_norm_eps, residual):
-
-        super(Conv1dBlock, self).__init__()
-
-        self.batch_norm = batch_norm
-        self.layer_norm = layer_norm
-        self.residual = residual
-        self.dropout = nn.Dropout(p=dropout)
-
-        # 1st layer
-        self.conv1 = nn.Conv1d(in_channels=in_channel,
-                               out_channels=out_channel,
-                               kernel_size=kernel_size,
-                               stride=stride,
-                               padding=1)
-        self._odim = update_lens_1d([in_channel], self.conv1)[0].item()
-        self.batch_norm1 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = nn.LayerNorm(out_channel,
-                                        eps=layer_norm_eps) if layer_norm else lambda x: x
-
-        # 2nd layer
-        self.conv2 = nn.Conv1d(in_channels=out_channel,
-                               out_channels=out_channel,
-                               kernel_size=kernel_size,
-                               stride=stride,
-                               padding=1)
-        self._odim = update_lens_1d([self._odim], self.conv2)[0].item()
-        self.batch_norm2 = nn.BatchNorm1d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = nn.LayerNorm(out_channel,
-                                        eps=layer_norm_eps) if layer_norm else lambda x: x
-
-        # Max Pooling
-        self.pool = None
-        if pooling > 1:
-            self.pool = nn.MaxPool1d(kernel_size=pooling,
-                                     stride=pooling,
-                                     padding=0,
-                                     ceil_mode=True)
-            # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
-            self._odim = update_lens_1d([self._odim], self.pool)[0].item()
-            if self._odim % 2 != 0:
-                self._odim = (self._odim // 2) * 2
-                # TODO(hirofumi0810): more efficient way?
-
-    def forward(self, xs, xlens, lookback=False, lookahead=False):
-        """Forward computation.
-        Args:
-            xs (FloatTensor): `[B, T, F]`
-            xlens (IntTensor): `[B]`
-            lookback (bool): truncate the leftmost frames
-                because of lookback frames for context
-            lookahead (bool): truncate the rightmost frames
-                because of lookahead frames for context
-        Returns:
-            xs (FloatTensor): `[B, T', F']`
-            xlens (IntTensor): `[B]`
-        """
-        residual = xs
-
-        xs = self.conv1(xs.transpose(2, 1)).transpose(2, 1)
-        xs = self.batch_norm1(xs)
-        xs = self.layer_norm1(xs)
-        xs = torch.relu(xs)
-        xs = self.dropout(xs)
-        xlens = update_lens_1d(xlens, self.conv1)
-
-        xs = self.conv2(xs.transpose(2, 1)).transpose(2, 1)
-        xs = self.batch_norm2(xs)
-        xs = self.layer_norm2(xs)
-        if self.residual and xs.size() == residual.size():
-            xs += residual  # NOTE: this is the same place as in ResNet
-        xs = torch.relu(xs)
-        xs = self.dropout(xs)
-        xlens = update_lens_1d(xlens, self.conv2)
-
-        if self.pool is not None:
-            xs = self.pool(xs.transpose(2, 1)).transpose(2, 1)
-            xlens = update_lens_1d(xlens, self.pool)
 
         return xs, xlens
 
@@ -921,35 +791,6 @@ class LayerNorm2D(nn.Module):
         xs = xs.transpose(2, 1)
         return xs
 
-
-def update_lens_1d(seq_lens, layer, device_id=-1):
-    """Update lenghts (frequency or time).
-    Args:
-        seq_lens (list or IntTensor):
-        layer (nn.Conv1d or nn.MaxPool1d):
-        device_id (int):
-    Returns:
-        seq_lens (IntTensor):
-    """
-    if seq_lens is None:
-        return seq_lens
-    assert type(layer) in [nn.Conv1d, nn.MaxPool1d]
-    seq_lens = [_update_1d(seq_len, layer) for seq_len in seq_lens]
-    seq_lens = torch.IntTensor(seq_lens)
-    if device_id >= 0:
-        seq_lens = seq_lens.cuda(device_id)
-    return seq_lens
-
-
-def _update_1d(seq_len, layer):
-    if type(layer) == nn.MaxPool1d and layer.ceil_mode:
-        return math.ceil(
-            (seq_len + 1 + 2 * layer.padding - (layer.kernel_size - 1) - 1) / layer.stride + 1)
-    else:
-        return math.floor(
-            (seq_len + 2 * layer.padding[0] - (layer.kernel_size[0] - 1) - 1) / layer.stride[0] + 1)
-
-
 def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
     """Update lenghts (frequency or time).
     Args:
@@ -1006,21 +847,6 @@ def parse_cnn_config(channels, kernel_sizes, strides, poolings):
                           int(p.split(',')[1].replace(')', ''))] for p in poolings.split('_')]
     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
 
-# def blockwise(xs, N_l, N_c, N_r):
-#     bs, xmax, idim = xs.size()
-#
-#     n_blocks = xmax // N_c
-#     if xmax % N_c != 0:
-#         n_blocks += 1
-#     xs_tmp = xs.new_zeros(bs, n_blocks, N_l + N_c + N_r, idim)
-#     xs_pad = torch.cat([xs.new_zeros(bs, N_l, idim), xs, xs.new_zeros(bs, N_r, idim)], dim=1)
-#     for blc_id, t in enumerate(range(N_l, N_l + xmax, N_c)):
-#         xs_chunk = xs_pad[:, t - N_l : t + (N_c + N_r)]
-#         xs_tmp[:, blc_id, : xs_chunk.size(1), :] = xs_chunk
-#     xs = xs_tmp.view(bs * n_blocks, N_l + N_c + N_r, idim)
-#
-#     return xs
-
 
 def init_with_xavier_uniform(n, p):
     if p.dim() == 1:
@@ -1029,6 +855,26 @@ def init_with_xavier_uniform(n, p):
     elif p.dim() in [2, 3, 4]:
         nn.init.xavier_uniform_(p)  # linear layer
         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
+    else:
+        raise ValueError(n)
+
+
+def init_with_lecun_normal(n, p):
+    if p.dim() == 1:
+        nn.init.constant_(p, 0.0)  # bias
+        logging.info('Initialize %s with %s' % (n, 'constant'))
+    elif p.dim() == 2:
+        fan_in = p.size(1)
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
+    elif p.dim() == 3:
+        fan_in = p.size(1) * p[0][0].numel()
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
+    elif p.dim() == 4:
+        fan_in = p.size(1) * p[0][0].numel()
+        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
+        logging.info('Initialize %s with %s' % (n, 'lecun'))
     else:
         raise ValueError(n)
 
@@ -1048,13 +894,42 @@ class Conv2dSubsampling(torch.nn.Module):
         super(Conv2dSubsampling, self).__init__()
 
         #self._kernel_size = odim
+        # self.conv = torch.nn.Sequential(
+        #     torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+        #     activation,
+        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+        #     activation,
+        #     torch.nn.MaxPool2d(kernel_size=2,
+        #                              stride=2,
+        #                              padding=0,
+        #                              ceil_mode=True),
+        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+        #     activation,
+        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+        #     activation,
+        #     torch.nn.MaxPool2d(kernel_size=2,
+        #                        stride=2,
+        #                        padding=0,
+        #                        ceil_mode=True),
+        # )
+        #
+        # out_length = calc_length(length=idim, padding=0, kernel_size=2, stride=2, ceil_mode=True)
+        # out_length = calc_length(length=out_length, padding=0, kernel_size=2, stride=2, ceil_mode=True)
+
         self.conv = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=2, padding=0),
+            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=2, padding=1),
             activation,
-            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=2, padding=0),
+            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=2, padding=1),
             activation,
         )
-        self.out = torch.nn.Linear(conv_channels * (((idim - 1) // 2 - 1) // 2), odim)
+
+        out_length = calc_length(length=idim, padding=1, kernel_size=3, stride=2, ceil_mode=False)
+        out_length = calc_length(length=out_length, padding=1, kernel_size=3, stride=2, ceil_mode=False)
+
+        # if out_length % 2 != 0:
+        #     out_length = (out_length // 2) * 2
+        self.out = torch.nn.Linear(conv_channels * out_length, odim)
+        #self.out = torch.nn.Linear(conv_channels * (((idim - 1) // 2 - 1) // 2), odim)
         #self.out = torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim)
 
         # self.out = torch.nn.Sequential(
@@ -1068,7 +943,8 @@ class Conv2dSubsampling(torch.nn.Module):
         """Initialize parameters with lecun style."""
         logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
         for n, p in self.named_parameters():
-            init_with_lecun_normal(n, p)
+            #init_with_lecun_normal(n, p)
+            init_with_xavier_uniform(n, p)
 
     # def forward(self, x, x_mask):
     def forward(self, x, lengths):
@@ -1085,7 +961,12 @@ class Conv2dSubsampling(torch.nn.Module):
         # if use rel_pos, x: Tuple[torch.Tensor, torch.Tensor], else x: torch.Tensor
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 
-        lengths = [self.calc_length(length=length, padding=0, kernel_size=3, stride=2) for length in lengths]
+        lengths = [calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths]
+        lengths = [calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths]
+
+        # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
+        # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
+
         lengths = torch.IntTensor(lengths)
         lengths = lengths.to(x.device)
 
@@ -1094,10 +975,15 @@ class Conv2dSubsampling(torch.nn.Module):
         #return x, x_mask[:, :, :-2:2][:, :, :-2:2]
         return x, lengths
 
-    def calc_length(self, length, padding, kernel_size, stride):
-        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/stride + 1)
-        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/stride + 1)
-        return length
+
+def calc_length(length, padding, kernel_size, stride, ceil_mode):
+    if ceil_mode:
+        length = math.ceil((length + (2 * padding) - (kernel_size - 1) - 1)/float(stride) + 1)
+    else:
+        length = math.floor((length + (2 * padding) - (kernel_size - 1) - 1)/float(stride) + 1)
+    return length
+
+
 
 # class Conv2dSubsampling(nn.Module):
 #     """Convolutional 2D subsampling (to 1/4 length)

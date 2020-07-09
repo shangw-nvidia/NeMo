@@ -63,9 +63,8 @@ ConformerEncoder:
 #    ctc_weight: 0.3
 #    ctc_lsm_prob: 0.1
 #    mtl_per_batch: false
-    n_layers: 12
+    n_layers: 16
     last_proj_dim: 0
-    n_stacks: 1
     conv_in_channel: 1
 #    conv_channels: ""
 #    conv_kernel_sizes: ""
@@ -79,30 +78,21 @@ ConformerEncoder:
     conv_layer_norm: false
     kernel_size: 31
     pe_type: relative
-    d_model: 192
+    d_model: 144
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
-    dropout_in: 0.0
+    dropout_in: 0.1
     dropout: 0.1
     dropout_att: 0.0
-    ### MTL
-    task_specific_layer: false
+    dropout_layer: 0.0
     ## added by me, please check then
-    n_layers_sub1: 0
-    n_layers_sub2: 0
-    chunk_size_left: 0
-    chunk_size_current: 0
-    chunk_size_right: 0
-    n_splices: 1
     input_dim: 80
     conv_param_init: "xavier_uniform" # check it out, it was 1 before
     layer_norm_eps: 1e-12
     ff_expansion_factor: 4
-    dropout_layer: 0.0
     ffn_activation: swish
     ffn_bottleneck_dim: 0
-    #feat_out: 144
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
