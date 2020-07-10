@@ -201,6 +201,8 @@ class ConformerEncoder(TrainableNM):
         # for bridge layers
         self.bridge = None
 
+        self.scale = math.sqrt(self.d_model)
+
         # Setting for CNNs
         if conv_channels:
             self.conv = Conv2dSubsampling(
@@ -317,7 +319,7 @@ class ConformerEncoder(TrainableNM):
         length = length2
 
         bs, xmax, idim = audio_signal.size()
-        audio_signal = audio_signal * self.scale  # why really?
+        audio_signal = audio_signal * self.scale  # why really? A trick XL-Transformer applied!
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
