@@ -144,7 +144,7 @@ def create_all_dags(args, neural_factory):
         feat_in=conformer_params["ConformerEncoder"]["d_model"], num_classes=len(vocab),
     )
 
-    ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab))
+    ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab), zero_infinity=False)
 
     greedy_decoder = nemo_asr.GreedyCTCDecoder()
 

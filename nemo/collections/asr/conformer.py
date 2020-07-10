@@ -277,9 +277,11 @@ class ConformerEncoder(TrainableNM):
             self.bridge = nn.Linear(self._odim, last_proj_dim)
             self._odim = last_proj_dim
 
-        self.lstm = nn.LSTM(
-            input_size=last_proj_dim, hidden_size=320, num_layers=1, batch_first=True, bidirectional=False,
-        )
+
+        self.lstm = None
+        # self.lstm = nn.LSTM(
+        #     input_size=last_proj_dim, hidden_size=320, num_layers=1, batch_first=True, bidirectional=False,
+        # )
 
         self.reset_parameters(param_init)
 
@@ -315,7 +317,7 @@ class ConformerEncoder(TrainableNM):
         length = length2
 
         bs, xmax, idim = audio_signal.size()
-        # audio_signal = audio_signal * self.scale  # why really?
+        audio_signal = audio_signal * self.scale  # why really?
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
@@ -342,7 +344,8 @@ class ConformerEncoder(TrainableNM):
 
         # audio_signal.masked_fill_(pad_mask, 0.0)
 
-        audio_signal, _ = self.lstm(audio_signal)
+        if self.lstm is not None:
+            audio_signal, _ = self.lstm(audio_signal)
 
         audio_signal = torch.transpose(audio_signal, 1, 2)
         # if length is None:
