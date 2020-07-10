@@ -14,7 +14,7 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing
 
 import torch
-#torch.autograd.set_detect_anomaly(True)
+torch.autograd.set_detect_anomaly(True)
 
 def parse_args():
     parser = argparse.ArgumentParser(

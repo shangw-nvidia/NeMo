@@ -51,6 +51,9 @@ class CTCLossNM(LossNM):
         self._criterion = nn.CTCLoss(blank=self._blank, reduction='none', zero_infinity=zero_infinity)
 
     def _loss(self, log_probs, targets, input_length, target_length):
+        err_num = (input_length < target_length).sum()
+        if err_num > 0:
+            print(f" shorter length: {err_num}")
         input_length = input_length.long()
         target_length = target_length.long()
         targets = targets.long()
