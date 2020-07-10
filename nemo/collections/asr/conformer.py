@@ -319,7 +319,8 @@ class ConformerEncoder(TrainableNM):
         length = length2
 
         bs, xmax, idim = audio_signal.size()
-        audio_signal = audio_signal * self.scale  # why really? A trick XL-Transformer applied!
+
+        #audio_signal = audio_signal * self.scale  # why really? A trick XL-Transformer applied!
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
