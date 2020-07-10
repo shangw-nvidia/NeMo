@@ -164,6 +164,7 @@ class ConformerEncoder(TrainableNM):
     def __init__(
         self,
         feat_in,
+        lstm_hidden_size,
         n_layers,
         d_model,
         n_heads,
@@ -279,11 +280,12 @@ class ConformerEncoder(TrainableNM):
             self.bridge = nn.Linear(self._odim, last_proj_dim)
             self._odim = last_proj_dim
 
-
-        self.lstm = None
-        # self.lstm = nn.LSTM(
-        #     input_size=last_proj_dim, hidden_size=320, num_layers=1, batch_first=True, bidirectional=False,
-        # )
+        if lstm_hidden_size > 0:
+            self.lstm = nn.LSTM(
+                input_size=last_proj_dim, hidden_size=lstm_hidden_size, num_layers=1, batch_first=True, bidirectional=False,
+            )
+        else:
+            self.lstm = None
 
         self.reset_parameters(param_init)
 

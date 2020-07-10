@@ -53,6 +53,7 @@ def parse_args():
     parser.add_argument("--grad_norm_clip", type=float, default=-1, help="gradient clipping")
     parser.add_argument("--optimizer_eps", type=float, default=1e-9, help="The eps param of the optimizers.")
 
+    parser.add_argument("--lstm_hidden_size", default=0, type=int)
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
 
@@ -137,6 +138,7 @@ def create_all_dags(args, neural_factory):
 
     encoder = nemo_asr.ConformerEncoder(
         feat_in=conformer_params["AudioToMelSpectrogramPreprocessor"]["features"],
+        lstm_hidden_size=args.lstm_hidden_size,
         **conformer_params["ConformerEncoder"],
     )
 
