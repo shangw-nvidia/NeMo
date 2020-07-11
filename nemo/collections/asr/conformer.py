@@ -284,6 +284,7 @@ class ConformerEncoder(TrainableNM):
             self.lstm = nn.LSTM(
                 input_size=self._odim, hidden_size=lstm_hidden_size, num_layers=1, batch_first=True, bidirectional=False,
             )
+            self._odim = lstm_hidden_size
         else:
             self.lstm = None
 
