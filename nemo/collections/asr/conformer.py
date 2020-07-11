@@ -282,7 +282,7 @@ class ConformerEncoder(TrainableNM):
 
         if lstm_hidden_size > 0:
             self.lstm = nn.LSTM(
-                input_size=last_proj_dim, hidden_size=lstm_hidden_size, num_layers=1, batch_first=True, bidirectional=False,
+                input_size=self._odim, hidden_size=lstm_hidden_size, num_layers=1, batch_first=True, bidirectional=False,
             )
         else:
             self.lstm = None
