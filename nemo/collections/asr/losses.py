@@ -51,13 +51,18 @@ class CTCLossNM(LossNM):
         self._criterion = nn.CTCLoss(blank=self._blank, reduction='none', zero_infinity=zero_infinity)
 
     def _loss(self, log_probs, targets, input_length, target_length):
-        err_num = (input_length < target_length).sum()
-        if err_num > 0:
-            print(f" shorter length: {err_num}")
+        # err_num = (input_length < target_length).sum()
+        # if err_num > 0:
+        #     print(f"EER shorter length: {err_num}")
         input_length = input_length.long()
         target_length = target_length.long()
         targets = targets.long()
         loss = self._criterion(log_probs.transpose(1, 0), targets, input_length, target_length)
+        zero_counts = (loss == 0).sum()
+
+        if zero_counts > 0:
+            print(f"Found {zero_counts} inf loss in the batch!")
+
         # note that this is different from reduction = 'mean'
         # because we are not dividing by target lengths
         loss = torch.mean(loss)

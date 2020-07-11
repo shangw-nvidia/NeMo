@@ -14,7 +14,7 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing
 
 import torch
-torch.autograd.set_detect_anomaly(True)
+#torch.autograd.set_detect_anomaly(True)
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -148,7 +148,7 @@ def create_all_dags(args, neural_factory):
         feat_in=conformer_params["ConformerEncoder"]["d_model"], num_classes=len(vocab),
     )
 
-    ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab), zero_infinity=False)
+    ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab), zero_infinity=True)
 
     greedy_decoder = nemo_asr.GreedyCTCDecoder()
 
