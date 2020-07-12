@@ -213,7 +213,6 @@ class ConformerEncoder(TrainableNM):
                 kernel_size=3,
                 dropout_rate=0,
                 activation=nn.ReLU(),
-                rel_pos=False,
             )
             self._odim = d_model
             #

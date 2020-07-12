@@ -975,7 +975,6 @@ class Conv2dSubsampling(torch.nn.Module):
         x = x.unsqueeze(1)  # (b, c, t, f)
         x = self.conv(x)
         b, c, t, f = x.size()
-        # if use rel_pos, x: Tuple[torch.Tensor, torch.Tensor], else x: torch.Tensor
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 
         lengths = [
