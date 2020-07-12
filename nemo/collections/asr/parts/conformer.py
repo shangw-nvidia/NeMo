@@ -935,15 +935,32 @@ class Conv2dSubsampling(torch.nn.Module):
         # out_length = calc_length(length=idim, padding=0, kernel_size=2, stride=2, ceil_mode=True)
         # out_length = calc_length(length=out_length, padding=0, kernel_size=2, stride=2, ceil_mode=True)
 
+        padding = 1
+        stride = 2
+        kernel_size = 3
+        ceil_mode = False
+
         self.conv = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=2, padding=1),
+            torch.nn.Conv2d(
+                in_channels=1, out_channels=conv_channels, kernel_size=kernel_size, stride=stride, padding=padding
+            ),
             activation,
-            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=2, padding=1),
+            torch.nn.Conv2d(
+                in_channels=conv_channels,
+                out_channels=conv_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+            ),
             activation,
         )
 
-        out_length = calc_length(length=idim, padding=1, kernel_size=3, stride=2, ceil_mode=False)
-        out_length = calc_length(length=out_length, padding=1, kernel_size=3, stride=2, ceil_mode=False)
+        out_length = calc_length(
+            length=idim, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+        )
+        out_length = calc_length(
+            length=out_length, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+        )
 
         # if out_length % 2 != 0:
         #     out_length = (out_length // 2) * 2
