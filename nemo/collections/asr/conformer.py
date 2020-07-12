@@ -206,12 +206,7 @@ class ConformerEncoder(TrainableNM):
 
         # Setting for CNNs
         if conv_channels:
-            self.conv = Conv2dSubsampling(
-                idim=input_dim,
-                odim=d_model,
-                dropout_rate=0,
-                activation=nn.ReLU(),
-            )
+            self.conv = Conv2dSubsampling(idim=input_dim, odim=d_model, dropout_rate=0, activation=nn.ReLU(),)
             self._odim = d_model
             #
             # self.conv = ConvEncoder(

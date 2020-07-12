@@ -894,12 +894,17 @@ class Conv2dSubsampling(torch.nn.Module):
             activation,
             torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
             activation,
-            torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
+            torch.nn.MaxPool2d(
+                kernel_size=self._kernel_size, stride=self._stride, padding=self._padding, ceil_mode=self._ceil_mode
+            ),
+
             torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
             activation,
             torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
             activation,
-            torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
+            torch.nn.MaxPool2d(
+                kernel_size=self._kernel_size, stride=self._stride, padding=self._padding, ceil_mode=self._ceil_mode
+            ),
         )
 
         out_length = calc_length(
