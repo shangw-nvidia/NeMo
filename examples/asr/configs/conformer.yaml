@@ -93,7 +93,7 @@ ConformerEncoder:
     ff_expansion_factor: 4
     ffn_activation: swish
     ffn_bottleneck_dim: 0
-    subsampling: "vggnet" #vggnet striding
+    subsampling: "striding" #vggnet striding
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
          "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
