@@ -879,7 +879,7 @@ class Conv2dSubsampling(torch.nn.Module):
 
     """
 
-    def __init__(self, idim, odim, conv_channels, kernel_size, dropout_rate, activation=nn.ReLU()):
+    def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU()):
         """Construct an Conv2dSubsampling object."""
         super(Conv2dSubsampling, self).__init__()
 

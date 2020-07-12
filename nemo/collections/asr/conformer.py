@@ -209,8 +209,6 @@ class ConformerEncoder(TrainableNM):
             self.conv = Conv2dSubsampling(
                 idim=input_dim,
                 odim=d_model,
-                conv_channels=32,
-                kernel_size=3,
                 dropout_rate=0,
                 activation=nn.ReLU(),
             )
