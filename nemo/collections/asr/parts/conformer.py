@@ -613,35 +613,6 @@ class ConvEncoder(nn.Module):
         for n, p in self.named_parameters():
             init_with_lecun_normal(n, p)
 
-    # @staticmethod
-    # def add_args(parser, args):
-    #     """Add arguments."""
-    #     group = parser.add_argument_group("CNN encoder")
-    #     group.add_argument('--conv_in_channel', type=int, default=1, help='input dimension of the first CNN block')
-    #     group.add_argument(
-    #         '--conv_channels', type=str, default="", help='delimited list of channles in each CNN block'
-    #     )
-    #     group.add_argument(
-    #         '--conv_kernel_sizes', type=str, default="", help='delimited list of kernel sizes in each CNN block'
-    #     )
-    #     group.add_argument('--conv_strides', type=str, default="", help='delimited list of strides in each CNN block')
-    #     group.add_argument(
-    #         '--conv_poolings', type=str, default="", help='delimited list of poolings in each CNN block'
-    #     )
-    #     group.add_argument(
-    #         '--conv_batch_norm', type=strtobool, default=False, help='apply batch normalization in each CNN block'
-    #     )
-    #     group.add_argument(
-    #         '--conv_layer_norm', type=strtobool, default=False, help='apply layer normalization in each CNN block'
-    #     )
-    #     group.add_argument(
-    #         '--conv_bottleneck_dim',
-    #         type=int,
-    #         default=0,
-    #         help='dimension of the bottleneck layer between CNN and the subsequent RNN/Transformer layers',
-    #     )
-    #     return parser
-
     def forward(self, xs, xlens):
         """Forward computation.
 
@@ -908,59 +879,69 @@ class Conv2dSubsampling(torch.nn.Module):
 
     """
 
-    def __init__(self, idim, odim, conv_channels, kernel_size, dropout_rate, activation=nn.ReLU(), rel_pos=False):
+    def __init__(self, idim, odim, conv_channels, kernel_size, dropout_rate, activation=nn.ReLU()):
         """Construct an Conv2dSubsampling object."""
         super(Conv2dSubsampling, self).__init__()
 
-        # self._kernel_size = odim
-        # self.conv = torch.nn.Sequential(
-        #     torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-        #     activation,
-        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-        #     activation,
-        #     torch.nn.MaxPool2d(kernel_size=2,
-        #                              stride=2,
-        #                              padding=0,
-        #                              ceil_mode=True),
-        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-        #     activation,
-        #     torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-        #     activation,
-        #     torch.nn.MaxPool2d(kernel_size=2,
-        #                        stride=2,
-        #                        padding=0,
-        #                        ceil_mode=True),
-        # )
-        #
-        # out_length = calc_length(length=idim, padding=0, kernel_size=2, stride=2, ceil_mode=True)
-        # out_length = calc_length(length=out_length, padding=0, kernel_size=2, stride=2, ceil_mode=True)
-
-        padding = 1
-        stride = 2
-        kernel_size = 3
-        ceil_mode = False
+        self._padding = 0
+        self._stride = 2
+        self._kernel_size = 2
+        self._ceil_mode = True
 
         self.conv = torch.nn.Sequential(
-            torch.nn.Conv2d(
-                in_channels=1, out_channels=conv_channels, kernel_size=kernel_size, stride=stride, padding=padding
-            ),
+            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
             activation,
-            torch.nn.Conv2d(
-                in_channels=conv_channels,
-                out_channels=conv_channels,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=padding,
-            ),
+            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
             activation,
+            torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
+            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+            activation,
+            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+            activation,
+            torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True),
         )
 
         out_length = calc_length(
-            length=idim, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+            length=idim,
+            padding=self._padding,
+            kernel_size=self._kernel_size,
+            stride=self._stride,
+            ceil_mode=self._ceil_mode,
         )
         out_length = calc_length(
-            length=out_length, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+            length=out_length,
+            padding=self._padding,
+            kernel_size=self._kernel_size,
+            stride=self._stride,
+            ceil_mode=self._ceil_mode,
         )
+
+        # self._padding = 1
+        # self._stride = 2
+        # self._kernel_size = 3
+        # self._ceil_mode = False
+        #
+        # self.conv = torch.nn.Sequential(
+        #     torch.nn.Conv2d(
+        #         in_channels=1, out_channels=conv_channels, kernel_size=kernel_size, stride=stride, padding=padding
+        #     ),
+        #     activation,
+        #     torch.nn.Conv2d(
+        #         in_channels=conv_channels,
+        #         out_channels=conv_channels,
+        #         kernel_size=kernel_size,
+        #         stride=stride,
+        #         padding=padding,
+        #     ),
+        #     activation,
+        # )
+        #
+        # out_length = calc_length(
+        #     length=idim, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+        # )
+        # out_length = calc_length(
+        #     length=out_length, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
+        # )
 
         # if out_length % 2 != 0:
         #     out_length = (out_length // 2) * 2
@@ -998,17 +979,27 @@ class Conv2dSubsampling(torch.nn.Module):
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 
         lengths = [
-            calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths
+            calc_length(
+                length=length,
+                padding=self._padding,
+                kernel_size=self._kernel_size,
+                stride=self._stride,
+                ceil_mode=self._ceil_mode,
+            )
+            for length in lengths
         ]
         lengths = [
-            calc_length(length=length, padding=1, kernel_size=3, stride=2, ceil_mode=False) for length in lengths
+            calc_length(
+                length=length,
+                padding=self._padding,
+                kernel_size=self._kernel_size,
+                stride=self._stride,
+                ceil_mode=self._ceil_mode,
+            )
+            for length in lengths
         ]
 
-        # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
-        # lengths = [calc_length(length=length, padding=0, kernel_size=2, stride=2, ceil_mode=True) for length in lengths]
-
-        lengths = torch.IntTensor(lengths)
-        lengths = lengths.to(x.device)
+        lengths = torch.IntTensor(lengths).to(x.device)
 
         # if x_mask is None:
         #    return x, None

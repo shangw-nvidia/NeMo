@@ -4,6 +4,7 @@ import copy
 import os
 from functools import partial
 
+import torch
 from ruamel.yaml import YAML
 
 import nemo
@@ -13,8 +14,7 @@ from nemo.collections.asr.helpers import monitor_asr_train_progress, process_eva
 from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing
 
-import torch
-#torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
 
 
 def parse_args():
@@ -145,9 +145,7 @@ def create_all_dags(args, neural_factory):
         **conformer_params["ConformerEncoder"],
     )
 
-    decoder = nemo_asr.JasperDecoderForCTC(
-        feat_in=encoder._odim, num_classes=len(vocab),
-    )
+    decoder = nemo_asr.JasperDecoderForCTC(feat_in=encoder._odim, num_classes=len(vocab),)
 
     ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab), zero_infinity=True)
 

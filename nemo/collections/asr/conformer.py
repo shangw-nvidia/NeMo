@@ -282,7 +282,11 @@ class ConformerEncoder(TrainableNM):
 
         if lstm_hidden_size > 0:
             self.lstm = nn.LSTM(
-                input_size=self._odim, hidden_size=lstm_hidden_size, num_layers=1, batch_first=True, bidirectional=False,
+                input_size=self._odim,
+                hidden_size=lstm_hidden_size,
+                num_layers=1,
+                batch_first=True,
+                bidirectional=False,
             )
             self._odim = lstm_hidden_size
         else:
@@ -323,7 +327,7 @@ class ConformerEncoder(TrainableNM):
 
         bs, xmax, idim = audio_signal.size()
 
-        #audio_signal = audio_signal * self.scale  # why really? A trick XL-Transformer applied!
+        # audio_signal = audio_signal * self.scale  # why really? A trick XL-Transformer applied!
 
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
