@@ -879,33 +879,69 @@ class Conv2dSubsampling(torch.nn.Module):
 
     """
 
-    def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU()):
-        """Construct an Conv2dSubsampling object."""
+    def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU(), subsampling="striding"):
         super(Conv2dSubsampling, self).__init__()
 
-        self._padding = 0
-        self._stride = 2
-        self._kernel_size = 2
-        self._ceil_mode = True
-        conv_channels = 32
+        if subsampling == "vggnet":
+            self._padding = 0
+            self._stride = 2
+            self._kernel_size = 2
+            self._ceil_mode = True
+            conv_channels = 32
 
-        self.conv = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-            activation,
-            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-            activation,
-            torch.nn.MaxPool2d(
-                kernel_size=self._kernel_size, stride=self._stride, padding=self._padding, ceil_mode=self._ceil_mode
-            ),
+            self.conv = torch.nn.Sequential(
+                torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+                activation,
+                torch.nn.Conv2d(
+                    in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
+                ),
+                activation,
+                torch.nn.MaxPool2d(
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                    ceil_mode=self._ceil_mode,
+                ),
+                torch.nn.Conv2d(
+                    in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
+                ),
+                activation,
+                torch.nn.Conv2d(
+                    in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
+                ),
+                activation,
+                torch.nn.MaxPool2d(
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                    ceil_mode=self._ceil_mode,
+                ),
+            )
 
-            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-            activation,
-            torch.nn.Conv2d(in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
-            activation,
-            torch.nn.MaxPool2d(
-                kernel_size=self._kernel_size, stride=self._stride, padding=self._padding, ceil_mode=self._ceil_mode
-            ),
-        )
+        elif subsampling == "striding":
+            self._padding = 1
+            self._stride = 2
+            self._kernel_size = 3
+            self._ceil_mode = False
+            conv_channels = 32
+            self.conv = torch.nn.Sequential(
+                torch.nn.Conv2d(
+                    in_channels=1,
+                    out_channels=conv_channels,
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                ),
+                activation,
+                torch.nn.Conv2d(
+                    in_channels=conv_channels,
+                    out_channels=conv_channels,
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                ),
+                activation,
+            )
 
         out_length = calc_length(
             length=idim,
@@ -921,33 +957,6 @@ class Conv2dSubsampling(torch.nn.Module):
             stride=self._stride,
             ceil_mode=self._ceil_mode,
         )
-
-        # self._padding = 1
-        # self._stride = 2
-        # self._kernel_size = 3
-        # self._ceil_mode = False
-        # conv_channels = 32
-        # self.conv = torch.nn.Sequential(
-        #     torch.nn.Conv2d(
-        #         in_channels=1, out_channels=conv_channels, kernel_size=kernel_size, stride=stride, padding=padding
-        #     ),
-        #     activation,
-        #     torch.nn.Conv2d(
-        #         in_channels=conv_channels,
-        #         out_channels=conv_channels,
-        #         kernel_size=kernel_size,
-        #         stride=stride,
-        #         padding=padding,
-        #     ),
-        #     activation,
-        # )
-        #
-        # out_length = calc_length(
-        #     length=idim, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
-        # )
-        # out_length = calc_length(
-        #     length=out_length, padding=padding, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode
-        # )
 
         # if out_length % 2 != 0:
         #     out_length = (out_length // 2) * 2
