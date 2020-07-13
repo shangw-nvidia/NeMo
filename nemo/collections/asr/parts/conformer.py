@@ -879,7 +879,7 @@ class Conv2dSubsampling(torch.nn.Module):
 
     """
 
-    def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU(), subsampling="striding"):
+    def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU(), subsampling="conformer"):
         super(Conv2dSubsampling, self).__init__()
 
         if subsampling == "vggnet":
@@ -918,7 +918,7 @@ class Conv2dSubsampling(torch.nn.Module):
                 ),
             )
 
-        elif subsampling == "striding":
+        elif subsampling == "conformer":
             self._padding = 1
             self._stride = 2
             self._kernel_size = 3
