@@ -113,7 +113,7 @@ def create_all_dags(args, neural_factory):
     with open(args.model_config) as f:
         contextnet_params = yaml.load(f)
 
-    vocab = contextnet_params['labels']
+    # vocab = contextnet_params['labels']
     sample_rate = contextnet_params['sample_rate']
 
     # Calculate num_workers for dataloader
@@ -202,10 +202,10 @@ def create_all_dags(args, neural_factory):
         logging.info("Encoder weights frozen !")
 
     decoder = nemo_asr.JasperDecoderForCTC(
-        feat_in=contextnet_params["ContextNetEncoder"]["jasper"][-1]["filters"], num_classes=len(vocab),
+        feat_in=contextnet_params["ContextNetEncoder"]["jasper"][-1]["filters"], num_classes=vocab_size,
     )
 
-    ctc_loss = nemo_asr.CTCLossNM(num_classes=len(vocab), zero_infinity=True)
+    ctc_loss = nemo_asr.CTCLossNM(num_classes=vocab_size, zero_infinity=True)
 
     greedy_decoder = nemo_asr.GreedyCTCDecoder()
 
