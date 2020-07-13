@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument("--optimizer_eps", type=float, default=1e-9, help="The eps param of the optimizers.")
 
     parser.add_argument("--lstm_hidden_size", default=0, type=int)
-    parser.add_argument("--subsampling", default="striding", type=str, help="It can be striding or vggnet.")
+    parser.add_argument("--subsampling", default="conformer", type=str, help="It can be striding or vggnet.")
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
 
