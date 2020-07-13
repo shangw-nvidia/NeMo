@@ -12,6 +12,8 @@ from nemo.core.neural_types import *
 from nemo.utils import logging
 from nemo.utils.decorators import add_port_docs
 
+from torch.nn import LayerNorm
+
 
 class ConformerEncoder(TrainableNM):
     """
@@ -267,7 +269,7 @@ class ConformerEncoder(TrainableNM):
                 for _ in range(n_layers)
             ]
         )
-        self.norm_out = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm_out = LayerNorm(d_model, eps=layer_norm_eps)
 
         self._odim = d_model
 

@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from nemo import logging
 from nemo.collections.asr.parts.jasper import init_weights
 
+from torch.nn import LayerNorm
+
 
 class ConformerEncoderBlock(torch.nn.Module):
     """A single layer of the Conformer encoder.
@@ -51,7 +53,7 @@ class ConformerEncoderBlock(torch.nn.Module):
         self.fc_factor = 0.5
 
         # first half position-wise feed-forward
-        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm1 = LayerNorm(d_model, eps=layer_norm_eps)
         self.feed_forward1 = PositionwiseFeedForward(
             d_model=d_model,
             d_ff=d_ff,
@@ -64,13 +66,13 @@ class ConformerEncoderBlock(torch.nn.Module):
         )
 
         # conv module
-        self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm2 = LayerNorm(d_model, eps=layer_norm_eps)
         self.conv = ConformerConvBlock(
             d_model, kernel_size, param_init, dropout=dropout, layer_norm_eps=layer_norm_eps, device=self._device
         )
 
         # self-attention
-        self.norm3 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm3 = LayerNorm(d_model, eps=layer_norm_eps)
         self.self_attn = RelativeMultiheadAttentionMechanism(
             kdim=d_model,
             qdim=d_model,
@@ -83,7 +85,7 @@ class ConformerEncoderBlock(torch.nn.Module):
         )
 
         # second half position-wise feed-forward
-        self.norm4 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm4 = LayerNorm(d_model, eps=layer_norm_eps)
 
         self.feed_forward2 = PositionwiseFeedForward(
             d_model=d_model,
@@ -99,7 +101,7 @@ class ConformerEncoderBlock(torch.nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.dropout_layer = dropout_layer
 
-        self.norm5 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm5 = LayerNorm(d_model, eps=layer_norm_eps)
 
     def forward(self, xs, xx_mask=None, pos_embs=None, u=None, v=None, pad_mask=None):
         """Conformer encoder layer definition.
@@ -757,7 +759,7 @@ class LayerNorm2D(nn.Module):
     def __init__(self, channel, idim, eps=1e-12):
 
         super(LayerNorm2D, self).__init__()
-        self.norm = nn.LayerNorm([channel, idim], eps=eps)
+        self.norm = LayerNorm([channel, idim], eps=eps)
 
     def forward(self, xs):
         """Forward computation.
