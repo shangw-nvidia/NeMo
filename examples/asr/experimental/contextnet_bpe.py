@@ -127,9 +127,15 @@ def create_all_dags(args, neural_factory):
     del train_dl_params["eval"]
     # del train_dl_params["normalize_transcripts"]
 
-    tokenizer = nemo_tokenizers.NemoGPT2Tokenizer(
-        pretrained_model=args.tokenizer_dir,
-    )
+    if os.path.exists(os.path.join(args.tokenizer_dir, 'merges.txt')):
+        tokenizer = nemo_tokenizers.NemoGPT2Tokenizer(
+            pretrained_model=args.tokenizer_dir,
+        )
+
+    else:
+        tokenizer = nemo_tokenizers.NemoBertTokenizer(
+            vocab_file=os.path.join(args.tokenizer_dir, 'vocab.txt'),
+        )
 
     vocab_size = tokenizer.vocab_size
     logging.info("Tokenizer vocabulary size : %d", vocab_size)
