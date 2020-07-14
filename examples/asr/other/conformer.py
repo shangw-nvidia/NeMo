@@ -61,6 +61,8 @@ def parse_args():
     parser.add_argument("--wandb_project", default="Conformer", type=str)
     parser.add_argument("--wandb_exp", default=None, type=str)
 
+    parser.add_argument("--do_not_eval_at_start", action='store_true')
+
     args = parser.parse_args()
     if args.max_steps is not None:
         raise ValueError("QuartzNet uses num_epochs instead of max_steps")
@@ -234,6 +236,7 @@ def create_all_dags(args, neural_factory):
             tb_writer=neural_factory.tb_writer,
             wandb_name=args.wandb_exp,
             wandb_project=args.wandb_project,
+            eval_at_start=not args.do_not_eval_at_start,
         )
 
         callbacks.append(eval_callback)
