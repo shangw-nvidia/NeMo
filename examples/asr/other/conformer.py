@@ -252,6 +252,7 @@ def main():
     if args.work_dir:
         work_dir = os.path.join(args.work_dir, name)
 
+    print("before nf")
     # instantiate Neural Factory with supported backend
     neural_factory = nemo.core.NeuralModuleFactory(
         local_rank=args.local_rank,
@@ -264,6 +265,7 @@ def main():
         tensorboard_dir=args.tensorboard_dir,
         add_time_to_log_dir=True,
     )
+    print("after nf")
     args.num_gpus = neural_factory.world_size
 
     args.checkpoint_dir = neural_factory.checkpoint_dir
