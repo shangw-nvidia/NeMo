@@ -884,6 +884,8 @@ class Conv2dSubsampling(torch.nn.Module):
     def __init__(self, idim, odim, dropout_rate, activation=nn.ReLU(), subsampling="conformer"):
         super(Conv2dSubsampling, self).__init__()
 
+        self._subsampling = subsampling
+
         if subsampling == "vggnet":
             self._padding = 0
             self._stride = 2
@@ -919,7 +921,27 @@ class Conv2dSubsampling(torch.nn.Module):
                     ceil_mode=self._ceil_mode,
                 ),
             )
+        elif subsampling == "vggnet2x":
+            self._padding = 0
+            self._stride = 2
+            self._kernel_size = 2
+            self._ceil_mode = True
+            conv_channels = 64
 
+            self.conv = torch.nn.Sequential(
+                torch.nn.Conv2d(in_channels=1, out_channels=conv_channels, kernel_size=3, stride=1, padding=1),
+                activation,
+                torch.nn.Conv2d(
+                    in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
+                ),
+                activation,
+                torch.nn.MaxPool2d(
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                    ceil_mode=self._ceil_mode,
+                ),
+            )
         elif subsampling == "conformer":
             self._padding = 1
             self._stride = 2
@@ -944,6 +966,22 @@ class Conv2dSubsampling(torch.nn.Module):
                 ),
                 activation,
             )
+        elif subsampling == "conformer2x":
+            self._padding = 1
+            self._stride = 2
+            self._kernel_size = 3
+            self._ceil_mode = False
+            conv_channels = 32
+            self.conv = torch.nn.Sequential(
+                torch.nn.Conv2d(
+                    in_channels=1,
+                    out_channels=conv_channels,
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    padding=self._padding,
+                ),
+                activation,
+            )
 
         out_length = calc_length(
             length=idim,
@@ -952,13 +990,14 @@ class Conv2dSubsampling(torch.nn.Module):
             stride=self._stride,
             ceil_mode=self._ceil_mode,
         )
-        out_length = calc_length(
-            length=out_length,
-            padding=self._padding,
-            kernel_size=self._kernel_size,
-            stride=self._stride,
-            ceil_mode=self._ceil_mode,
-        )
+        if "2x" not in subsampling:
+            out_length = calc_length(
+                length=out_length,
+                padding=self._padding,
+                kernel_size=self._kernel_size,
+                stride=self._stride,
+                ceil_mode=self._ceil_mode,
+            )
 
         # if out_length % 2 != 0:
         #     out_length = (out_length // 2) * 2
@@ -1004,16 +1043,18 @@ class Conv2dSubsampling(torch.nn.Module):
             )
             for length in lengths
         ]
-        lengths = [
-            calc_length(
-                length=length,
-                padding=self._padding,
-                kernel_size=self._kernel_size,
-                stride=self._stride,
-                ceil_mode=self._ceil_mode,
-            )
-            for length in lengths
-        ]
+
+        if "2x" not in self._subsampling:
+            lengths = [
+                calc_length(
+                    length=length,
+                    padding=self._padding,
+                    kernel_size=self._kernel_size,
+                    stride=self._stride,
+                    ceil_mode=self._ceil_mode,
+                )
+                for length in lengths
+            ]
 
         lengths = torch.IntTensor(lengths).to(x.device)
 
