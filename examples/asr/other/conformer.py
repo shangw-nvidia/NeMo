@@ -62,6 +62,8 @@ def parse_args():
     parser.add_argument("--wandb_exp", default=None, type=str)
 
     parser.add_argument("--do_not_eval_at_start", action='store_true')
+    parser.add_argument('--min_lr', default=1e-5, type=float)
+    parser.add_argument('--amp_min_loss_scale', default=1, type=float)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -282,7 +284,7 @@ def main():
     neural_factory.train(
         tensors_to_optimize=[train_loss],
         callbacks=callbacks,
-        lr_policy=CosineAnnealing(args.num_epochs * steps_per_epoch, warmup_steps=args.warmup_steps),
+        lr_policy=CosineAnnealing(args.num_epochs * steps_per_epoch, warmup_steps=args.warmup_steps, min_lr=args.min_lr),
         optimizer=args.optimizer,
         optimization_params={
             "num_epochs": args.num_epochs,
@@ -291,6 +293,7 @@ def main():
             "weight_decay": args.weight_decay,
             "grad_norm_clip": grad_norm_clip,
             "eps": args.optimizer_eps,
+            "amp_min_loss_scale": args.amp_min_loss_scale,
         },
         batches_per_step=args.iter_per_step,
         synced_batchnorm=args.synced_bn,
