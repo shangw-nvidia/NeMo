@@ -252,8 +252,8 @@ class ConformerEncoder(TrainableNM):
 
         self.layers = nn.ModuleList(
             [
-                copy.deepcopy(
-                    ConformerEncoderBlock(
+#                copy.deepcopy(
+                    ConformerEncoderBlock( #why deepcopy here?!
                         d_model=d_model,
                         d_ff=d_ff,
                         n_heads=n_heads,
@@ -267,7 +267,7 @@ class ConformerEncoder(TrainableNM):
                         ffn_bottleneck_dim=ffn_bottleneck_dim,
                         device=self._device,
                     )
-                )
+#                )
                 for _ in range(n_layers)
             ]
         )

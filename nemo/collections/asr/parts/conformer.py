@@ -204,7 +204,7 @@ class ConformerConvBlock(nn.Module):
         self.activation = Swish()
         self.pointwise_conv2 = nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1, stride=1, padding=0)
 
-        self.dropout = nn.Dropout(dropout)
+        #self.dropout = nn.Dropout(dropout)
 
         # self.apply(lambda x: init_weights(x, mode=param_init))
         # self.to(self._device)
