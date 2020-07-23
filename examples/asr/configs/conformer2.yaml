@@ -1,5 +1,5 @@
 model: "Conformer"
-sample_rate: 8000
+sample_rate: 16000
 
 AudioToTextDataLayer:
     max_duration: 16.7
