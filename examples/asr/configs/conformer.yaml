@@ -81,9 +81,9 @@ ConformerEncoder:
     conv_poolings: "(2,2)_(2,2)"  # (T,F)
     conv_batch_norm: false
     conv_layer_norm: false
-    kernel_size: 33
+    kernel_size: 31
     pe_type: relative
-    d_model: 144
+    d_model: 256
     n_heads: 4
     param_init: xavier_uniform
     ### regularization
@@ -95,7 +95,7 @@ ConformerEncoder:
     input_dim: 80
     conv_param_init: "xavier_uniform" # check it out, it was 1 before
     layer_norm_eps: 1e-5
-    ff_expansion_factor: 4
+    ff_expansion_factor: 8
     ffn_activation: swish
     ffn_bottleneck_dim: 0
 

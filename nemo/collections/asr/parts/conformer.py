@@ -73,16 +73,18 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # self-attention
         self.norm3 = LayerNorm(d_model, eps=layer_norm_eps)
-        self.self_attn = RelativeMultiheadAttentionMechanism(
-            kdim=d_model,
-            qdim=d_model,
-            adim=d_model,
-            odim=d_model,
-            n_heads=n_heads,
-            dropout=dropout_att,
-            bias=True,
-            param_init=param_init,
-        )
+
+        self.self_attn = RelPositionMultiHeadedAttention(n_head=n_heads, n_feat=d_model, dropout_rate=dropout_att)
+        # self.self_attn = RelativeMultiheadAttentionMechanism(
+        #     kdim=d_model,
+        #     qdim=d_model,
+        #     adim=d_model,
+        #     odim=d_model,
+        #     n_heads=n_heads,
+        #     dropout=dropout_att,
+        #     bias=True,
+        #     param_init=param_init,
+        # )
 
         # second half position-wise feed-forward
         self.norm4 = LayerNorm(d_model, eps=layer_norm_eps)
@@ -117,7 +119,7 @@ class ConformerEncoderBlock(torch.nn.Module):
             xx_aws (FloatTensor): `[B, H, T, T]`
 
         """
-        if self.dropout_layer > 0 and self.training and random.random() >= self.dropout_layer:
+        if self.dropout_layer > 0 and self.training and random.random() < self.dropout_layer:
             return xs
 
         # first half FFN
@@ -130,23 +132,30 @@ class ConformerEncoderBlock(torch.nn.Module):
         # if pad_mask is not None:
         #    xs.masked_fill_(pad_mask, 0.0)
 
-        # conv
-        residual = xs
-        xs = self.norm2(xs)
-        if pad_mask is not None:
-            xs.masked_fill_(pad_mask, 0.0)
-        xs = self.conv(xs)
-        xs = self.dropout(xs) + residual
-        # xs = xs + residual
-
         # self-attention
         residual = xs
         xs = self.norm3(xs)
         # relative positional encoding
         memory = None
-        xs, xx_aws = self.self_attn(xs, xs, memory, pos_embs, xx_mask, u, v)
+        # if pos_embs is not None:
+
+        xs = self.self_attn(query=xs, key=xs, value=xs, pos_emb=pos_embs, mask=xx_mask)
+
+        # else:
+        #     x_att = self.self_attn(xs, xs, xs, xx_mask)
+
+        #xs, xx_aws = self.self_attn(xs, xs, memory, pos_embs, xx_mask, u, v)
         # xs = xs + residual
         xs = self.dropout(xs) + residual
+
+        # conv
+        residual = xs
+        xs = self.norm2(xs)
+        # if pad_mask is not None:
+        #     xs.masked_fill_(pad_mask, 0.0)
+        xs = self.conv(xs)
+        xs = self.dropout(xs) + residual
+        # xs = xs + residual
 
         # second half FFN
         residual = xs
@@ -169,7 +178,7 @@ class ConformerConvBlock(nn.Module):
         param_init (str): parameter initialization method
     """
 
-    def __init__(self, d_model, kernel_size, param_init, dropout, layer_norm_eps, device):
+    def __init__(self, d_model, kernel_size, param_init, dropout, layer_norm_eps, device, bias=True):
         super(ConformerConvBlock, self).__init__()
 
         self._device = device
@@ -179,7 +188,7 @@ class ConformerConvBlock(nn.Module):
         # self.layer_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.pointwise_conv1 = nn.Conv1d(
-            in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0  # for GLU
+            in_channels=d_model, out_channels=d_model * 2, kernel_size=1, stride=1, padding=0, bias=bias  # for GLU
         )
         self.depthwise_conv = nn.Conv1d(
             in_channels=d_model,
@@ -189,6 +198,7 @@ class ConformerConvBlock(nn.Module):
             # padding=kernel_size // 2 - 1,
             padding=(kernel_size - 1) // 2,
             groups=d_model,
+            bias=bias
         )  # depthwise
         self.batch_norm = nn.BatchNorm1d(d_model)
         self.activation = Swish()
@@ -201,14 +211,14 @@ class ConformerConvBlock(nn.Module):
 
         # changed here
         # if param_init == 'xavier_uniform':
-        self.reset_parameters()
+        # self.reset_parameters()
 
-    def reset_parameters(self):
-        """Initialize parameters with Xavier uniform distribution."""
-        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-        for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
-            for n, p in layer.named_parameters():
-                init_with_xavier_uniform(n, p)
+    # def reset_parameters(self):
+    #     """Initialize parameters with Xavier uniform distribution."""
+    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+    #     for layer in [self.pointwise_conv1, self.pointwise_conv2, self.depthwise_conv]:
+    #         for n, p in layer.named_parameters():
+    #             init_with_xavier_uniform(n, p)
 
     def forward(self, xs, pad_mask=None):
         """Forward pass.
@@ -221,15 +231,16 @@ class ConformerConvBlock(nn.Module):
         assert d_model == self.d_model
 
         # xs = self.layer_norm(xs)
-        xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
+        #xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
+        xs = xs.transpose(2, 1)  # `[B, C, T]`
         xs = self.pointwise_conv1(xs)  # `[B, 2 * C, T]`
-        xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
-        xs = F.glu(xs)  # `[B, T, C]`
+        #xs = xs.transpose(2, 1)  # `[B, T, 2 * C]`
+        xs = nn.functional.glu(xs, dim=1)  # `[B, T, C]`
         #
         # if pad_mask is not None:
         #     xs.masked_fill_(pad_mask, 0.0)
 
-        xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
+        #xs = xs.transpose(2, 1).contiguous()  # `[B, C, T]`
         xs = self.depthwise_conv(xs)  # `[B, C, T]`
 
         xs = self.batch_norm(xs)
@@ -240,7 +251,8 @@ class ConformerConvBlock(nn.Module):
 
         xs = self.pointwise_conv2(xs)  # `[B, C, T]`
         # xs = self.dropout(xs)
-        xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
+        xs = xs.transpose(2, 1)  # `[B, T, C]`
+        #xs = xs.transpose(2, 1).contiguous()  # `[B, T, C]`
         return xs
 
 
@@ -291,13 +303,13 @@ class PositionwiseFeedForward(nn.Module):
         # self.to(self._device)
 
         # if param_init == 'xavier_uniform':
-        self.reset_parameters()
+        #self.reset_parameters()
 
-    def reset_parameters(self):
-        """Initialize parameters with Xavier uniform distribution."""
-        logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-        for n, p in self.named_parameters():
-            init_with_xavier_uniform(n, p)
+    # def reset_parameters(self):
+    #     """Initialize parameters with Xavier uniform distribution."""
+    #     logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+    #     for n, p in self.named_parameters():
+    #         init_with_xavier_uniform(n, p)
 
     def forward(self, xs):
         """Forward computation.
@@ -479,33 +491,33 @@ class Swish(nn.Module):
     def forward(self, x):
         return x * torch.sigmoid(x)
 
-
-class XLPositionalEmbedding(nn.Module):
-    def __init__(self, d_model, dropout, device=None):
-        """Positional embedding for TransformerXL."""
-        super().__init__()
-        self.d_model = d_model
-        inv_freq = 1 / (10000 ** (torch.arange(0.0, d_model, 2.0) / d_model))
-        self.register_buffer("inv_freq", inv_freq)
-
-        self.dropout = nn.Dropout(p=dropout)
-
-        self._device = device
-
-    def forward(self, positions):
-        """Forward computation.
-        Args:
-            positions (LongTensor): `[L]`
-        Returns:
-            pos_emb (LongTensor): `[L, 1, d_model]`
-        """
-        if self._device:
-            positions = positions.to(self._device)
-        # outer product
-        sinusoid_inp = torch.einsum("i,j->ij", positions.float(), self.inv_freq)
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
-        pos_emb = self.dropout(pos_emb)
-        return pos_emb.unsqueeze(1)
+#
+# class XLPositionalEmbedding(nn.Module):
+#     def __init__(self, d_model, dropout, device=None):
+#         """Positional embedding for TransformerXL."""
+#         super().__init__()
+#         self.d_model = d_model
+#         inv_freq = 1 / (10000 ** (torch.arange(0.0, d_model, 2.0) / d_model))
+#         self.register_buffer("inv_freq", inv_freq)
+#
+#         self.dropout = nn.Dropout(p=dropout)
+#
+#         self._device = device
+#
+#     def forward(self, positions):
+#         """Forward computation.
+#         Args:
+#             positions (LongTensor): `[L]`
+#         Returns:
+#             pos_emb (LongTensor): `[L, 1, d_model]`
+#         """
+#         if self._device:
+#             positions = positions.to(self._device)
+#         # outer product
+#         sinusoid_inp = torch.einsum("i,j->ij", positions.float(), self.inv_freq)
+#         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
+#         pos_emb = self.dropout(pos_emb)
+#         return pos_emb.unsqueeze(1)
 
 
 class ConvEncoder(nn.Module):
@@ -644,231 +656,231 @@ class ConvEncoder(nn.Module):
         return xs, xlens
 
 
-class Conv2dBlock(nn.Module):
-    """2d-CNN block."""
-
-    def __init__(
-        self,
-        input_dim,
-        in_channel,
-        out_channel,
-        kernel_size,
-        stride,
-        pooling,
-        dropout,
-        batch_norm,
-        layer_norm,
-        layer_norm_eps,
-        residual,
-    ):
-
-        super(Conv2dBlock, self).__init__()
-
-        self.batch_norm = batch_norm
-        self.layer_norm = layer_norm
-        self.residual = residual
-        self.dropout = nn.Dropout(p=dropout)
-
-        # 1st layer
-        self.conv1 = nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=out_channel,
-            kernel_size=tuple(kernel_size),
-            stride=tuple(stride),
-            padding=(1, 1),
-        )
-        self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0].item()
-        self.batch_norm1 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm1 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
-
-        # 2nd layer
-        self.conv2 = nn.Conv2d(
-            in_channels=out_channel,
-            out_channels=out_channel,
-            kernel_size=tuple(kernel_size),
-            stride=tuple(stride),
-            padding=(1, 1),
-        )
-        self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0].item()
-        self.batch_norm2 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
-        self.layer_norm2 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
-
-        # Max Pooling
-        self.pool = None
-        self._factor = 1
-        if len(pooling) > 0 and np.prod(pooling) > 1:
-            self.pool = nn.MaxPool2d(kernel_size=tuple(pooling), stride=tuple(pooling), padding=(0, 0), ceil_mode=True)
-            # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
-            self._odim = update_lens_2d([self._odim], self.pool, dim=1)[0].item()
-            if self._odim % 2 != 0:
-                self._odim = (self._odim // 2) * 2
-                # TODO(hirofumi0810): more efficient way?
-
-            # calculate subsampling factor
-            self._factor *= pooling[0]
-
-    def forward(self, xs, xlens, lookback=False, lookahead=False):
-        """Forward computation.
-        Args:
-            xs (FloatTensor): `[B, C_i, T, F]`
-            xlens (IntTensor): `[B]`
-            lookback (bool): truncate the leftmost frames
-                because of lookback frames for context
-            lookahead (bool): truncate the rightmost frames
-                because of lookahead frames for context
-        Returns:
-            xs (FloatTensor): `[B, C_o, T', F']`
-            xlens (IntTensor): `[B]`
-        """
-        residual = xs
-
-        xs = self.conv1(xs)
-        xs = self.batch_norm1(xs)
-        xs = self.layer_norm1(xs)
-        xs = torch.relu(xs)
-        xs = self.dropout(xs)
-        xlens = update_lens_2d(xlens, self.conv1, dim=0)
-        if lookback and xs.size(2) > self.conv1.stride[0]:
-            xs = xs[:, :, self.conv1.stride[0] :]
-        if lookahead and xs.size(2) > self.conv1.stride[0]:
-            xs = xs[:, :, : xs.size(2) - self.conv1.stride[0]]
-
-        xs = self.conv2(xs)
-        xs = self.batch_norm2(xs)
-        xs = self.layer_norm2(xs)
-        if self.residual and xs.size() == residual.size():
-            xs += residual  # NOTE: this is the same place as in ResNet
-        xs = torch.relu(xs)
-        xs = self.dropout(xs)
-        xlens = update_lens_2d(xlens, self.conv2, dim=0)
-        if lookback and xs.size(2) > self.conv2.stride[0]:
-            xs = xs[:, :, self.conv2.stride[0] :]
-        if lookahead and xs.size(2) > self.conv2.stride[0]:
-            xs = xs[:, :, : xs.size(2) - self.conv2.stride[0]]
-
-        if self.pool is not None:
-            xs = self.pool(xs)
-            xlens = update_lens_2d(xlens, self.pool, dim=0)
-
-        return xs, xlens
-
-
-class LayerNorm2D(nn.Module):
-    """Layer normalization for CNN outputs."""
-
-    def __init__(self, channel, idim, eps=1e-12):
-
-        super(LayerNorm2D, self).__init__()
-        self.norm = LayerNorm([channel, idim], eps=eps)
-
-    def forward(self, xs):
-        """Forward computation.
-        Args:
-            xs (FloatTensor): `[B, C, T, F]`
-        Returns:
-            xs (FloatTensor): `[B, C, T, F]`
-        """
-        B, C, T, F = xs.size()
-        xs = xs.transpose(2, 1).contiguous()
-        xs = self.norm(xs)
-        xs = xs.transpose(2, 1)
-        return xs
-
-
-def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
-    """Update lenghts (frequency or time).
-    Args:
-        seq_lens (list or IntTensor):
-        layer (nn.Conv2d or nn.MaxPool2d):
-        dim (int):
-        device_id (int):
-    Returns:
-        seq_lens (IntTensor):
-    """
-    if seq_lens is None:
-        return seq_lens
-    assert type(layer) in [nn.Conv2d, nn.MaxPool2d]
-    seq_lens = [_update_2d(seq_len, layer, dim) for seq_len in seq_lens]
-    seq_lens = torch.IntTensor(seq_lens)
-    if device_id >= 0:
-        seq_lens = seq_lens.cuda(device_id)
-    return seq_lens
-
-
-def _update_2d(seq_len, layer, dim):
-    if type(layer) == nn.MaxPool2d and layer.ceil_mode:
-        return math.ceil(
-            (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
-        )
-    else:
-        return math.floor(
-            (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
-        )
-
-
-def parse_cnn_config(channels, kernel_sizes, strides, poolings):
-    _channels, _kernel_sizes, _strides, _poolings = [], [], [], []
-    is_1dconv = '(' not in kernel_sizes
-    if len(channels) > 0:
-        _channels = [int(c) for c in channels.split('_')]
-    if len(kernel_sizes) > 0:
-        if is_1dconv:
-            _kernel_sizes = [int(c) for c in kernel_sizes.split('_')]
-        else:
-            _kernel_sizes = [
-                [int(c.split(',')[0].replace('(', '')), int(c.split(',')[1].replace(')', ''))]
-                for c in kernel_sizes.split('_')
-            ]
-    if len(strides) > 0:
-        if is_1dconv:
-            assert '(' not in _strides and ')' not in _strides
-            _strides = [int(s) for s in strides.split('_')]
-        else:
-            _strides = [
-                [int(s.split(',')[0].replace('(', '')), int(s.split(',')[1].replace(')', ''))]
-                for s in strides.split('_')
-            ]
-    if len(poolings) > 0:
-        if is_1dconv:
-            assert '(' not in poolings and ')' not in poolings
-            _poolings = [int(p) for p in poolings.split('_')]
-        else:
-            _poolings = [
-                [int(p.split(',')[0].replace('(', '')), int(p.split(',')[1].replace(')', ''))]
-                for p in poolings.split('_')
-            ]
-    return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
-
-
-def init_with_xavier_uniform(n, p):
-    if p.dim() == 1:
-        nn.init.constant_(p, 0.0)  # bias
-        logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
-    elif p.dim() in [2, 3, 4]:
-        nn.init.xavier_uniform_(p)  # linear layer
-        logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
-    else:
-        raise ValueError(n)
+# class Conv2dBlock(nn.Module):
+#     """2d-CNN block."""
+#
+#     def __init__(
+#         self,
+#         input_dim,
+#         in_channel,
+#         out_channel,
+#         kernel_size,
+#         stride,
+#         pooling,
+#         dropout,
+#         batch_norm,
+#         layer_norm,
+#         layer_norm_eps,
+#         residual,
+#     ):
+#
+#         super(Conv2dBlock, self).__init__()
+#
+#         self.batch_norm = batch_norm
+#         self.layer_norm = layer_norm
+#         self.residual = residual
+#         self.dropout = nn.Dropout(p=dropout)
+#
+#         # 1st layer
+#         self.conv1 = nn.Conv2d(
+#             in_channels=in_channel,
+#             out_channels=out_channel,
+#             kernel_size=tuple(kernel_size),
+#             stride=tuple(stride),
+#             padding=(1, 1),
+#         )
+#         self._odim = update_lens_2d([input_dim], self.conv1, dim=1)[0].item()
+#         self.batch_norm1 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
+#         self.layer_norm1 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
+#
+#         # 2nd layer
+#         self.conv2 = nn.Conv2d(
+#             in_channels=out_channel,
+#             out_channels=out_channel,
+#             kernel_size=tuple(kernel_size),
+#             stride=tuple(stride),
+#             padding=(1, 1),
+#         )
+#         self._odim = update_lens_2d([self._odim], self.conv2, dim=1)[0].item()
+#         self.batch_norm2 = nn.BatchNorm2d(out_channel) if batch_norm else lambda x: x
+#         self.layer_norm2 = LayerNorm2D(out_channel, self._odim, eps=layer_norm_eps) if layer_norm else lambda x: x
+#
+#         # Max Pooling
+#         self.pool = None
+#         self._factor = 1
+#         if len(pooling) > 0 and np.prod(pooling) > 1:
+#             self.pool = nn.MaxPool2d(kernel_size=tuple(pooling), stride=tuple(pooling), padding=(0, 0), ceil_mode=True)
+#             # NOTE: If ceil_mode is False, remove last feature when the dimension of features are odd.
+#             self._odim = update_lens_2d([self._odim], self.pool, dim=1)[0].item()
+#             if self._odim % 2 != 0:
+#                 self._odim = (self._odim // 2) * 2
+#                 # TODO(hirofumi0810): more efficient way?
+#
+#             # calculate subsampling factor
+#             self._factor *= pooling[0]
+#
+#     def forward(self, xs, xlens, lookback=False, lookahead=False):
+#         """Forward computation.
+#         Args:
+#             xs (FloatTensor): `[B, C_i, T, F]`
+#             xlens (IntTensor): `[B]`
+#             lookback (bool): truncate the leftmost frames
+#                 because of lookback frames for context
+#             lookahead (bool): truncate the rightmost frames
+#                 because of lookahead frames for context
+#         Returns:
+#             xs (FloatTensor): `[B, C_o, T', F']`
+#             xlens (IntTensor): `[B]`
+#         """
+#         residual = xs
+#
+#         xs = self.conv1(xs)
+#         xs = self.batch_norm1(xs)
+#         xs = self.layer_norm1(xs)
+#         xs = torch.relu(xs)
+#         xs = self.dropout(xs)
+#         xlens = update_lens_2d(xlens, self.conv1, dim=0)
+#         if lookback and xs.size(2) > self.conv1.stride[0]:
+#             xs = xs[:, :, self.conv1.stride[0] :]
+#         if lookahead and xs.size(2) > self.conv1.stride[0]:
+#             xs = xs[:, :, : xs.size(2) - self.conv1.stride[0]]
+#
+#         xs = self.conv2(xs)
+#         xs = self.batch_norm2(xs)
+#         xs = self.layer_norm2(xs)
+#         if self.residual and xs.size() == residual.size():
+#             xs += residual  # NOTE: this is the same place as in ResNet
+#         xs = torch.relu(xs)
+#         xs = self.dropout(xs)
+#         xlens = update_lens_2d(xlens, self.conv2, dim=0)
+#         if lookback and xs.size(2) > self.conv2.stride[0]:
+#             xs = xs[:, :, self.conv2.stride[0] :]
+#         if lookahead and xs.size(2) > self.conv2.stride[0]:
+#             xs = xs[:, :, : xs.size(2) - self.conv2.stride[0]]
+#
+#         if self.pool is not None:
+#             xs = self.pool(xs)
+#             xlens = update_lens_2d(xlens, self.pool, dim=0)
+#
+#         return xs, xlens
+#
+#
+# class LayerNorm2D(nn.Module):
+#     """Layer normalization for CNN outputs."""
+#
+#     def __init__(self, channel, idim, eps=1e-12):
+#
+#         super(LayerNorm2D, self).__init__()
+#         self.norm = LayerNorm([channel, idim], eps=eps)
+#
+#     def forward(self, xs):
+#         """Forward computation.
+#         Args:
+#             xs (FloatTensor): `[B, C, T, F]`
+#         Returns:
+#             xs (FloatTensor): `[B, C, T, F]`
+#         """
+#         B, C, T, F = xs.size()
+#         xs = xs.transpose(2, 1).contiguous()
+#         xs = self.norm(xs)
+#         xs = xs.transpose(2, 1)
+#         return xs
+#
+#
+# def update_lens_2d(seq_lens, layer, dim=0, device_id=-1):
+#     """Update lenghts (frequency or time).
+#     Args:
+#         seq_lens (list or IntTensor):
+#         layer (nn.Conv2d or nn.MaxPool2d):
+#         dim (int):
+#         device_id (int):
+#     Returns:
+#         seq_lens (IntTensor):
+#     """
+#     if seq_lens is None:
+#         return seq_lens
+#     assert type(layer) in [nn.Conv2d, nn.MaxPool2d]
+#     seq_lens = [_update_2d(seq_len, layer, dim) for seq_len in seq_lens]
+#     seq_lens = torch.IntTensor(seq_lens)
+#     if device_id >= 0:
+#         seq_lens = seq_lens.cuda(device_id)
+#     return seq_lens
+#
+#
+# def _update_2d(seq_len, layer, dim):
+#     if type(layer) == nn.MaxPool2d and layer.ceil_mode:
+#         return math.ceil(
+#             (seq_len + 1 + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+#         )
+#     else:
+#         return math.floor(
+#             (seq_len + 2 * layer.padding[dim] - (layer.kernel_size[dim] - 1) - 1) / layer.stride[dim] + 1
+#         )
+#
+#
+# def parse_cnn_config(channels, kernel_sizes, strides, poolings):
+#     _channels, _kernel_sizes, _strides, _poolings = [], [], [], []
+#     is_1dconv = '(' not in kernel_sizes
+#     if len(channels) > 0:
+#         _channels = [int(c) for c in channels.split('_')]
+#     if len(kernel_sizes) > 0:
+#         if is_1dconv:
+#             _kernel_sizes = [int(c) for c in kernel_sizes.split('_')]
+#         else:
+#             _kernel_sizes = [
+#                 [int(c.split(',')[0].replace('(', '')), int(c.split(',')[1].replace(')', ''))]
+#                 for c in kernel_sizes.split('_')
+#             ]
+#     if len(strides) > 0:
+#         if is_1dconv:
+#             assert '(' not in _strides and ')' not in _strides
+#             _strides = [int(s) for s in strides.split('_')]
+#         else:
+#             _strides = [
+#                 [int(s.split(',')[0].replace('(', '')), int(s.split(',')[1].replace(')', ''))]
+#                 for s in strides.split('_')
+#             ]
+#     if len(poolings) > 0:
+#         if is_1dconv:
+#             assert '(' not in poolings and ')' not in poolings
+#             _poolings = [int(p) for p in poolings.split('_')]
+#         else:
+#             _poolings = [
+#                 [int(p.split(',')[0].replace('(', '')), int(p.split(',')[1].replace(')', ''))]
+#                 for p in poolings.split('_')
+#             ]
+#     return (_channels, _kernel_sizes, _strides, _poolings), is_1dconv
 
 
-def init_with_lecun_normal(n, p):
-    if p.dim() == 1:
-        nn.init.constant_(p, 0.0)  # bias
-        logging.info('Initialize %s with %s' % (n, 'constant'))
-    elif p.dim() == 2:
-        fan_in = p.size(1)
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    elif p.dim() == 3:
-        fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    elif p.dim() == 4:
-        fan_in = p.size(1) * p[0][0].numel()
-        nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
-        logging.info('Initialize %s with %s' % (n, 'lecun'))
-    else:
-        raise ValueError(n)
+# def init_with_xavier_uniform(n, p):
+#     if p.dim() == 1:
+#         nn.init.constant_(p, 0.0)  # bias
+#         logging.info('Initialize %s with %s / %.3f' % (n, 'constant', 0.0))
+#     elif p.dim() in [2, 3, 4]:
+#         nn.init.xavier_uniform_(p)  # linear layer
+#         logging.info('Initialize %s with %s' % (n, 'xavier_uniform'))
+#     else:
+#         raise ValueError(n)
+#
+#
+# def init_with_lecun_normal(n, p):
+#     if p.dim() == 1:
+#         nn.init.constant_(p, 0.0)  # bias
+#         logging.info('Initialize %s with %s' % (n, 'constant'))
+#     elif p.dim() == 2:
+#         fan_in = p.size(1)
+#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # linear weight
+#         logging.info('Initialize %s with %s' % (n, 'lecun'))
+#     elif p.dim() == 3:
+#         fan_in = p.size(1) * p[0][0].numel()
+#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 1d conv weight
+#         logging.info('Initialize %s with %s' % (n, 'lecun'))
+#     elif p.dim() == 4:
+#         fan_in = p.size(1) * p[0][0].numel()
+#         nn.init.normal_(p, mean=0.0, std=1.0 / math.sqrt(fan_in))  # 2d conv weight
+#         logging.info('Initialize %s with %s' % (n, 'lecun'))
+#     else:
+#         raise ValueError(n)
 
 
 class Conv2dSubsampling(torch.nn.Module):
@@ -943,11 +955,11 @@ class Conv2dSubsampling(torch.nn.Module):
                 ),
             )
         elif subsampling == "conformer":
-            self._padding = 1
+            self._padding = 0
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False
-            conv_channels = 32
+            conv_channels = odim
             self.conv = torch.nn.Sequential(
                 torch.nn.Conv2d(
                     in_channels=1,
@@ -967,11 +979,11 @@ class Conv2dSubsampling(torch.nn.Module):
                 activation,
             )
         elif subsampling == "conformer2x":
-            self._padding = 1
+            self._padding = 0
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False
-            conv_channels = 32
+            conv_channels = odim
             self.conv = torch.nn.Sequential(
                 torch.nn.Conv2d(
                     in_channels=1,
@@ -1010,14 +1022,14 @@ class Conv2dSubsampling(torch.nn.Module):
         #     PositionalEncoding(odim, dropout_rate, rel_pos=rel_pos),
         # )
 
-        self.reset_parameters()
+        #self.reset_parameters()
 
-    def reset_parameters(self):
-        """Initialize parameters with lecun style."""
-        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
-        for n, p in self.named_parameters():
-            # init_with_lecun_normal(n, p)
-            init_with_xavier_uniform(n, p)
+    # def reset_parameters(self):
+    #     """Initialize parameters with lecun style."""
+    #     logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+    #     for n, p in self.named_parameters():
+    #         # init_with_lecun_normal(n, p)
+    #         init_with_xavier_uniform(n, p)
 
     # def forward(self, x, x_mask):
     def forward(self, x, lengths):
@@ -1100,3 +1112,165 @@ def calc_length(length, padding, kernel_size, stride, ceil_mode):
 #         b, c, t, f = x.size()
 #         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
 #         return x
+
+
+
+class MultiHeadedAttention(nn.Module):
+    """Multi-Head Attention layer.
+    :param int n_head: the number of head s
+    :param int n_feat: the number of features
+    :param float dropout_rate: dropout rate
+    """
+
+    def __init__(self, n_head, n_feat, dropout_rate):
+        """Construct an MultiHeadedAttention object."""
+        super(MultiHeadedAttention, self).__init__()
+        assert n_feat % n_head == 0
+        # We assume d_v always equals d_k
+        self.d_k = n_feat // n_head
+        self.h = n_head
+        self.linear_q = nn.Linear(n_feat, n_feat)
+        self.linear_k = nn.Linear(n_feat, n_feat)
+        self.linear_v = nn.Linear(n_feat, n_feat)
+        self.linear_out = nn.Linear(n_feat, n_feat)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout_rate)
+
+    def forward_qkv(self, query, key, value):
+        """Transform query, key and value.
+        :param torch.Tensor query: (batch, time1, size)
+        :param torch.Tensor key: (batch, time2, size)
+        :param torch.Tensor value: (batch, time2, size)
+        :return torch.Tensor transformed query, key and value
+        """
+        n_batch = query.size(0)
+        q = self.linear_q(query).view(n_batch, -1, self.h, self.d_k)
+        k = self.linear_k(key).view(n_batch, -1, self.h, self.d_k)
+        v = self.linear_v(value).view(n_batch, -1, self.h, self.d_k)
+        q = q.transpose(1, 2)  # (batch, head, time1, d_k)
+        k = k.transpose(1, 2)  # (batch, head, time2, d_k)
+        v = v.transpose(1, 2)  # (batch, head, time2, d_k)
+
+        return q, k, v
+
+    def forward_attention(self, value, scores, mask):
+        """Compute attention context vector.
+        :param torch.Tensor value: (batch, time2, size)
+        :param torch.Tensor scores: (batch, time1, time2)
+        :param torch.Tensor mask: (batch, time1, time2)
+        :return torch.Tensor transformed `value` (batch, time2, d_model)
+            weighted by the attention score (batch, time1, time2)
+        """
+        n_batch = value.size(0)
+        if mask is not None:
+            mask = mask.unsqueeze(1).eq(0)  # (batch, 1, time1, time2)
+            min_value = float(
+                np.finfo(torch.tensor(0, dtype=scores.dtype).numpy().dtype).min
+            )
+            scores = scores.masked_fill(mask, min_value)
+            self.attn = torch.softmax(scores, dim=-1).masked_fill(
+                mask, 0.0
+            )  # (batch, head, time1, time2)
+        else:
+            self.attn = torch.softmax(scores, dim=-1)  # (batch, head, time1, time2)
+
+        p_attn = self.dropout(self.attn)
+        x = torch.matmul(p_attn, value)  # (batch, head, time1, d_k)
+        x = (
+            x.transpose(1, 2).contiguous().view(n_batch, -1, self.h * self.d_k)
+        )  # (batch, time1, d_model)
+
+        return self.linear_out(x)  # (batch, time1, d_model)
+
+    def forward(self, query, key, value, mask):
+        """Compute 'Scaled Dot Product Attention'.
+        :param torch.Tensor query: (batch, time1, size)
+        :param torch.Tensor key: (batch, time2, size)
+        :param torch.Tensor value: (batch, time2, size)
+        :param torch.Tensor mask: (batch, time1, time2)
+        :param torch.nn.Dropout dropout:
+        :return torch.Tensor: attentined and transformed `value` (batch, time1, d_model)
+             weighted by the query dot key attention (batch, head, time1, time2)
+        """
+        q, k, v = self.forward_qkv(query, key, value)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+        return self.forward_attention(v, scores, mask)
+
+
+
+class RelPositionMultiHeadedAttention(MultiHeadedAttention):
+    """Multi-Head Attention layer with relative position encoding.
+    Paper: https://arxiv.org/abs/1901.02860
+    :param int n_head: the number of head s
+    :param int n_feat: the number of features
+    :param float dropout_rate: dropout rate
+    """
+
+    def __init__(self, n_head, n_feat, dropout_rate):
+        """Construct an RelPositionMultiHeadedAttention object."""
+        super().__init__(n_head, n_feat, dropout_rate)
+        # linear transformation for positional ecoding
+        self.linear_pos = nn.Linear(n_feat, n_feat, bias=False)
+        # these two learnable bias are used in matrix c and matrix d
+        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
+        self.pos_bias_u = nn.Parameter(torch.Tensor(self.h, self.d_k))
+        self.pos_bias_v = nn.Parameter(torch.Tensor(self.h, self.d_k))
+        torch.nn.init.xavier_uniform_(self.pos_bias_u)
+        torch.nn.init.xavier_uniform_(self.pos_bias_v)
+
+    def rel_shift(self, x, zero_triu=False):
+        """Compute relative positinal encoding.
+        :param torch.Tensor x: (batch, time, size)
+        :param bool zero_triu: return the lower triangular part of the matrix
+        """
+        zero_pad = torch.zeros((*x.size()[:3], 1), device=x.device, dtype=x.dtype)
+        x_padded = torch.cat([zero_pad, x], dim=-1)
+
+        x_padded = x_padded.view(*x.size()[:2], x.size(3) + 1, x.size(2))
+        x = x_padded[:, :, 1:].view_as(x)
+
+        if zero_triu:
+            ones = torch.ones((x.size(2), x.size(3)))
+            x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
+
+        return x
+
+    def forward(self, query, key, value, pos_emb, mask):
+        """Compute 'Scaled Dot Product Attention' with rel. positional encoding.
+        :param torch.Tensor query: (batch, time1, size)
+        :param torch.Tensor key: (batch, time2, size)
+        :param torch.Tensor value: (batch, time2, size)
+        :param torch.Tensor pos_emb: (batch, time1, size)
+        :param torch.Tensor mask: (batch, time1, time2)
+        :param torch.nn.Dropout dropout:
+        :return torch.Tensor: attentined and transformed `value` (batch, time1, d_model)
+             weighted by the query dot key attention (batch, head, time1, time2)
+        """
+        q, k, v = self.forward_qkv(query, key, value)
+        q = q.transpose(1, 2)  # (batch, time1, head, d_k)
+
+        n_batch_pos = pos_emb.size(0)
+        p = self.linear_pos(pos_emb).view(n_batch_pos, -1, self.h, self.d_k)
+        p = p.transpose(1, 2)  # (batch, head, time1, d_k)
+
+        # (batch, head, time1, d_k)
+        q_with_bias_u = (q + self.pos_bias_u).transpose(1, 2)
+        # (batch, head, time1, d_k)
+        q_with_bias_v = (q + self.pos_bias_v).transpose(1, 2)
+
+        # compute attention score
+        # first compute matrix a and matrix c
+        # as described in https://arxiv.org/abs/1901.02860 Section 3.3
+        # (batch, head, time1, time2)
+        matrix_ac = torch.matmul(q_with_bias_u, k.transpose(-2, -1))
+
+        # compute matrix b and matrix d
+        # (batch, head, time1, time2)
+        matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
+        matrix_bd = self.rel_shift(matrix_bd)
+
+        scores = (matrix_ac + matrix_bd) / math.sqrt(
+            self.d_k
+        )  # (batch, head, time1, time2)
+
+        return self.forward_attention(v, scores, mask)

@@ -68,7 +68,7 @@ ConformerEncoder:
 #    ctc_weight: 0.3
 #    ctc_lsm_prob: 0.1
 #    mtl_per_batch: false
-    n_layers: 16
+    n_layers: 12
     last_proj_dim: 0
     conv_in_channel: 1
 #    conv_channels: ""
@@ -83,7 +83,7 @@ ConformerEncoder:
     conv_layer_norm: false
     kernel_size: 33
     pe_type: relative
-    d_model: 144
+    d_model: 176
     n_heads: 4
     param_init: xavier_uniform
     ### regularization

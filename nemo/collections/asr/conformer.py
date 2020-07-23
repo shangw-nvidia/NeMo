@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from .parts.conformer import ConformerEncoderBlock, Conv2dSubsampling, ConvEncoder, XLPositionalEmbedding
+from .parts.conformer import ConformerEncoderBlock, Conv2dSubsampling#, ConvEncoder #, XLPositionalEmbedding
 from nemo.backends.pytorch.nm import TrainableNM
 from nemo.core.neural_types import *
 from nemo.utils import logging
@@ -141,16 +141,16 @@ class ConformerEncoder(TrainableNM):
     def _disabled_deployment_output_ports(self):
         return set(["encoded_lengths"])
 
-    def _prepare_for_deployment(self):
-        m_count = 0
-        for m in self.modules():
-            if type(m).__name__ == "MaskedConv1d":
-                m.use_mask = False
-                m_count += 1
-        logging.warning(f"Turned off {m_count} masked convolutions")
-
-        input_example = torch.randn(16, self.__feat_in, 256)
-        return input_example, None
+    # def _prepare_for_deployment(self):
+    #     m_count = 0
+    #     for m in self.modules():
+    #         if type(m).__name__ == "MaskedConv1d":
+    #             m.use_mask = False
+    #             m_count += 1
+    #     logging.warning(f"Turned off {m_count} masked convolutions")
+    #
+    #     input_example = torch.randn(16, self.__feat_in, 256)
+    #     return input_example, None
 
     # self,
     # jasper,
@@ -208,9 +208,9 @@ class ConformerEncoder(TrainableNM):
         self.scale = math.sqrt(self.d_model)
 
         # Setting for CNNs
-        if conv_channels:
+        if subsampling:
             self.conv = Conv2dSubsampling(
-                idim=input_dim, odim=d_model, dropout_rate=0, activation=nn.ReLU(), subsampling=subsampling
+                idim=input_dim, odim=d_model, dropout_rate=0.0, activation=nn.ReLU(), subsampling=subsampling
             )
             self._odim = d_model
             #
@@ -241,12 +241,14 @@ class ConformerEncoder(TrainableNM):
         # if self.conv is not None:
         #     self._factor *= self.conv.subsampling_factor
 
-        self.pos_emb = XLPositionalEmbedding(
-            d_model=d_model, dropout=dropout, device=self._device
-        )  # TODO: dropout_in? maybe?
-        assert pe_type == 'relative'
+        self.pos_enc = RelPositionalEncoding(d_model=d_model, dropout_rate=dropout)
 
-        self.dropout = nn.Dropout(p=dropout_in)
+        # self.pos_emb = XLPositionalEmbedding(
+        #     d_model=d_model, dropout=dropout, device=self._device
+        # )  # TODO: dropout_in? maybe?
+        # assert pe_type == 'relative'
+
+        #self.dropout = nn.Dropout(p=dropout_in)
 
         self.layers = nn.ModuleList(
             [
@@ -289,21 +291,29 @@ class ConformerEncoder(TrainableNM):
         else:
             self.lstm = None
 
-        self.reset_parameters(param_init)
+        #self.reset_parameters(param_init)
+
+        # for p in self.parameters():
+        #     if p.dim() == 1:
+        #         p.data.zero_()
+
+        for m in self.modules():
+            if isinstance(m, (torch.nn.Embedding, LayerNorm)):
+                m.reset_parameters()
 
         # self.apply(lambda x: init_weights(x, mode=init_mode))
         self.to(self._device)
 
-    def reset_parameters(self, param_init):
-        """Initialize parameters."""
-        if param_init == 'xavier_uniform':
-            logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
-            if self.conv is None:
-                nn.init.xavier_uniform_(self.embed.weight)
-                nn.init.constant_(self.embed.bias, 0.0)
-            if self.bridge is not None:
-                nn.init.xavier_uniform_(self.bridge.weight)
-                nn.init.constant_(self.bridge.bias, 0.0)
+    # def reset_parameters(self, param_init):
+    #     """Initialize parameters."""
+    #     if param_init == 'xavier_uniform':
+    #         logging.info('===== Initialize %s with Xavier uniform distribution =====' % self.__class__.__name__)
+    #         if self.conv is None:
+    #             nn.init.xavier_uniform_(self.embed.weight)
+    #             nn.init.constant_(self.embed.bias, 0.0)
+    #         if self.bridge is not None:
+    #             nn.init.xavier_uniform_(self.bridge.weight)
+    #             nn.init.constant_(self.bridge.bias, 0.0)
 
     def forward(self, audio_signal, length=None):
         ## type: (Tensor, Optional[Tensor]) -> Tensor, Optional[Tensor]
@@ -317,10 +327,12 @@ class ConformerEncoder(TrainableNM):
         else:
             # Path through CNN blocks
             # audio_signal1, length1 = self.conv(audio_signal, length)
-            audio_signal2, length2 = self.conv(audio_signal, length)
+            audio_signal, length = self.conv(audio_signal, length)
 
-        audio_signal = audio_signal2
-        length = length2
+        audio_signal, pos_embs = self.pos_enc(audio_signal)
+
+        # audio_signal = audio_signal2
+        # length = length2
 
         bs, xmax, idim = audio_signal.size()
 
@@ -331,19 +343,21 @@ class ConformerEncoder(TrainableNM):
         xx_mask = pad_mask.unsqueeze(2).repeat([1, 1, xmax])
         pad_mask = (~pad_mask).unsqueeze(2).repeat(1, 1, idim)
 
-        pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
-        pos_embs = self.pos_emb(pos_idxs)
+        #pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
+        #pos_embs = self.pos_emb(pos_idxs)
 
-        audio_signal = self.dropout(audio_signal)
+        #audio_signal = self.dropout(audio_signal)
+        #pos_embs = self.pos_emb(pos_idxs)
 
         for lth, layer in enumerate(self.layers):
+            #audio_signal = layer(xs=audio_signal, xx_mask=xx_mask, pos_embs=pos_embs, pad_mask=pad_mask)
             audio_signal = layer(xs=audio_signal, xx_mask=xx_mask, pos_embs=pos_embs, pad_mask=pad_mask)
             # audio_signal.masked_fill_(pad_mask, 0.0)
 
             # if not self.training:
             #     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
-        # audio_signal = self.norm_out(audio_signal)
+        audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:
@@ -382,3 +396,88 @@ def make_pad_mask(seq_lens, max_time, device=None):
     if device:
         mask = mask.to(device)
     return mask
+
+
+
+class PositionalEncoding(torch.nn.Module):
+    """Positional encoding.
+    :param int d_model: embedding dim
+    :param float dropout_rate: dropout rate
+    :param int max_len: maximum input length
+    :param reverse: whether to reverse the input position
+    """
+
+    def __init__(self, d_model, dropout_rate, max_len=5000, reverse=False):
+        """Construct an PositionalEncoding object."""
+        super(PositionalEncoding, self).__init__()
+        self.d_model = d_model
+        self.reverse = reverse
+        self.xscale = math.sqrt(self.d_model)
+        self.dropout = torch.nn.Dropout(p=dropout_rate)
+        self.pe = None
+        self.extend_pe(torch.tensor(0.0).expand(1, max_len))
+        #self._register_load_state_dict_pre_hook(_pre_hook)
+
+    def extend_pe(self, x):
+        """Reset the positional encodings."""
+        if self.pe is not None:
+            if self.pe.size(1) >= x.size(1):
+                if self.pe.dtype != x.dtype or self.pe.device != x.device:
+                    self.pe = self.pe.to(dtype=x.dtype, device=x.device)
+                return
+        pe = torch.zeros(x.size(1), self.d_model)
+        if self.reverse:
+            position = torch.arange(
+                x.size(1) - 1, -1, -1.0, dtype=torch.float32
+            ).unsqueeze(1)
+        else:
+            position = torch.arange(0, x.size(1), dtype=torch.float32).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, self.d_model, 2, dtype=torch.float32)
+            * -(math.log(10000.0) / self.d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.pe = pe.to(device=x.device, dtype=x.dtype)
+
+    def forward(self, x: torch.Tensor):
+        """Add positional encoding.
+        Args:
+            x (torch.Tensor): Input. Its shape is (batch, time, ...)
+        Returns:
+            torch.Tensor: Encoded tensor. Its shape is (batch, time, ...)
+        """
+        self.extend_pe(x)
+        x = x * self.xscale + self.pe[:, : x.size(1)]
+        return self.dropout(x)
+
+
+class RelPositionalEncoding(PositionalEncoding):
+    """Relitive positional encoding module.
+    See : Appendix B in https://arxiv.org/abs/1901.02860
+    :param int d_model: embedding dim
+    :param float dropout_rate: dropout rate
+    :param int max_len: maximum input length
+    """
+
+    def __init__(self, d_model, dropout_rate, max_len=5000):
+        """Initialize class.
+        :param int d_model: embedding dim
+        :param float dropout_rate: dropout rate
+        :param int max_len: maximum input length
+        """
+        super().__init__(d_model, dropout_rate, max_len, reverse=True)
+
+    def forward(self, x):
+        """Compute positional encoding.
+        Args:
+            x (torch.Tensor): Input. Its shape is (batch, time, ...)
+        Returns:
+            torch.Tensor: x. Its shape is (batch, time, ...)
+            torch.Tensor: pos_emb. Its shape is (1, time, ...)
+        """
+        self.extend_pe(x)
+        x = x * self.xscale
+        pos_emb = self.pe[:, : x.size(1)]
+        return self.dropout(x), self.dropout(pos_emb)
