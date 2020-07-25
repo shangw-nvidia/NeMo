@@ -955,7 +955,7 @@ class Conv2dSubsampling(torch.nn.Module):
                 ),
             )
         elif subsampling == "conformer":
-            self._padding = 0
+            self._padding = 1
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False
@@ -979,7 +979,7 @@ class Conv2dSubsampling(torch.nn.Module):
                 activation,
             )
         elif subsampling == "conformer2x":
-            self._padding = 0
+            self._padding = 1
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False

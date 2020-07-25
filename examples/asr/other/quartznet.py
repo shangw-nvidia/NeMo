@@ -50,6 +50,10 @@ def parse_args():
     parser.add_argument("--synced_bn", action='store_true', help="Use synchronized batch norm")
     parser.add_argument("--synced_bn_groupsize", default=0, type=int)
 
+    parser.add_argument("--do_not_eval_at_start", action='store_true')
+    parser.add_argument("--wandb_project", default="Quartznet", type=str)
+    parser.add_argument("--wandb_exp", default=None, type=str)
+
     args = parser.parse_args()
     if args.max_steps is not None:
         raise ValueError("QuartzNet uses num_epochs instead of max_steps")
@@ -189,17 +193,15 @@ def create_all_dags(args, neural_factory):
             folder=args.checkpoint_dir,
             load_from_folder=args.load_dir,
             step_freq=args.checkpoint_save_freq,
-            wandb_name=args.exp_name,
-            wandb_project=args.project,
         )
 
         callbacks.append(chpt_callback)
 
         wand_callback = nemo.core.WandbCallback(
             train_tensors=[loss_t, predictions_t, transcript_t, transcript_len_t],
-            wandb_name=args.exp_name,
-            wandb_project=args.project,
-            update_freq=args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
+            wandb_name=args.wandb_exp,
+            wandb_project=args.wandb_project,
+            update_freq=1, #args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
             args=args,
         )
 
@@ -225,6 +227,9 @@ def create_all_dags(args, neural_factory):
             user_epochs_done_callback=partial(process_evaluation_epoch, tag=tagname),
             eval_step=args.eval_freq,
             tb_writer=neural_factory.tb_writer,
+            wandb_name=args.wandb_exp,
+            wandb_project=args.wandb_project,
+            eval_at_start=not args.do_not_eval_at_start,
         )
 
         callbacks.append(eval_callback)
