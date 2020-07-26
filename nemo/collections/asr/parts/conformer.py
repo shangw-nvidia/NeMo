@@ -134,9 +134,9 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # self-attention
         residual = xs
-        xs = self.norm3(xs)
+        xs = self.norm2(xs)
         # relative positional encoding
-        memory = None
+        #memory = None
         # if pos_embs is not None:
 
         xs = self.self_attn(query=xs, key=xs, value=xs, pos_emb=pos_embs, mask=xx_mask)
@@ -150,7 +150,7 @@ class ConformerEncoderBlock(torch.nn.Module):
 
         # conv
         residual = xs
-        xs = self.norm2(xs)
+        xs = self.norm3(xs)
         # if pad_mask is not None:
         #     xs.masked_fill_(pad_mask, 0.0)
         xs = self.conv(xs)
@@ -520,140 +520,140 @@ class Swish(nn.Module):
 #         return pos_emb.unsqueeze(1)
 
 
-class ConvEncoder(nn.Module):
-    """CNN encoder.
-
-    Args:
-        input_dim (int): dimension of input features (freq * channel)
-        in_channel (int): number of channels of input features
-        channels (list): number of channels in CNN blocks
-        kernel_sizes (list): size of kernels in CNN blocks
-        strides (list): strides in CNN blocks
-        poolings (list): size of poolings in CNN blocks
-        dropout (float): probability to drop nodes in hidden-hidden connection
-        batch_norm (bool): apply batch normalization
-        layer_norm (bool): apply layer normalization
-        residual (bool): add residual connections
-        bottleneck_dim (int): dimension of the bridge layer after the last layer
-        param_init (float): model initialization parameter
-        layer_norm_eps (float):
-
-    """
-
-    def __init__(
-        self,
-        input_dim,
-        in_channel,
-        channels,
-        kernel_sizes,
-        strides,
-        poolings,
-        dropout,
-        batch_norm,
-        layer_norm,
-        residual,
-        bottleneck_dim,
-        param_init,
-        device,
-        layer_norm_eps=1e-12,
-    ):
-
-        super(ConvEncoder, self).__init__()
-
-        (channels, kernel_sizes, strides, poolings), is_1dconv = parse_cnn_config(
-            channels, kernel_sizes, strides, poolings
-        )
-
-        self._device = device
-
-        self.is_1dconv = is_1dconv
-        self.in_channel = in_channel
-        assert input_dim % in_channel == 0
-        self.input_freq = input_dim // in_channel
-        self.residual = residual
-        self.bridge = None
-
-        assert len(channels) > 0
-        assert len(channels) == len(kernel_sizes) == len(strides) == len(poolings)
-
-        self.layers = nn.ModuleList()
-        C_i = input_dim if is_1dconv else in_channel
-        in_freq = self.input_freq
-        for lth in range(len(channels)):
-            # block = nn.ReLU(nn.Conv2d(C_i, channels[lth], kernel_size=kernel_sizes[lth], stride=strides[lth]).to(self._device))
-            block = Conv2dBlock(
-                input_dim=in_freq,
-                in_channel=C_i,
-                out_channel=channels[lth],
-                kernel_size=kernel_sizes[lth],  # (T,F)
-                stride=strides[lth],  # (T,F)
-                pooling=poolings[lth],  # (T,F)
-                dropout=dropout,
-                batch_norm=batch_norm,
-                layer_norm=layer_norm,
-                layer_norm_eps=layer_norm_eps,
-                residual=residual,
-            )
-            self.layers += [block]
-            in_freq = block._odim
-            C_i = channels[lth]
-
-        # check here
-        self._odim = C_i if is_1dconv else int(C_i * in_freq)
-        # self._odim = C_i if is_1dconv else int(C_i * 32)
-
-        if bottleneck_dim > 0 and bottleneck_dim != self._odim:
-            self.bridge = nn.Linear(self._odim, bottleneck_dim)
-            self._odim = bottleneck_dim
-
-        # calculate subsampling factor
-        self._factor = 1
-        if poolings:
-            for p in poolings:
-                self._factor *= p if is_1dconv else p[0]
-
-        # changed here
-        # param_init = "xavier_uniform"
-
-        self.output_dim = self._odim
-        # self.subsampling_factor = 1
-        # self.apply(lambda x: init_weights(x, mode=param_init))
-        self.reset_parameters(param_init)
-        # self.to(self._device)
-
-    def reset_parameters(self, param_init):
-        """Initialize parameters with lecun style."""
-        logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
-        for n, p in self.named_parameters():
-            init_with_lecun_normal(n, p)
-
-    def forward(self, xs, xlens):
-        """Forward computation.
-
-        Args:
-            xs (FloatTensor): `[B, T, F]`
-            xlens (list): A list of length `[B]`
-        Returns:
-            xs (FloatTensor): `[B, T', F']`
-            xlens (list): A list of length `[B]`
-
-        """
-        B, T, F = xs.size()
-        C_i = self.in_channel
-        if not self.is_1dconv:
-            xs = xs.view(B, T, C_i, F // C_i).contiguous().transpose(2, 1)  # `[B, C_i, T, F // C_i]`
-
-        for block in self.layers:
-            xs, xlens = block(xs, xlens)
-        if not self.is_1dconv:
-            B, C_o, T, F = xs.size()
-            xs = xs.transpose(2, 1).contiguous().view(B, T, -1)  # `[B, T', C_o * F']`
-
-        # Bridge layer
-        if self.bridge is not None:
-            xs = self.bridge(xs)
-
-        return xs, xlens
+# class ConvEncoder(nn.Module):
+#     """CNN encoder.
+#
+#     Args:
+#         input_dim (int): dimension of input features (freq * channel)
+#         in_channel (int): number of channels of input features
+#         channels (list): number of channels in CNN blocks
+#         kernel_sizes (list): size of kernels in CNN blocks
+#         strides (list): strides in CNN blocks
+#         poolings (list): size of poolings in CNN blocks
+#         dropout (float): probability to drop nodes in hidden-hidden connection
+#         batch_norm (bool): apply batch normalization
+#         layer_norm (bool): apply layer normalization
+#         residual (bool): add residual connections
+#         bottleneck_dim (int): dimension of the bridge layer after the last layer
+#         param_init (float): model initialization parameter
+#         layer_norm_eps (float):
+#
+#     """
+#
+#     def __init__(
+#         self,
+#         input_dim,
+#         in_channel,
+#         channels,
+#         kernel_sizes,
+#         strides,
+#         poolings,
+#         dropout,
+#         batch_norm,
+#         layer_norm,
+#         residual,
+#         bottleneck_dim,
+#         param_init,
+#         device,
+#         layer_norm_eps=1e-12,
+#     ):
+#
+#         super(ConvEncoder, self).__init__()
+#
+#         (channels, kernel_sizes, strides, poolings), is_1dconv = parse_cnn_config(
+#             channels, kernel_sizes, strides, poolings
+#         )
+#
+#         self._device = device
+#
+#         self.is_1dconv = is_1dconv
+#         self.in_channel = in_channel
+#         assert input_dim % in_channel == 0
+#         self.input_freq = input_dim // in_channel
+#         self.residual = residual
+#         self.bridge = None
+#
+#         assert len(channels) > 0
+#         assert len(channels) == len(kernel_sizes) == len(strides) == len(poolings)
+#
+#         self.layers = nn.ModuleList()
+#         C_i = input_dim if is_1dconv else in_channel
+#         in_freq = self.input_freq
+#         for lth in range(len(channels)):
+#             # block = nn.ReLU(nn.Conv2d(C_i, channels[lth], kernel_size=kernel_sizes[lth], stride=strides[lth]).to(self._device))
+#             block = Conv2dBlock(
+#                 input_dim=in_freq,
+#                 in_channel=C_i,
+#                 out_channel=channels[lth],
+#                 kernel_size=kernel_sizes[lth],  # (T,F)
+#                 stride=strides[lth],  # (T,F)
+#                 pooling=poolings[lth],  # (T,F)
+#                 dropout=dropout,
+#                 batch_norm=batch_norm,
+#                 layer_norm=layer_norm,
+#                 layer_norm_eps=layer_norm_eps,
+#                 residual=residual,
+#             )
+#             self.layers += [block]
+#             in_freq = block._odim
+#             C_i = channels[lth]
+#
+#         # check here
+#         self._odim = C_i if is_1dconv else int(C_i * in_freq)
+#         # self._odim = C_i if is_1dconv else int(C_i * 32)
+#
+#         if bottleneck_dim > 0 and bottleneck_dim != self._odim:
+#             self.bridge = nn.Linear(self._odim, bottleneck_dim)
+#             self._odim = bottleneck_dim
+#
+#         # calculate subsampling factor
+#         self._factor = 1
+#         if poolings:
+#             for p in poolings:
+#                 self._factor *= p if is_1dconv else p[0]
+#
+#         # changed here
+#         # param_init = "xavier_uniform"
+#
+#         self.output_dim = self._odim
+#         # self.subsampling_factor = 1
+#         # self.apply(lambda x: init_weights(x, mode=param_init))
+#         self.reset_parameters(param_init)
+#         # self.to(self._device)
+#
+#     def reset_parameters(self, param_init):
+#         """Initialize parameters with lecun style."""
+#         logging.info('===== Initialize %s with lecun style =====' % self.__class__.__name__)
+#         for n, p in self.named_parameters():
+#             init_with_lecun_normal(n, p)
+#
+#     def forward(self, xs, xlens):
+#         """Forward computation.
+#
+#         Args:
+#             xs (FloatTensor): `[B, T, F]`
+#             xlens (list): A list of length `[B]`
+#         Returns:
+#             xs (FloatTensor): `[B, T', F']`
+#             xlens (list): A list of length `[B]`
+#
+#         """
+#         B, T, F = xs.size()
+#         C_i = self.in_channel
+#         if not self.is_1dconv:
+#             xs = xs.view(B, T, C_i, F // C_i).contiguous().transpose(2, 1)  # `[B, C_i, T, F // C_i]`
+#
+#         for block in self.layers:
+#             xs, xlens = block(xs, xlens)
+#         if not self.is_1dconv:
+#             B, C_o, T, F = xs.size()
+#             xs = xs.transpose(2, 1).contiguous().view(B, T, -1)  # `[B, T', C_o * F']`
+#
+#         # Bridge layer
+#         if self.bridge is not None:
+#             xs = self.bridge(xs)
+#
+#         return xs, xlens
 
 
 # class Conv2dBlock(nn.Module):

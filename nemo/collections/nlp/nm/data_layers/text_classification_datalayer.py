@@ -80,4 +80,4 @@ class BertTextClassificationDataLayer(TextDataLayer):
             'use_cache': use_cache,
             'shuffle': shuffle,
         }
-        super().__init__(dataset_type, dataset_params, batch_size, shuffle=shuffle)
+        super().__init__(dataset_type, dataset_params, batch_size, shuffle=shuffle, num_workers=2)
