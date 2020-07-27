@@ -74,7 +74,7 @@ WORKDIR /tmp/nemo
 COPY requirements/requirements_docker.txt requirements.txt
 RUN pip install wandb \
     && pip install --disable-pip-version-check --no-cache-dir -r requirements.txt
-
+   
 # copy nemo source into a scratch image
 FROM scratch as nemo-src
 COPY . .
