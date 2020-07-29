@@ -235,25 +235,28 @@ class PtActions(Actions):
                     params=params_to_optimize,
                     lr=lr,
                     betas=optimization_params.get("betas", (0.9, 0.999)),
-                    weight_decay=optimization_params.get("weight_decay", 0.0),
                     eps=optimization_params.get("eps", 1e-8),
+                    weight_decay=optimization_params.get("weight_decay", 0),
+                    amsgrad=optimization_params.get("amsgrad", False),
                 )
             elif optimizer_class.lower() == "fused_adam":
                 if not FusedAdam:
                     raise ValueError("FusedAdam works only with torch DDP.")
-                optimizer = FusedAdam(
+                optimizer = FusedAdam(  # Note: amsgrad = True is not supported.
                     params=params_to_optimize,
                     lr=lr,
-                    weight_decay=optimization_params.get("weight_decay", 0.0),
                     betas=optimization_params.get("betas", (0.9, 0.999)),
+                    eps=optimization_params.get("eps", 1e-8),
+                    weight_decay=optimization_params.get("weight_decay", 0.0),
                 )
             elif optimizer_class.lower() == "adam_w":
                 optimizer = AdamW(
                     params=params_to_optimize,
                     lr=lr,
-                    weight_decay=optimization_params.get("weight_decay", 0.0),
                     betas=optimization_params.get("betas", (0.9, 0.999)),
                     eps=optimization_params.get("eps", 1e-8),
+                    weight_decay=optimization_params.get("weight_decay", 0.0),
+                    amsgrad=optimization_params.get("amsgrad", False),
                 )
             elif optimizer_class.lower() == "novograd":
                 optimizer = Novograd(
@@ -1520,7 +1523,7 @@ class PtActions(Actions):
                     # Ended step. Do optimizer update
                     if grad_norm_clip is not None:
                         prev_norm = torch.nn.utils.clip_grad_norm_(master_params(curr_optimizer), grad_norm_clip)
-                        print(prev_norm)
+                        print(f"gradient {prev_norm} clipped!")
                     curr_optimizer.step()
                     batch_counter = 0
                     _perform_on_step_end(callbacks, get_state(self))

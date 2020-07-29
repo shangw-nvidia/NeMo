@@ -158,11 +158,10 @@ class ASRConvCTCModel(NeMoModel):
             retrieve pre-trained model's weights (pass it as
             pretrained_model_name argument to the module's constructor)
         """
-        logging.warning("TODO: CHANGE ME TO GRAB STUFF FROM NGC")
         result = []
         model = PretrainedModelInfo(
             pretrained_model_name="QuartzNet15x5-En",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-En-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/multidataset_quartznet15x5/versions/2/files/QuartzNet15x5-En-Base.nemo",
             description="The model is trained on ~3300 hours of publicly available data and achieves a WER of 3.91% on LibriSpeech dev-clean, and a WER of 10.58% on dev-other.",
             parameters="",
         )
@@ -170,7 +169,7 @@ class ASRConvCTCModel(NeMoModel):
 
         model = PretrainedModelInfo(
             pretrained_model_name="QuartzNet15x5-Zh",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-Zh-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/aishell2_quartznet15x5/versions/3/files/QuartzNet15x5-Zh-Base.nemo",
             description="The model is trained on ai-shell2 mandarin chinese dataset.",
             parameters="",
         )
@@ -178,7 +177,7 @@ class ASRConvCTCModel(NeMoModel):
 
         model = PretrainedModelInfo(
             pretrained_model_name="JasperNet10x5-En",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/JasperNet10x5-En-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/multidataset_jasper10x5dr/versions/5/files/JasperNet10x5-En-Base.nemo",
             description="The model achieves a WER of 3.46% on LibriSpeech dev-clean, 10.40% on dev-other, 3.69% on test-clean, and 10.49% on test-other.",
             parameters="",
         )
@@ -258,11 +257,10 @@ class QuartzNet(ASRConvCTCModel):
             retrieve pre-trained model's weights (pass it as
             pretrained_model_name argument to the module's constructor)
         """
-        logging.warning("TODO: CHANGE ME TO GRAB STUFF FROM NGC")
         result = []
         model = PretrainedModelInfo(
             pretrained_model_name="QuartzNet15x5-En",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-En-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/multidataset_quartznet15x5/versions/2/files/QuartzNet15x5-En-Base.nemo",
             description="The model is trained on ~3300 hours of publicly available data and achieves a WER of 3.91% on LibriSpeech dev-clean, and a WER of 10.58% on dev-other.",
             parameters="",
         )
@@ -270,7 +268,7 @@ class QuartzNet(ASRConvCTCModel):
 
         model = PretrainedModelInfo(
             pretrained_model_name="QuartzNet15x5-Zh",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/QuartzNet15x5-Zh-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/aishell2_quartznet15x5/versions/3/files/QuartzNet15x5-Zh-Base.nemo",
             description="The model is trained on ai-shell2 mandarin chinese dataset.",
             parameters="",
         )
@@ -293,11 +291,10 @@ class JasperNet(ASRConvCTCModel):
             retrieve pre-trained model's weights (pass it as
             pretrained_model_name argument to the module's constructor)
         """
-        logging.warning("TODO: CHANGE ME TO GRAB STUFF FROM NGC")
         result = []
         model = PretrainedModelInfo(
             pretrained_model_name="JasperNet10x5-En",
-            location="https://nemo-public.s3.us-east-2.amazonaws.com/nemo_0.11_models_test/JasperNet10x5-En-Base.nemo",
+            location="https://api.ngc.nvidia.com/v2/models/nvidia/multidataset_jasper10x5dr/versions/5/files/JasperNet10x5-En-Base.nemo",
             description="The model achieves a WER of 3.46% on LibriSpeech dev-clean, 10.40% on dev-other, 3.69% on test-clean, and 10.49% on test-other.",
             parameters="",
         )

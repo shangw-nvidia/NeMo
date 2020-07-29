@@ -35,6 +35,7 @@ from nemo.utils.neural_graph.connection import Connection, StepModulePort
 class NeuralType(object):
     """This is the main class which would represent neural type concept.
     nmTensors derives from this. It is used to represent *the types* of inputs and outputs.
+
     Args:
         axes (Optional[Tuple]): a tuple of AxisTypes objects representing the semantics of what varying each axis means
             You can use a short, string-based form here. For example: ('B', 'C', 'H', 'W') would correspond to an NCHW
@@ -152,6 +153,7 @@ class NeuralType(object):
     def __compare_axes(axes_a, axes_b) -> int:
         """
         Compares axes_a and axes_b
+        
         Args:
             axes_a: first axes tuple
             axes_b: second axes tuple
@@ -173,8 +175,8 @@ class NeuralType(object):
         # After these ifs we know that len(axes_a) == len(axes_b)
 
         same = True
-        kinds_a = dict()
-        kinds_b = dict()
+        kinds_a = {}
+        kinds_b = {}
         for axis_a, axis_b in zip(axes_a, axes_b):
             kinds_a[axis_a.kind] = axis_a.size
             kinds_b[axis_b.kind] = axis_b.size
