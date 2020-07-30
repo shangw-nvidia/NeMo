@@ -297,9 +297,9 @@ class ConformerEncoder(TrainableNM):
         #     if p.dim() == 1:
         #         p.data.zero_()
 
-        for m in self.modules():
-            if isinstance(m, (torch.nn.Embedding, LayerNorm)):
-                m.reset_parameters()
+        # for m in self.modules():
+        #     if isinstance(m, (torch.nn.Embedding, LayerNorm)):
+        #         m.reset_parameters()
 
         # self.apply(lambda x: init_weights(x, mode=init_mode))
         self.to(self._device)

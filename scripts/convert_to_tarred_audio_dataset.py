@@ -34,7 +34,7 @@ parser.add_argument(
     "--target_dir",
     default='./tarred',
     type=str,
-    help="Target directory for resulting tarballs and manifest. Defaults to `./tarred`. Creates the path if ncessary.",
+    help="Target directory for resulting tarballs and manifest. Defaults to `./tarred`. Creates the path if necessary.",
 )
 parser.add_argument(
     "--num_shards",

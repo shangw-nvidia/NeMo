@@ -3,7 +3,7 @@ sample_rate: 16000
 
 AudioToTextDataLayer:
     max_duration: 16.7
-    trim_silence: true
+    trim_silence: false
 
     train:
         shuffle: true
@@ -13,7 +13,7 @@ AudioToTextDataLayer:
         max_duration: null
 
 AudioToMelSpectrogramPreprocessor:
-    window_size: 0.020
+    window_size: 0.025
     window_stride: 0.01
     window: "hann"
     normalize: "per_feature"
