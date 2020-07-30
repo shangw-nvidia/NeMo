@@ -1523,7 +1523,8 @@ class PtActions(Actions):
                     # Ended step. Do optimizer update
                     if grad_norm_clip is not None:
                         prev_norm = torch.nn.utils.clip_grad_norm_(master_params(curr_optimizer), grad_norm_clip)
-                        print(f"gradient {prev_norm} clipped!")
+                        if prev_norm > grad_norm_clip:
+                            print(f"Gradient {prev_norm} clipped!")
                     curr_optimizer.step()
                     batch_counter = 0
                     _perform_on_step_end(callbacks, get_state(self))
