@@ -363,10 +363,11 @@ class ConformerEncoder(TrainableNM):
         if self.bridge is not None:
             audio_signal = self.bridge(audio_signal)
 
-        audio_signal.masked_fill_(pad_mask, 0.0)
 
         if self.lstm is not None:
             audio_signal, _ = self.lstm(audio_signal)
+
+        audio_signal.masked_fill_(pad_mask, 0.0)
 
         audio_signal = torch.transpose(audio_signal, 1, 2)
         # if length is None:
