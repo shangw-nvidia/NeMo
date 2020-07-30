@@ -357,13 +357,13 @@ class ConformerEncoder(TrainableNM):
             # if not self.training:
             #     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
-        #audio_signal = self.norm_out(audio_signal)
+        audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:
             audio_signal = self.bridge(audio_signal)
 
-        # audio_signal.masked_fill_(pad_mask, 0.0)
+        audio_signal.masked_fill_(pad_mask, 0.0)
 
         if self.lstm is not None:
             audio_signal, _ = self.lstm(audio_signal)
