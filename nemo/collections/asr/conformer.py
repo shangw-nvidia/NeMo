@@ -341,7 +341,8 @@ class ConformerEncoder(TrainableNM):
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
         xx_mask = pad_mask.unsqueeze(2).repeat([1, 1, xmax])
-        pad_mask = (~pad_mask).unsqueeze(2).repeat(1, 1, idim)
+        #pad_mask = (~pad_mask).unsqueeze(2).repeat(1, 1, idim)
+        pad_mask = (~pad_mask).unsqueeze(2)
 
         #pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
         #pos_embs = self.pos_emb(pos_idxs)
@@ -363,11 +364,10 @@ class ConformerEncoder(TrainableNM):
         if self.bridge is not None:
             audio_signal = self.bridge(audio_signal)
 
-
         if self.lstm is not None:
             audio_signal, _ = self.lstm(audio_signal)
 
-        audio_signal.masked_fill_(pad_mask, 0.0)
+        audio_signal = audio_signal.masked_fill(pad_mask, 0.0)
 
         audio_signal = torch.transpose(audio_signal, 1, 2)
         # if length is None:
