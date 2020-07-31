@@ -1607,7 +1607,8 @@ class PtActions(Actions):
         modules = []
         for ind in range(1, len(call_chain)):
             m_id = call_chain[ind][0].unique_instance_id
-            module = self.ddp_module_dict[m_id]
+            module = self.ddp_module_dict[m_id] if self.ddp_initialized else call_chain[ind][0]
+            #module = self.ddp_module_dict[m_id]
             if isinstance(module, DDP):
                 modules.append(module)
 

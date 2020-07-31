@@ -341,7 +341,7 @@ class ConformerEncoder(TrainableNM):
         # Create the self-attention mask
         pad_mask = make_pad_mask(length, max_time=xmax, device=self._device)
         xx_mask = pad_mask.unsqueeze(2).repeat([1, 1, xmax])
-        #pad_mask = (~pad_mask).unsqueeze(2).repeat(1, 1, idim)
+        #pad_mask = (~pad_mask).unsqueeze(2).repeat(1, 1, idim)his err
         pad_mask = (~pad_mask).unsqueeze(2)
 
         #pos_idxs = torch.arange(xmax - 1, -1, -1.0, dtype=torch.float)
