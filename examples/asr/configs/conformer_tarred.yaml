@@ -1,0 +1,109 @@
+model: "Conformer"
+sample_rate: 16000
+
+
+TarredAudioToTextDataLayer:
+    max_duration: 16.7
+    trim_silence: true
+    shuffle_n: 128
+
+AudioToTextDataLayer:
+    max_duration: 16.7
+    trim_silence: true
+
+    train:
+        shuffle: true
+
+    eval:
+        shuffle: false
+        max_duration: null
+
+AudioToMelSpectrogramPreprocessor:
+    window_size: 0.025
+    window_stride: 0.01
+    window: "hann"
+    normalize: "per_feature"
+    n_fft: 512
+    features: 80
+    dither: 0.00001
+    pad_to: 16
+    stft_conv: true
+
+
+SpectrogramAugmentation:
+    rect_masks: 5
+    rect_time: 120
+    rect_freq: 50
+#    freq_masks: 2
+#    time_masks: 2
+#    freq_width: 27
+#    time_width: 0.05
+
+ConformerEncoder:
+    ### topology
+    #n_skips: 1
+    #max_n_frames: 1600
+    #enc_type: conv_conformer
+    #dec_type: transformer
+    #dec_n_layers: 6
+    #transformer_attn_type: scaled_dot
+    #transformer_dec_pe_type: 1dconv3L  ### this is effective
+    #transformer_d_ff: 1024  ###
+    #transformer_ffn_activation: relu
+    #tie_embedding: false
+    #ctc_fc_list: "512"
+    #batch_size: 32
+    #optimizer: noam
+    #n_epochs: 30
+#    convert_to_sgd_epoch: 100
+#    print_step: 600  ### 200->600
+#    metric: accuracy
+#    lr_factor: 5.0
+#    early_stop_patient_n_epochs: 5
+#    shuffle_bucket: true  ### this is important
+#    sort_stop_epoch: 100
+#    eval_start_epoch: 1
+#    warmup_n_steps: 25000
+#    accum_grad_n_steps: 8
+    ### optimization
+    #clip_grad_norm: 5.0
+    #dropout_dec: 0.1
+    #dropout_emb: 0.1
+    #weight_decay: 1e-6
+    #lsm_prob: 0.1
+#    ctc_weight: 0.3
+#    ctc_lsm_prob: 0.1
+#    mtl_per_batch: false
+    n_layers: 16
+    last_proj_dim: 0
+    conv_in_channel: 1
+#    conv_channels: ""
+#    conv_kernel_sizes: ""
+#    conv_strides: ""
+#    conv_poolings: ""  # (T,F)
+    conv_channels: "32_32"
+    conv_kernel_sizes: "(3,3)_(3,3)"
+    conv_strides: "(1,1)_(1,1)"
+    conv_poolings: "(2,2)_(2,2)"  # (T,F)
+    conv_batch_norm: false
+    conv_layer_norm: false
+    kernel_size: 31
+    pe_type: relative
+    d_model: 144
+    n_heads: 4
+    param_init: xavier_uniform
+    ### regularization
+    dropout_in: 0.1
+    dropout: 0.1
+    dropout_att: 0.0
+    dropout_layer: 0.0
+    ## added by me, please check then
+    input_dim: 80
+    conv_param_init: "xavier_uniform" # check it out, it was 1 before
+    layer_norm_eps: 1e-5
+    ff_expansion_factor: 4
+    ffn_activation: swish
+    ffn_bottleneck_dim: 0
+
+labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+         "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
