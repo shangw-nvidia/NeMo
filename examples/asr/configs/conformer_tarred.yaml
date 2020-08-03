@@ -11,7 +11,6 @@ TarredAudioToTextDataLayer:
 AudioToTextDataLayer:
     max_duration: 16.7
     trim_silence: true
-    pad8: True
 
     train:
         shuffle: true
