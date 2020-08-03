@@ -298,6 +298,7 @@ transcript_n}
         shuffle=True,
         num_workers=0,
         augmentor: Optional[Union[AudioAugmentor, Dict[str, Dict[str, Any]]]] = None,
+        pad8=False
     ):
         super().__init__()
         self._sample_rate = sample_rate
@@ -339,7 +340,7 @@ transcript_n}
         self._dataloader = torch.utils.data.DataLoader(
             dataset=self._dataset,
             batch_size=batch_size,
-            collate_fn=partial(seq_collate_fn, token_pad_value=pad_id),
+            collate_fn=partial(seq_collate_fn, token_pad_value=pad_id, pad8=pad8),
             drop_last=drop_last,
             shuffle=shuffle if sampler is None else False,
             sampler=sampler,
@@ -467,6 +468,7 @@ class TarredAudioToTextDataLayer(DataLayerNM):
         shuffle_n=0,
         num_workers=0,
         augmentor: Optional[Union[AudioAugmentor, Dict[str, Dict[str, Any]]]] = None,
+        pad8=False,
     ):
         super().__init__()
         self._sample_rate = sample_rate
@@ -492,7 +494,7 @@ class TarredAudioToTextDataLayer(DataLayerNM):
         self._batch_size = batch_size
         self._num_workers = num_workers
         pad_id = 0 if pad_id is None else pad_id
-        self.collate_fn = partial(seq_collate_fn, token_pad_value=pad_id)
+        self.collate_fn = partial(seq_collate_fn, token_pad_value=pad_id, pad8=pad8)
 
         # Check for distributed and partition shards accordingly
         if torch.distributed.is_available() and torch.distributed.is_initialized():

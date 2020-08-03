@@ -64,6 +64,7 @@ def parse_args():
     parser.add_argument("--do_not_eval_at_start", action='store_true')
     parser.add_argument('--min_lr', default=1e-5, type=float)
     parser.add_argument('--amp_min_loss_scale', default=1, type=float)
+    parser.add_argument('--pad8', action='store_true')
 
     parser.add_argument("--tar_path", type=str, required=True)
 
@@ -108,6 +109,7 @@ def create_all_dags(args, neural_factory):
         labels=vocab,
         batch_size=args.batch_size,
         num_workers=cpu_per_traindl,
+        pad8=args.pad8,
         **train_dl_params,
     )
 
@@ -148,6 +150,7 @@ def create_all_dags(args, neural_factory):
                 labels=vocab,
                 batch_size=args.eval_batch_size,
                 num_workers=cpu_per_traindl,
+                pad8=args.pad8,
                 **eval_dl_params,
             )
 

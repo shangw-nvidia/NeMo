@@ -11,7 +11,7 @@ from nemo import logging
 from nemo.collections.asr.parts import collections, parsers
 
 
-def seq_collate_fn(batch, token_pad_value=0):
+def seq_collate_fn(batch, token_pad_value=0, pad8=False):
     """collate batch of audio sig, audio len, tokens, tokens len
 
     Args:
