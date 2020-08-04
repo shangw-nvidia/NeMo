@@ -481,4 +481,4 @@ class RelPositionalEncoding(PositionalEncoding):
         self.extend_pe(x)
         x = x * self.xscale
         pos_emb = self.pe[:, : x.size(1)]
-        return self.dropout(x), self.dropout(pos_emb)
+        return self.dropout(x), pos_emb #self.dropout(pos_emb)
