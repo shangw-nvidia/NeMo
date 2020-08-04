@@ -64,7 +64,7 @@ def parse_args():
 
     parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
 
-    parser.add_argument('--tar_path', default=None, type='str', help='Path to tarred dataset '
+    parser.add_argument('--tar_path', default=None, type=str, help='Path to tarred dataset '
                                                                      '(if manifest points to tarred dataset')
 
     parser.add_argument('--shuffle_n', default=128, type=int, help='Number of samples to shuffle per shart')
