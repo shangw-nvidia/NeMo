@@ -64,6 +64,9 @@ def parse_args():
 
     parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
 
+    parser.add_argument('--tar_path', default=None, type='str', help='Path to tarred dataset '
+                                                                     '(if manifest points to tarred dataset')
+
     # Create new args
     parser.add_argument("--exp_name", default="ContextNet", type=str)
     parser.add_argument("--project", default=None, type=str)
@@ -141,14 +144,26 @@ def create_all_dags(args, neural_factory):
     vocab_size = tokenizer.vocab_size
     logging.info("Tokenizer vocabulary size : %d", vocab_size)
 
-    data_layer_train = nemo_asr.AudioToTextBPEDataLayer(
-        manifest_filepath=args.train_dataset,
-        tokenizer=tokenizer,
-        sample_rate=sample_rate,
-        batch_size=args.batch_size,
-        num_workers=cpu_per_traindl,
-        **train_dl_params,
-    )
+    if args.tar_path is not None:
+        data_layer_train = nemo_asr.TarredAudioToTextBPEDataLayer(
+            audio_tar_filepaths=args.tar_path,
+            manifest_filepath=args.train_dataset,
+            tokenizer=tokenizer,
+            batch_size=args.batch_size,
+            sample_rate=sample_rate,
+            num_workers=cpu_per_traindl,
+            **train_dl_params
+        )
+
+    else:
+        data_layer_train = nemo_asr.AudioToTextBPEDataLayer(
+            manifest_filepath=args.train_dataset,
+            tokenizer=tokenizer,
+            sample_rate=sample_rate,
+            batch_size=args.batch_size,
+            num_workers=cpu_per_traindl,
+            **train_dl_params,
+        )
 
     N = len(data_layer_train)
     steps_per_epoch = int(N / (args.batch_size * args.iter_per_step * args.num_gpus))
