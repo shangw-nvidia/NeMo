@@ -28,6 +28,10 @@ def seq_collate_fn(batch, token_pad_value=0, pad8=False):
         max_audio_len = max(audio_lengths).item()
     max_tokens_len = max(tokens_lengths).item()
 
+    if pad8:
+        if max_tokens_len % 8 != 0:
+            max_tokens_len = max_tokens_len + (8 - max_tokens_len % 8)
+
     audio_signal, tokens = [], []
     for sig, sig_len, tokens_i, tokens_i_len in batch:
         if has_audio:
