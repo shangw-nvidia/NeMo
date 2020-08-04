@@ -67,6 +67,8 @@ def parse_args():
     parser.add_argument('--tar_path', default=None, type='str', help='Path to tarred dataset '
                                                                      '(if manifest points to tarred dataset')
 
+    parser.add_argument('--shuffle_n', default=128, type=int, help='Number of samples to shuffle per shart')
+
     # Create new args
     parser.add_argument("--exp_name", default="ContextNet", type=str)
     parser.add_argument("--project", default=None, type=str)
@@ -152,6 +154,7 @@ def create_all_dags(args, neural_factory):
             batch_size=args.batch_size,
             sample_rate=sample_rate,
             num_workers=cpu_per_traindl,
+            shuffle_n=args.shuffle_n,
             **train_dl_params
         )
 
