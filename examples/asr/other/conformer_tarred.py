@@ -235,7 +235,7 @@ def create_all_dags(args, neural_factory):
             update_freq=1,  # args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
             args=args,
             grad_log_freq=args.grad_log_freq,
-            model=encoder,
+            model=[encoder, decoder],
         )
         callbacks.append(wand_callback)
 
