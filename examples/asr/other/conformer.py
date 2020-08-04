@@ -65,7 +65,7 @@ def parse_args():
     parser.add_argument('--min_lr', default=1e-5, type=float)
     parser.add_argument('--amp_min_loss_scale', default=1, type=float)
     parser.add_argument('--pad8', action='store_true')
-    parser.add_argument('--grad_log_freq', default=10, type=int)
+    parser.add_argument('--grad_log_freq', default=-1, type=int)
 
     args = parser.parse_args()
     if args.max_steps is not None:

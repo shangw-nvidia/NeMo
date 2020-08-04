@@ -483,7 +483,7 @@ class WandbCallback(ActionCallback):
         if self.global_rank is None or self.global_rank == 0:
             if _WANDB_AVAILABLE and wandb.run is None:
                 wandb.init(name=self._name, project=self._project)
-                if self._model is not None:
+                if self._model is not None and self._grad_log_freq > 0:
                     wandb.watch(self._model, log='all', log_freq=self._grad_log_freq)
                 if self._args is not None:
                     logging.info('init wandb session and append args')
