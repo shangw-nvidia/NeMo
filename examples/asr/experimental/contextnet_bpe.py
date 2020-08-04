@@ -146,6 +146,9 @@ def create_all_dags(args, neural_factory):
     logging.info("Tokenizer vocabulary size : %d", vocab_size)
 
     if args.tar_path is not None:
+        if 'shuffle' in train_dl_params:
+            train_dl_params.pop('shuffle')
+
         data_layer_train = nemo_asr.TarredAudioToTextBPEDataLayer(
             audio_tar_filepaths=args.tar_path,
             manifest_filepath=args.train_dataset,
