@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument('--min_lr', default=1e-5, type=float)
     parser.add_argument('--amp_min_loss_scale', default=1, type=float)
     parser.add_argument('--pad8', action='store_true')
+    parser.add_argument('--grad_log_freq', default=10, type=int)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -216,6 +217,8 @@ def create_all_dags(args, neural_factory):
             wandb_project=args.wandb_project,
             update_freq=1,  # args.loss_log_freq if args.loss_log_freq > 0 else steps_per_epoch,
             args=args,
+            grad_log_freq=args.grad_log_freq,
+            model=encoder,
         )
         callbacks.append(wand_callback)
 

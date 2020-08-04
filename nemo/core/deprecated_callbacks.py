@@ -456,7 +456,7 @@ class WandbCallback(ActionCallback):
 
     @deprecated(version="0.12", explanation="The callback section of NeMo has been updated.")
     def __init__(
-        self, train_tensors=[], wandb_name=None, wandb_project=None, args=None, update_freq=25,
+        self, train_tensors=[], wandb_name=None, wandb_project=None, args=None, update_freq=25, model=None, grad_log_freq=10
     ):
         """
         Args:
@@ -476,11 +476,15 @@ class WandbCallback(ActionCallback):
         self._name = wandb_name
         self._project = wandb_project
         self._args = args
+        self._model = model
+        self._grad_log_freq = grad_log_freq
 
     def on_action_start(self):
         if self.global_rank is None or self.global_rank == 0:
             if _WANDB_AVAILABLE and wandb.run is None:
                 wandb.init(name=self._name, project=self._project)
+                if self._model is not None:
+                    wandb.watch(self._model, log='all', log_freq=self._grad_log_freq)
                 if self._args is not None:
                     logging.info('init wandb session and append args')
                     wandb.config.update(self._args)
