@@ -24,6 +24,7 @@ from nemo.collections.asr.data_layer import (
     AudioToTextCharDataLayer,
     AudioToTextDataLayer,
     KaldiFeatureDataLayer,
+    TarredAudioToTextBPEDataLayer,
     TarredAudioToTextDataLayer,
     TranscriptDataLayer,
 )
@@ -46,6 +47,7 @@ from nemo.collections.asr.rnnt import RNNTDecoder, RNNTEncoder, RNNTJoint
 __all__ = [
     'AudioToTextDataLayer',
     'TarredAudioToTextDataLayer',
+    'TarredAudioToTextBPEDataLayer',
     'AudioToTextCharDataLayer',
     'AudioToTextBPEDataLayer',
     'AudioToSpeechLabelDataLayer',
