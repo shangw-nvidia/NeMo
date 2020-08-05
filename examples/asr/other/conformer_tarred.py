@@ -12,9 +12,11 @@ import nemo.collections.asr as nemo_asr
 import nemo.utils.argparse as nm_argparse
 from nemo.collections.asr.helpers import monitor_asr_train_progress, process_evaluation_batch, process_evaluation_epoch
 from nemo.utils import logging
-from nemo.utils.lr_policies import CosineAnnealing
+#from nemo.utils.lr_policies import CosineAnnealing
+from nemo.utils.lr_policies import get_lr_policy
 
 # torch.autograd.set_detect_anomaly(True)
+
 
 
 def parse_args():
@@ -67,6 +69,7 @@ def parse_args():
     parser.add_argument('--pad8', action='store_true')
     parser.add_argument('--grad_log_freq', default=-1, type=int)
     parser.add_argument('--log_freq', default=1, type=int)
+    parser.add_argument("--lr_policy", default='CosineAnnealing', type=str)
 
     parser.add_argument("--tar_path", type=str, required=True)
 
@@ -302,11 +305,20 @@ def main():
 
     grad_norm_clip = args.grad_norm_clip if args.grad_norm_clip > 0 else None
 
+    if args.lr_policy is not "fixed":
+        total_steps = args.num_epochs * steps_per_epoch
+        lr_policy = get_lr_policy(
+            args.lr_policy, total_steps=total_steps, warmup_steps=args.warmup_steps, min_lr=args.min_lr
+        )
+    else:
+        lr_policy = None
+
+    # lr_policy = CosineAnnealing(args.num_epochs * steps_per_epoch, warmup_steps=args.warmup_steps, min_lr=args.min_lr)
     # train model
     neural_factory.train(
         tensors_to_optimize=[train_loss],
         callbacks=callbacks,
-        lr_policy=CosineAnnealing(args.num_epochs * steps_per_epoch, warmup_steps=args.warmup_steps, min_lr=args.min_lr),
+        lr_policy=lr_policy,
         optimizer=args.optimizer,
         optimization_params={
             "num_epochs": args.num_epochs,
