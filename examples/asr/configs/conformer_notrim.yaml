@@ -4,13 +4,13 @@ sample_rate: 16000
 
 TarredAudioToTextDataLayer:
     max_duration: 16.7
-    trim_silence: true
+    trim_silence: false
     shuffle_n: 128
 
 
 AudioToTextDataLayer:
     max_duration: 16.7
-    trim_silence: true
+    trim_silence: false
 
     train:
         shuffle: true
