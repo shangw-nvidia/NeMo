@@ -241,7 +241,7 @@ class ConformerEncoder(TrainableNM):
         # if self.conv is not None:
         #     self._factor *= self.conv.subsampling_factor
 
-        self.pos_enc = RelPositionalEncoding(d_model=d_model, dropout_rate=dropout)
+        self.pos_enc = RelPositionalEncoding(d_model=d_model, dropout_rate=dropout_in)
 
         # self.pos_emb = XLPositionalEmbedding(
         #     d_model=d_model, dropout=dropout, device=self._device
