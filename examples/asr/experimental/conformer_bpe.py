@@ -319,9 +319,9 @@ def create_all_dags(args, neural_factory):
         # create corresponding eval callback
         tagname = os.path.basename(args.eval_datasets[i]).split(".")[0]
 
-        if args.project is not None:
+        if args.wandb_project is not None:
             wandb_name = args.exp_name
-            wandb_project = args.project
+            wandb_project = args.wandb_project
         else:
             wandb_name = None
             wandb_project = None
