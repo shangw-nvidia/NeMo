@@ -192,7 +192,8 @@ class ConformerEncoder(TrainableNM):
         last_proj_dim,
         dropout_in,
         subsampling,
-        dropout_emb
+        dropout_emb,
+        norm_out_enabled
     ):
         super().__init__()
 
@@ -359,7 +360,6 @@ class ConformerEncoder(TrainableNM):
             # if not self.training:
             #     self.aws_dict['xx_aws_layer%d' % lth] = tensor2np(xx_aws)
 
-        #audio_signal = self.norm_out(audio_signal)
 
         # Bridge layer
         if self.bridge is not None:
@@ -367,6 +367,9 @@ class ConformerEncoder(TrainableNM):
 
         if self.lstm is not None:
             audio_signal, _ = self.lstm(audio_signal)
+
+        if norm_out_enabled:
+            audio_signal = self.norm_out(audio_signal)
 
         audio_signal = audio_signal.masked_fill(pad_mask, 0.0)
 

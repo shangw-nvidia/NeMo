@@ -109,6 +109,7 @@ ConformerEncoder:
     ff_expansion_factor: 4
     ffn_activation: swish
     ffn_bottleneck_dim: 0
+    norm_out_enabled: false
 
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",

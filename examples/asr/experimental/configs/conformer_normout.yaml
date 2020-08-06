@@ -101,7 +101,7 @@ ConformerEncoder:
     dropout: 0.1
     dropout_att: 0.0
     dropout_layer: 0.0
-    dropout_emb: 0.1
+    dropout_emb: 0.0
     ## added by me, please check then
     input_dim: 80
     conv_param_init: "xavier_uniform" # check it out, it was 1 before
@@ -109,6 +109,7 @@ ConformerEncoder:
     ff_expansion_factor: 4
     ffn_activation: swish
     ffn_bottleneck_dim: 0
+    norm_out_enabled: true
 
 
 labels: [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
