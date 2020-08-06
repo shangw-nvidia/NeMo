@@ -95,6 +95,7 @@ def parse_args():
     parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
 
     parser.add_argument("--d_model", default=144, type=int)
+    parser.add_argument("--aug_postfix", default="", type=str)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -248,7 +249,7 @@ def create_all_dags(args, neural_factory):
     if multiply_batch_config:
         multiply_batch = nemo_asr.MultiplyBatch(**multiply_batch_config)
 
-    spectr_augment_config = conformer_params.get('SpectrogramAugmentation', None)
+    spectr_augment_config = conformer_params.get('SpectrogramAugmentation' + args.aug_postfix, None)
     if spectr_augment_config:
         data_spectr_augmentation = nemo_asr.SpectrogramAugmentation(**spectr_augment_config)
 
