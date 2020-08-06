@@ -456,7 +456,7 @@ class WandbCallback(ActionCallback):
 
     @deprecated(version="0.12", explanation="The callback section of NeMo has been updated.")
     def __init__(
-        self, train_tensors=[], wandb_name=None, wandb_project=None, args=None, update_freq=25, model=None, grad_log_freq=10
+        self, train_tensors=[], wandb_name=None, wandb_project=None, args=None, update_freq=25, model=None, grad_log_freq=-1
     ):
         """
         Args:
