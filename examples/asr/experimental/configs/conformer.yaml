@@ -101,6 +101,7 @@ ConformerEncoder:
     dropout: 0.1
     dropout_att: 0.0
     dropout_layer: 0.0
+    dropout_emb: 0.0
     ## added by me, please check then
     input_dim: 80
     conv_param_init: "xavier_uniform" # check it out, it was 1 before

@@ -192,6 +192,7 @@ class ConformerEncoder(TrainableNM):
         last_proj_dim,
         dropout_in,
         subsampling,
+        dropout_emb
     ):
         super().__init__()
 
@@ -241,7 +242,7 @@ class ConformerEncoder(TrainableNM):
         # if self.conv is not None:
         #     self._factor *= self.conv.subsampling_factor
 
-        self.pos_enc = RelPositionalEncoding(d_model=d_model, dropout_rate=dropout_in)
+        self.pos_enc = RelPositionalEncoding(d_model=d_model, dropout_rate=dropout_in, dropout_emb_rate=dropout_emb)
 
         # self.pos_emb = XLPositionalEmbedding(
         #     d_model=d_model, dropout=dropout, device=self._device
@@ -462,13 +463,16 @@ class RelPositionalEncoding(PositionalEncoding):
     :param int max_len: maximum input length
     """
 
-    def __init__(self, d_model, dropout_rate, max_len=5000):
+    def __init__(self, d_model, dropout_rate, max_len=5000, dropout_emb_rate=0.0):
         """Initialize class.
         :param int d_model: embedding dim
         :param float dropout_rate: dropout rate
         :param int max_len: maximum input length
         """
         super().__init__(d_model, dropout_rate, max_len, reverse=True)
+
+        self.dropout_emb_rate = dropout_emb_rate
+        self.dropout_emb = nn.Dropout(dropout_emb_rate)
 
     def forward(self, x):
         """Compute positional encoding.
@@ -481,4 +485,6 @@ class RelPositionalEncoding(PositionalEncoding):
         self.extend_pe(x)
         x = x * self.xscale
         pos_emb = self.pe[:, : x.size(1)]
+        if self.dropout_emb_rate > 0.0:
+            pos_emb = self.dropout_emb(pos_emb)
         return self.dropout(x), pos_emb #self.dropout(pos_emb)
