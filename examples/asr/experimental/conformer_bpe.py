@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument("--do_not_eval_at_start", action='store_true')
     parser.add_argument('--min_lr', default=1e-5, type=float)
     parser.add_argument('--amp_min_loss_scale', default=1, type=float)
-    parser.add_argument('--pad8', action='store_true')
+    #parser.add_argument('--pad8', action='store_true')
     parser.add_argument('--grad_log_freq', default=-1, type=int)
     parser.add_argument('--log_freq', default=1, type=int)
     parser.add_argument("--lr_policy", default='CosineAnnealing', type=str)
@@ -93,6 +93,8 @@ def parse_args():
     parser.add_argument('--tar_path', default=None, type=str, help='Path to tarred dataset '
                                                                      '(if manifest points to tarred dataset')
     parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
+
+    parser.add_argument("--d_model", default=144, type=int)
 
     args = parser.parse_args()
     if args.max_steps is not None:
@@ -210,6 +212,7 @@ def create_all_dags(args, neural_factory):
     encoder = nemo_asr.ConformerEncoder(
         feat_in=conformer_params["AudioToMelSpectrogramPreprocessor"]["features"],
         lstm_hidden_size=args.lstm_hidden_size,
+        d_model=args.d_model,
         subsampling=args.subsampling,
         **conformer_params["ConformerEncoder"],
     )
