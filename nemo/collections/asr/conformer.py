@@ -273,7 +273,11 @@ class ConformerEncoder(TrainableNM):
                 for _ in range(n_layers)
             ]
         )
-        self.norm_out = LayerNorm(d_model, eps=layer_norm_eps)
+
+        if norm_out_enabled:
+            self.norm_out = LayerNorm(d_model, eps=layer_norm_eps)
+        else:
+            self.norm_out = None
 
         self._odim = d_model
 
@@ -368,7 +372,7 @@ class ConformerEncoder(TrainableNM):
         if self.lstm is not None:
             audio_signal, _ = self.lstm(audio_signal)
 
-        if norm_out_enabled:
+        if self.norm_out:
             audio_signal = self.norm_out(audio_signal)
 
         audio_signal = audio_signal.masked_fill(pad_mask, 0.0)
