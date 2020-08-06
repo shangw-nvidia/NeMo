@@ -1522,7 +1522,9 @@ class PtActions(Actions):
                 if batch_counter == batches_per_step:
                     # Ended step. Do optimizer update
                     if grad_norm_clip is not None:
-                        torch.nn.utils.clip_grad_norm_(master_params(curr_optimizer), grad_norm_clip)
+                        prev_norm = torch.nn.utils.clip_grad_norm_(master_params(curr_optimizer), grad_norm_clip)
+                        if prev_norm > grad_norm_clip:
+                            print(f"Gradient {prev_norm} clipped!")
                     curr_optimizer.step()
                     batch_counter = 0
                     _perform_on_step_end(callbacks, get_state(self))
@@ -1605,7 +1607,8 @@ class PtActions(Actions):
         modules = []
         for ind in range(1, len(call_chain)):
             m_id = call_chain[ind][0].unique_instance_id
-            module = self.ddp_module_dict[m_id]
+            module = self.ddp_module_dict[m_id] if self.ddp_initialized else call_chain[ind][0]
+            #module = self.ddp_module_dict[m_id]
             if isinstance(module, DDP):
                 modules.append(module)
 
