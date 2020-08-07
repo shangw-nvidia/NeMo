@@ -95,6 +95,7 @@ def parse_args():
     parser.add_argument('--tokenizer_dir', required=True, type=str, help='Path to serialized tokenizer dir for BPE')
 
     parser.add_argument("--d_model", default=144, type=int)
+    parser.add_argument("--window_size", default=-1, type=float)
     parser.add_argument("--aug_postfix", default="", type=str)
 
     args = parser.parse_args()
@@ -199,6 +200,9 @@ def create_all_dags(args, neural_factory):
         logging.warning("There were no val datasets passed")
 
     # create shared modules
+
+    if args.window_size > 0.0:
+        conformer_params["AudioToMelSpectrogramPreprocessor"]["window_size"] = args.window_size
 
     data_preprocessor = nemo_asr.AudioToMelSpectrogramPreprocessor(
         sample_rate=sample_rate, **conformer_params["AudioToMelSpectrogramPreprocessor"],

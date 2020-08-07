@@ -71,6 +71,8 @@ def parse_args():
     parser.add_argument('--log_freq', default=1, type=int)
     parser.add_argument("--lr_policy", default='CosineAnnealing', type=str)
     parser.add_argument("--d_model", default=144, type=int)
+    parser.add_argument("--aug_postfix", default="", type=str)
+    parser.add_argument("--window_size", default=-1, type=float)
 
 
     parser.add_argument('--tar_path', default=None, type=str, help='Path to tarred dataset '
@@ -181,6 +183,9 @@ def create_all_dags(args, neural_factory):
 
     # create shared modules
 
+    if args.window_size > 0.0:
+        conformer_params["AudioToMelSpectrogramPreprocessor"]["window_size"] = args.window_size
+
     data_preprocessor = nemo_asr.AudioToMelSpectrogramPreprocessor(
         sample_rate=sample_rate, **conformer_params["AudioToMelSpectrogramPreprocessor"],
     )
@@ -206,7 +211,7 @@ def create_all_dags(args, neural_factory):
     if multiply_batch_config:
         multiply_batch = nemo_asr.MultiplyBatch(**multiply_batch_config)
 
-    spectr_augment_config = conformer_params.get('SpectrogramAugmentation', None)
+    spectr_augment_config = conformer_params.get('SpectrogramAugmentation' + args.aug_postfix, None)
     if spectr_augment_config:
         data_spectr_augmentation = nemo_asr.SpectrogramAugmentation(**spectr_augment_config)
 
