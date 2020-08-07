@@ -107,10 +107,10 @@ def create_all_dags(args, neural_factory):
     cpu_per_traindl = max(int(total_cpus / neural_factory.world_size), 1)
 
     # create data layer for training
-    train_dl_params = copy.deepcopy(conformer_params["TarredAudioToTextDataLayer"])
-    # train_dl_params.update(conformer_params["TarredAudioToTextDataLayer"]["train"])
-    # del train_dl_params["train"]
-    # del train_dl_params["eval"]
+    train_dl_params = copy.deepcopy(conformer_params["AudioToTextDataLayer"])
+    train_dl_params.update(conformer_params["TarredAudioToTextDataLayer"]["train"])
+    del train_dl_params["train"]
+    del train_dl_params["eval"]
 
     if args.tar_path is not None:
         if 'shuffle' in train_dl_params:
