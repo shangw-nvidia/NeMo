@@ -108,7 +108,7 @@ def create_all_dags(args, neural_factory):
 
     # create data layer for training
     train_dl_params = copy.deepcopy(conformer_params["AudioToTextDataLayer"])
-    train_dl_params.update(conformer_params["TarredAudioToTextDataLayer"]["train"])
+    train_dl_params.update(conformer_params["AudioToTextDataLayer"]["train"])
     del train_dl_params["train"]
     del train_dl_params["eval"]
 
