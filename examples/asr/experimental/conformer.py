@@ -73,6 +73,7 @@ def parse_args():
     parser.add_argument("--d_model", default=144, type=int)
     parser.add_argument("--aug_postfix", default="", type=str)
     parser.add_argument("--window_size", default=-1, type=float)
+    parser.add_argument('--shuffle_n', default=128, type=int)
 
 
     parser.add_argument('--tar_path', default=None, type=str, help='Path to tarred dataset '
@@ -122,6 +123,7 @@ def create_all_dags(args, neural_factory):
             labels=vocab,
             batch_size=args.batch_size,
             num_workers=cpu_per_traindl,
+            shuffle_n=args.shuffle_n,
             **train_dl_params,
         )
     else:
@@ -131,6 +133,7 @@ def create_all_dags(args, neural_factory):
             labels=vocab,
             batch_size=args.batch_size,
             num_workers=cpu_per_traindl,
+            shuffle_n=args.shuffle_n,
             **train_dl_params,
             # normalize_transcripts=False
         )
