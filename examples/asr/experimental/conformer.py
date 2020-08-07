@@ -133,7 +133,6 @@ def create_all_dags(args, neural_factory):
             labels=vocab,
             batch_size=args.batch_size,
             num_workers=cpu_per_traindl,
-            shuffle_n=args.shuffle_n,
             **train_dl_params,
             # normalize_transcripts=False
         )
