@@ -839,12 +839,8 @@ class TarredAudioToTextBPEDataLayer(DataLayerNM):
         batch_size,
         sample_rate=16000,
         int_values=False,
-        bos_id=None,
-        eos_id=None,
-        pad_id=None,
         min_duration=0.1,
         max_duration=None,
-        normalize_transcripts=True,
         trim_silence=False,
         shuffle_n=0,
         num_workers=0,
@@ -859,8 +855,6 @@ class TarredAudioToTextBPEDataLayer(DataLayerNM):
         class TokenizerWrapper:
             def __init__(self, tokenizer):
                 self._tokenizer = tokenizer
-                # self.bos_id = self._tokenizer.bos_id
-                # self.eos_id = self._tokenizer.eos_id
 
             def __call__(self, text):
                 t = self._tokenizer.text_to_ids(text)
@@ -877,13 +871,29 @@ class TarredAudioToTextBPEDataLayer(DataLayerNM):
         self.featurizer = WaveformFeaturizer(sample_rate=self._sample_rate, int_values=int_values, augmentor=augmentor)
 
         self.trim = trim_silence
-        self.eos_id = eos_id
+
+        if hasattr(tokenizer, 'bos_token'):
+            bos_id = tokenizer.bos_id
+        else:
+            bos_id = None
+
+        if hasattr(tokenizer, 'eos_token'):
+            eos_id = tokenizer.eos_id
+        else:
+            eos_id = None
+
+        if hasattr(tokenizer, 'pad_token'):
+            pad_id = tokenizer.pad_id
+        else:
+            pad_id = 0
+
         self.bos_id = bos_id
+        self.eos_id = eos_id
+        self.pad_id = pad_id
 
         # Used in creating a sampler (in Actions).
         self._batch_size = batch_size
         self._num_workers = num_workers
-        pad_id = 0 if pad_id is None else pad_id
         self.collate_fn = partial(seq_collate_fn, token_pad_value=pad_id)
 
         # Check for distributed and partition shards accordingly
