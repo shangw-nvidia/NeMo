@@ -98,6 +98,12 @@ def parse_args():
     parser.add_argument("--window_size", default=-1, type=float)
     parser.add_argument("--aug_postfix", default="", type=str)
 
+    parser.add_argument("--trim_silence", action='store_true')
+    parser.add_argument("--dropout_emb", default=0.0, type=float)
+    parser.add_argument("--norm_out_enabled", action='store_true')
+
+
+
     args = parser.parse_args()
     if args.max_steps is not None:
         raise ValueError("ContextNet uses num_epochs instead of max_steps")
@@ -183,6 +189,8 @@ def create_all_dags(args, neural_factory):
     del eval_dl_params["train"]
     del eval_dl_params["eval"]
 
+    eval_dl_params["trim_silence"] = args.trim_silence
+
     data_layers_eval = []
     if args.eval_datasets:
         for eval_dataset in args.eval_datasets:
@@ -213,6 +221,8 @@ def create_all_dags(args, neural_factory):
     # for idx in range(len(conformer_params["ContextNetEncoder"]["jasper"]) - 1):
     #     conformer_params["ContextNetEncoder"]["jasper"][idx]["kernel_size_factor"] = args.kernel_size_factor
 
+    conformer_params["ConformerEncoder"]["norm_out_enabled"] = args.norm_out_enabled
+    conformer_params["ConformerEncoder"]["dropout_emb"] = args.dropout_emb
 
     encoder = nemo_asr.ConformerEncoder(
         feat_in=conformer_params["AudioToMelSpectrogramPreprocessor"]["features"],
