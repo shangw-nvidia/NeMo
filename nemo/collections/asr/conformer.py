@@ -275,7 +275,7 @@ class ConformerEncoder(TrainableNM):
         )
 
         if norm_out_enabled:
-            self.norm_out = LayerNorm(lstm_hidden_size, eps=layer_norm_eps)
+            self.norm_out = LayerNorm(lstm_hidden_size if lstm_hidden_size > 0 else d_model, eps=layer_norm_eps)
         else:
             self.norm_out = None
 
