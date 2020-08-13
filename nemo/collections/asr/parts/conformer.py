@@ -959,7 +959,7 @@ class Conv2dSubsampling(torch.nn.Module):
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False
-            conv_channels = odim
+            conv_channels = 64
             self.conv = torch.nn.Sequential(
                 torch.nn.Conv2d(
                     in_channels=1,
@@ -983,7 +983,7 @@ class Conv2dSubsampling(torch.nn.Module):
             self._stride = 2
             self._kernel_size = 3
             self._ceil_mode = False
-            conv_channels = odim
+            conv_channels = 64
             self.conv = torch.nn.Sequential(
                 torch.nn.Conv2d(
                     in_channels=1,
