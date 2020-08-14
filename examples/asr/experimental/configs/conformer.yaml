@@ -36,6 +36,12 @@ SpectrogramAugmentation_specaug_2x_0.05:
     freq_width: 27
     time_width: 0.05
 
+SpectrogramAugmentation_specaug_1x_10x_0.05:
+    freq_masks: 1
+    time_masks: 10
+    freq_width: 27
+    time_width: 0.05
+
 SpectrogramAugmentation_specaug_2x_100:
     freq_masks: 2
     time_masks: 2
