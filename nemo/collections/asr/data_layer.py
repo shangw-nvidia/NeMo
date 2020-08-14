@@ -845,6 +845,7 @@ class TarredAudioToTextBPEDataLayer(DataLayerNM):
         shuffle_n=0,
         num_workers=0,
         augmentor: Optional[Union['AudioAugmentor', Dict[str, Dict[str, Any]]]] = None,
+        use_start_end_tokens=True,
     ):
         super().__init__()
         self._sample_rate = sample_rate
@@ -872,21 +873,26 @@ class TarredAudioToTextBPEDataLayer(DataLayerNM):
 
         self.trim = trim_silence
 
-        if hasattr(tokenizer, 'bos_token'):
-            bos_id = tokenizer.bos_id
-        else:
-            bos_id = None
+        if use_start_end_tokens:
+            if hasattr(tokenizer, 'bos_token'):
+                bos_id = tokenizer.bos_id
+            else:
+                bos_id = None
 
-        if hasattr(tokenizer, 'eos_token'):
-            eos_id = tokenizer.eos_id
+            if hasattr(tokenizer, 'eos_token'):
+                eos_id = tokenizer.eos_id
+            else:
+                eos_id = None
+
+            if hasattr(tokenizer, 'pad_token'):
+                pad_id = tokenizer.pad_id
+            else:
+                pad_id = 0
         else:
+            bos_id= None
             eos_id = None
-
-        if hasattr(tokenizer, 'pad_token'):
-            pad_id = tokenizer.pad_id
-        else:
             pad_id = 0
-
+            
         self.bos_id = bos_id
         self.eos_id = eos_id
         self.pad_id = pad_id
