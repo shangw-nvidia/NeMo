@@ -43,13 +43,13 @@ SpectrogramAugmentation_specaug_2x_100:
 
 SpectrogramAugmentation_specaug_5x_100:
     freq_masks: 2
-    time_masks: 2
+    time_masks: 5
     freq_width: 27
     time_width: 100
 
 SpectrogramAugmentation_specaug_5x_0.05:
     freq_masks: 2
-    time_masks: 2
+    time_masks: 5
     freq_width: 27
     time_width: 0.05
 
