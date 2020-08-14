@@ -5,6 +5,7 @@ sample_rate: 16000
 AudioToTextDataLayer:
     max_duration: 16.7
     trim_silence: false
+    use_start_end_tokens: false
 
     train:
         shuffle: true
