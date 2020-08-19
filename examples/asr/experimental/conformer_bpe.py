@@ -35,6 +35,8 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing, SquareAnnealing
 from nemo.utils.lr_policies import get_lr_policy
 
+import torch.cuda.profiler as profiler
+import pyprof
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -101,7 +103,7 @@ def parse_args():
     parser.add_argument("--trim_silence", action='store_true')
     parser.add_argument("--dropout_emb", default=0.0, type=float)
     parser.add_argument("--norm_out_enabled", action='store_true')
-
+    parser.add_argument("--profile", default=False, action='store_true')
 
 
     args = parser.parse_args()
@@ -297,7 +299,21 @@ def create_all_dags(args, neural_factory):
         step_freq=args.log_freq,
     )
 
-    callbacks = [train_callback]
+    def profiler_callback_start(state):
+        if args.profile:
+            if state['epoch'] == 0 and state['step'] == 5:
+                profiler.start()
+
+    def profiler_callback_end(state):
+        if args.profile:
+            if state['epoch'] == 0 and state['step'] == 5:
+                profiler.end()
+
+    callbacks = [
+        train_callback,
+        nemo.core.on_step_start(profiler_callback_start),
+        nemo.core.on_step_end(profiler_callback_end),
+    ]
 
     if args.checkpoint_dir or args.load_dir:
         chpt_callback = nemo.core.CheckpointCallback(
@@ -421,24 +437,27 @@ def main():
         lr_policy = None
 
     # train model
-    neural_factory.train(
-        tensors_to_optimize=[train_loss],
-        callbacks=callbacks,
-        lr_policy=lr_policy,
-        optimizer=args.optimizer,
-        optimization_params={
-            "num_epochs": args.num_epochs,
-            "lr": args.lr,
-            "betas": (args.beta1, args.beta2),
-            "weight_decay": args.weight_decay,
-            "grad_norm_clip": grad_norm_clip,
-            "eps": args.optimizer_eps,
-            "amp_min_loss_scale": args.amp_min_loss_scale,
-        },
-        batches_per_step=args.iter_per_step,
-        synced_batchnorm=args.synced_bn,
-        synced_batchnorm_groupsize=args.synced_bn_groupsize,
-    )
+    if args.profile:
+        pyprof.init()
+    with torch.autograd.profiler.emit_nvtx(enable=args.profile):
+        neural_factory.train(
+            tensors_to_optimize=[train_loss],
+            callbacks=callbacks,
+            lr_policy=lr_policy,
+            optimizer=args.optimizer,
+            optimization_params={
+                "num_epochs": args.num_epochs,
+                "lr": args.lr,
+                "betas": (args.beta1, args.beta2),
+                "weight_decay": args.weight_decay,
+                "grad_norm_clip": grad_norm_clip,
+                "eps": args.optimizer_eps,
+                "amp_min_loss_scale": args.amp_min_loss_scale,
+            },
+            batches_per_step=args.iter_per_step,
+            synced_batchnorm=args.synced_bn,
+            synced_batchnorm_groupsize=args.synced_bn_groupsize,
+        )
 
 
 if __name__ == '__main__':
