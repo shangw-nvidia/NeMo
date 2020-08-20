@@ -35,6 +35,7 @@ from nemo.utils import logging
 from nemo.utils.lr_policies import CosineAnnealing, SquareAnnealing
 from nemo.utils.lr_policies import get_lr_policy
 
+import torch
 import torch.cuda.profiler as profiler
 import pyprof
 
