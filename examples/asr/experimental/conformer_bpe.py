@@ -441,7 +441,7 @@ def main():
     # train model
     if args.profile:
         pyprof.init()
-    with torch.autograd.profiler.emit_nvtx(enable=args.profile):
+    with torch.autograd.profiler.emit_nvtx(enabled=args.profile):
         neural_factory.train(
             tensors_to_optimize=[train_loss],
             callbacks=callbacks,
