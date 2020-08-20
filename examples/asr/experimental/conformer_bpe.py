@@ -192,6 +192,7 @@ def create_all_dags(args, neural_factory):
     del eval_dl_params["eval"]
 
     eval_dl_params["trim_silence"] = args.trim_silence
+    del eval_dl_params["use_start_end_tokens"]
 
     data_layers_eval = []
     if args.eval_datasets:
