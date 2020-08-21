@@ -325,17 +325,17 @@ def create_all_dags(args, neural_factory):
         callbacks.append(chpt_callback)
 
     # Log training metrics to wandb
-    if args.wandb_project is not None:
-        wand_callback = nemo.core.WandbCallback(
-            train_tensors=[loss_t],
-            wandb_name=args.wandb_exp,
-            wandb_project=args.wandb_project,
-            update_freq=args.log_freq,
-            args=args,
-            grad_log_freq=args.grad_log_freq,
-            model=encoder,
-        )
-        callbacks.append(wand_callback)
+    #if args.wandb_project is not None:
+    #    wand_callback = nemo.core.WandbCallback(
+    #        train_tensors=[loss_t],
+    #        wandb_name=args.wandb_exp,
+    #        wandb_project=args.wandb_project,
+    #        update_freq=args.log_freq,
+    #        args=args,
+    #        grad_log_freq=args.grad_log_freq,
+    #        model=encoder,
+    #    )
+    #    callbacks.append(wand_callback)
 
     # assemble eval DAGs
     for i, eval_dl in enumerate(data_layers_eval):
